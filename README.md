@@ -9,7 +9,8 @@ working and has had nothing to catch, or is broken and cannot catch anything.
 The only way to tell the two apart is to plant the defect on purpose, watch the
 check catch it, and write down what happened. Seen to Fail is that record.
 
-**Status: early. Nothing runs yet.** This README describes what is being built.
+**Status: early.** The scaffold is in place and its checks pass. No features
+are built yet. This README describes what is being built.
 
 ## How it works
 
@@ -23,12 +24,12 @@ records:
 
 A check's status comes from its run log, not from anyone's opinion of it:
 
-| Status | Meaning |
-|---|---|
-| **Proven** | It caught a planted defect recently. |
-| **Unproven** | It has never been seen to catch anything. |
-| **Stale** | It has caught something before, but not recently. |
-| **Unarmed** | There is no evidence it is switched on at all. |
+| Status       | Meaning                                           |
+| ------------ | ------------------------------------------------- |
+| **Proven**   | It caught a planted defect recently.              |
+| **Unproven** | It has never been seen to catch anything.         |
+| **Stale**    | It has caught something before, but not recently. |
+| **Unarmed**  | There is no evidence it is switched on at all.    |
 
 Each check also records what it protects and how you can tell it is switched
 on.
@@ -53,6 +54,33 @@ must parse back into the same filter.
   filters.
 - **React** with Vite.
 - **Vitest** for tests, and GitHub Actions for type checking and tests.
+
+## How to run
+
+Requires Node 24, the version in `.nvmrc`, and pnpm.
+
+```sh
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm test
+```
+
+The repository is a pnpm workspace with three packages:
+
+- `packages/server`, the GraphQL API,
+- `packages/web`, the React client,
+- `packages/filter`, the filter language, imported by both sides so that
+  neither one depends on the other.
+
+`typecheck` and `test` run inside every package. `lint` and `format:check` run
+once over the whole tree from the repository root. `pnpm format` rewrites files
+in place instead of reporting on them.
+
+Nothing is implemented yet, so the server does not start and the client renders
+nothing. Those five commands are all there is so far, and every later change has
+to keep them passing.
 
 ## Plan
 
