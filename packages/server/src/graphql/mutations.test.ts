@@ -10,7 +10,7 @@ import {
   runDatedAfterToday,
 } from '../database/new-records.ts';
 import type { IsoDate } from '../database/rows.ts';
-import { seedWorkspace } from '../database/seed.ts';
+import { seedChecks, seedWorkspace } from '../database/seed.ts';
 import { post, query } from '../testing/graphql.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { buildSchema } from './schema.ts';
@@ -324,12 +324,8 @@ const newCheck = {
   howToTellArmed: 'The install step prints the lockfile it checked.',
 };
 
-const requiredCheckFields = [
-  'name',
-  'area',
-  'protects',
-  'howToTellArmed',
-] as const;
+/** The fields of a new check that may not be blank. The other two may. */
+const requiredCheckFields = ['name', 'area'] as const;
 
 type WriteName = 'createCheck' | 'logTestRun' | 'recordArmingObservation';
 
@@ -376,21 +372,59 @@ interface TextField {
   readonly write: WriteName;
   readonly field: string;
   readonly maxLength: number;
+  /** Whether a blank value is refused. */
+  readonly required: boolean;
 }
 
 /** Every text field of every write. */
 const textFields: readonly TextField[] = [
-  { write: 'createCheck', field: 'name', maxLength: MAX_LABEL_LENGTH },
-  { write: 'createCheck', field: 'area', maxLength: MAX_LABEL_LENGTH },
-  { write: 'createCheck', field: 'protects', maxLength: MAX_TEXT_LENGTH },
-  { write: 'createCheck', field: 'howToTellArmed', maxLength: MAX_TEXT_LENGTH },
-  { write: 'logTestRun', field: 'planted', maxLength: MAX_TEXT_LENGTH },
-  { write: 'logTestRun', field: 'expected', maxLength: MAX_TEXT_LENGTH },
-  { write: 'logTestRun', field: 'note', maxLength: MAX_TEXT_LENGTH },
+  {
+    write: 'createCheck',
+    field: 'name',
+    maxLength: MAX_LABEL_LENGTH,
+    required: true,
+  },
+  {
+    write: 'createCheck',
+    field: 'area',
+    maxLength: MAX_LABEL_LENGTH,
+    required: true,
+  },
+  {
+    write: 'createCheck',
+    field: 'protects',
+    maxLength: MAX_TEXT_LENGTH,
+    required: false,
+  },
+  {
+    write: 'createCheck',
+    field: 'howToTellArmed',
+    maxLength: MAX_TEXT_LENGTH,
+    required: false,
+  },
+  {
+    write: 'logTestRun',
+    field: 'planted',
+    maxLength: MAX_TEXT_LENGTH,
+    required: true,
+  },
+  {
+    write: 'logTestRun',
+    field: 'expected',
+    maxLength: MAX_TEXT_LENGTH,
+    required: true,
+  },
+  {
+    write: 'logTestRun',
+    field: 'note',
+    maxLength: MAX_TEXT_LENGTH,
+    required: false,
+  },
   {
     write: 'recordArmingObservation',
     field: 'note',
     maxLength: MAX_TEXT_LENGTH,
+    required: false,
   },
 ];
 
@@ -475,6 +509,52 @@ it('refuses each blank field of a new check on that field, and writes nothing', 
   }
 
   expect(await workspace(server)).toStrictEqual([]);
+});
+
+/**
+ * What a check protects and how to tell it is switched on may both be left
+ * blank, and are stored as empty text rather than refused or stored as null.
+ * The seed's own check with no tell written is the first case: the API has to
+ * be able to create what the workspace already shows. The second leaves both
+ * blank, one of them as nothing but spaces, which is trimmed to empty.
+ */
+it('creates a check with nothing written for what it protects or how to tell it is on', async () => {
+  const server = createGraphQLServer({
+    database: database.client(),
+    asOf: todayInUtc(),
+  });
+  const untold = seedChecks.find(
+    (check) => check.name === 'Release notes present',
+  );
+  expect(untold?.howToTellArmed).toBe('');
+
+  const fromSeed = writtenAs(
+    await createCheck(server, {
+      name: untold?.name,
+      area: untold?.area,
+      protects: untold?.protects,
+      howToTellArmed: untold?.howToTellArmed,
+    }),
+    'Check',
+  );
+  expect(fromSeed).toMatchObject({ howToTellArmed: '', status: 'UNARMED' });
+
+  const bothBlank = writtenAs(
+    await createCheck(server, {
+      ...newCheck,
+      protects: '',
+      howToTellArmed: blanks[1],
+    }),
+    'Check',
+  );
+  expect(bothBlank).toMatchObject({ protects: '', howToTellArmed: '' });
+
+  // Read back again by id, in a request of its own, so what is checked is what
+  // was stored.
+  const { check } = await query<{
+    check: { protects: string; howToTellArmed: string } | null;
+  }>(server, `{ check(id: "${bothBlank.id}") { protects howToTellArmed } }`);
+  expect(check).toStrictEqual({ protects: '', howToTellArmed: '' });
 });
 
 it('reports every blank field of a new check at once, in the order of the form', async () => {
@@ -941,9 +1021,9 @@ it('never reaches the database with an input a rule refuses', async () => {
     inputFor('recordArmingObservation', { checkId: 'not-an-id' }),
     inputFor('recordArmingObservation', { observedOn: tomorrow }),
   ];
-  for (const { write, field, maxLength } of textFields) {
+  for (const { write, field, maxLength, required } of textFields) {
     const breaking = ['x'.repeat(maxLength + 1), withNul, withHalfACharacter];
-    if (field !== 'note') {
+    if (required) {
       breaking.push('  ');
     }
     for (const value of breaking) {

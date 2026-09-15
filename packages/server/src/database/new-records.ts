@@ -151,20 +151,31 @@ function requiredText(blankMessage: string, maxLength: number) {
 }
 
 /**
+ * Text a person may leave blank.
+ *
+ * Trimmed and stored trimmed, under the same length and storage rules as text
+ * that is required, so a field of nothing but spaces is stored as the empty
+ * string. That is how the checks table records that nobody has written it down:
+ * the columns are not null, and a check whose tell has never been written is
+ * the thing this product exists to make visible, not an input to refuse.
+ */
+function optionalText(maxLength: number) {
+  return z
+    .string()
+    .trim()
+    .max(maxLength, { error: tooLongMessage(maxLength), abort: true })
+    .refine(storable, { error: unstorableMessage, abort: true });
+}
+
+/**
  * A note nobody has to write.
  *
  * A blank one is stored as no note. An empty string and a null would otherwise
  * be two ways of recording that nobody wrote anything, and a reader would have
- * to be told they mean the same.
+ * to be told they mean the same. The note columns allow null, which is why a
+ * note differs here from the check's own optional text.
  */
-const optionalNote = z
-  .string()
-  .trim()
-  .max(MAX_TEXT_LENGTH, {
-    error: tooLongMessage(MAX_TEXT_LENGTH),
-    abort: true,
-  })
-  .refine(storable, { error: unstorableMessage, abort: true })
+const optionalNote = optionalText(MAX_TEXT_LENGTH)
   .nullish()
   .transform((note) =>
     note === undefined || note === null || note === '' ? null : note,
@@ -203,14 +214,8 @@ const newCheckSchema = z
   .object({
     name: requiredText('A check needs a name.', MAX_LABEL_LENGTH),
     area: requiredText('A check needs an area.', MAX_LABEL_LENGTH),
-    protects: requiredText(
-      'Say what the check is there to stop.',
-      MAX_TEXT_LENGTH,
-    ),
-    howToTellArmed: requiredText(
-      'Say how you can tell the check is switched on.',
-      MAX_TEXT_LENGTH,
-    ),
+    protects: optionalText(MAX_TEXT_LENGTH),
+    howToTellArmed: optionalText(MAX_TEXT_LENGTH),
   })
   .brand<'NewCheck'>();
 

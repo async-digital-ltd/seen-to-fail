@@ -146,11 +146,14 @@ export type CheckResult = Check | ValidationErrors;
 export type CreateCheckInput = {
   /** Where the check runs, in the team's own words. Not blank. */
   area: Scalars['String']['input'];
-  /** How a reader can tell it is switched on. Not blank. */
+  /**
+   * How a reader can tell it is switched on. May be blank, and a blank one is
+   * stored as empty.
+   */
   howToTellArmed: Scalars['String']['input'];
   /** Unique across the workspace, and not blank. */
   name: Scalars['String']['input'];
-  /** What it is there to stop. Not blank. */
+  /** What it is there to stop. May be blank, and a blank one is stored as empty. */
   protects: Scalars['String']['input'];
 };
 
@@ -187,8 +190,9 @@ export type Mutation = {
   __typename?: 'Mutation';
   /**
    * Adds a check, which reads Unarmed until a run or an observation is recorded
-   * against it. A field that is blank, too long or holds a character that cannot
-   * be saved is refused on that field, and a name already in use on name.
+   * against it. A blank name or area is refused on that field, as is any field
+   * too long or holding a character that cannot be saved, and a name already in
+   * use on name.
    */
   createCheck: CheckResult;
   /**
