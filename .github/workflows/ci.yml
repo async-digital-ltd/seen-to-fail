@@ -1,0 +1,109 @@
+name: CI
+
+# Every push to main and every pull request. That is what the README badge
+# reports on.
+#
+# The ci-control lane is the third trigger and it is deliberate. This project
+# exists to record whether a check has ever been seen to catch a planted
+# defect, and a workflow that has only ever been green is exactly the thing it
+# refuses to trust. Keeping the lane in the shipped file means the control can
+# be re-armed at any time without editing this file first, so what gets proved
+# is the workflow that actually runs on main. To use it: branch, plant the
+# defect, push under ci-control/, read the conclusion, delete the branch.
+on:
+  push:
+    branches:
+      - main
+      - 'ci-control/**'
+  pull_request:
+
+# A newer push to the same branch makes the older run's answer stale, so the
+# older run is cancelled rather than left to finish and report on code nobody
+# is looking at any more.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Type check, lint, format and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # The two databases .env.example names, pointed at the service container
+    # below. The config module requires both to be set and refuses to start
+    # without either, so both are here even though only the second is read by
+    # the tests. There is no .env in CI and none is written: these are the
+    # whole configuration.
+    env:
+      DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
+      TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
+
+    services:
+      # docker-compose.yml is not read here. It is the local route; CI gets its
+      # own PostgreSQL 16 as a service container, configured to match the
+      # credentials in .env.example so the URLs above are the same shape a
+      # contributor uses. The steps run on the runner rather than inside a
+      # container, so the port mapping is what makes localhost:5432 reach it.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: seen_to_fail
+          POSTGRES_PASSWORD: seen_to_fail
+          POSTGRES_DB: seen_to_fail_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seen_to_fail -d seen_to_fail_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # Ahead of Node, because the Node step's dependency cache is a pnpm store
+      # and it needs pnpm on the PATH to find where that store lives. The
+      # version comes from the packageManager field in package.json.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Frozen, so a lockfile that does not match package.json fails here
+      # rather than quietly installing something else.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The image creates POSTGRES_DB and nothing else, so the test database is
+      # added by the same script a local `pnpm db:up` runs. It also waits for
+      # the server to accept a connection, which the health check above has
+      # already established but which costs nothing to confirm.
+      - name: Create the databases
+        run: node packages/server/src/scripts/create-databases.ts
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      # The four commands the README tells a contributor to run, in the order
+      # it lists them, through the same root scripts. CI cannot pass something
+      # a local run fails, because there is only one definition of each check.
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Test
+        run: pnpm test

@@ -1,5 +1,7 @@
 # Seen to Fail
 
+[![CI](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/ci.yml)
+
 A small web app for tracking whether your automated checks have ever been seen
 to catch the defect they exist for.
 
