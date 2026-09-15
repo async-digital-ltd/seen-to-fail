@@ -1,10 +1,21 @@
 /**
  * The filter language, shared by the server and the web client.
  *
- * `parseFilter` is the edge: it is the only way to turn untrusted input into a
- * `Filter`. Everything else exported here is the vocabulary a parsed filter is
- * expressed in, plus the schema, so the API layer can validate with the same
- * rules rather than a copy of them.
+ * Four parts, which are tested against each other rather than trusted to
+ * agree. The vocabulary is the types a filter is expressed in, closed so that
+ * a tree the language does not have cannot be written down. `filterSchema` and
+ * `parseFilter` are the edge: the only way to turn untrusted input into a
+ * `Filter`, exported so the API layer validates with these rules rather than
+ * with a copy of them. `compileFilter` turns a filter into a parameterised SQL
+ * predicate, where values travel as parameters and never as text.
+ * `serializeFilter` and `parseFilterString` carry a filter in a share link and
+ * bring an equal one back.
+ *
+ * `compileFilter` and `serializeFilter` each take a `Filter` rather than
+ * untrusted input, because `parseFilter` has already run by then.
+ * `parseFilterString` reads the shape of a link and then hands the result to
+ * `parseFilter` for the verdict, so a link is not a second door into the
+ * language with weaker rules of its own.
  */
 
 export {
