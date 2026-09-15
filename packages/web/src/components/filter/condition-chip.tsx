@@ -4,6 +4,8 @@ import type { ReactElement } from 'react';
 import { conditionPhrase, describeCondition } from '../../filter/wording';
 
 interface ConditionChipProps {
+  /** The id of the remove button, so focus can be sent to this condition. */
+  readonly id: string;
   readonly condition: Condition;
   readonly onRemove: () => void;
 }
@@ -15,6 +17,7 @@ interface ConditionChipProps {
  * bare cross.
  */
 export function ConditionChip({
+  id,
   condition,
   onRemove,
 }: ConditionChipProps): ReactElement {
@@ -33,6 +36,7 @@ export function ConditionChip({
       </span>{' '}
       <button
         type="button"
+        id={id}
         className="chip__remove"
         aria-label={`Remove ${conditionPhrase(condition)}`}
         onClick={onRemove}

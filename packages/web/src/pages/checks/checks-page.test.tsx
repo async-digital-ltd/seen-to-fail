@@ -1,4 +1,8 @@
-import { MAX_GROUPS, parseFilterString } from '@seen-to-fail/filter';
+import {
+  MAX_CONDITIONS_PER_GROUP,
+  MAX_GROUPS,
+  parseFilterString,
+} from '@seen-to-fail/filter';
 import type { Condition, Filter, Group, Status } from '@seen-to-fail/filter';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -434,6 +438,19 @@ describe('the filter bar', () => {
     return { kind: 'groups', joiner: 'and', groups: [first, ...rest] };
   }
 
+  /** A filter of one group holding this many conditions. */
+  function conditionsOf(count: number): Filter {
+    const [first, ...rest] = Array.from({ length: count }, () => never);
+    if (first === undefined) {
+      throw new Error('A group needs at least one condition.');
+    }
+    return {
+      kind: 'groups',
+      joiner: 'and',
+      groups: [{ joiner: 'and', conditions: [first, ...rest] }],
+    };
+  }
+
   /** The filter the address holds, as the language reads it. */
   function addressFilter(search: string): ReturnType<typeof parseFilterString> {
     return parseFilterString(new URLSearchParams(search).get('f'));
@@ -650,6 +667,93 @@ describe('the filter bar', () => {
     expect(addressFilter(router.state.location.search).ok).toBe(true);
     expect(within(bar()).getAllByRole('group')).toHaveLength(MAX_GROUPS);
     expect(within(bar()).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Focus through the address, which is where a change comes back from. The
+   * bar places focus once the filter it asked for is on screen, so these run
+   * the real route rather than a bar holding its own filter.
+   */
+  it('keeps focus in the bar through an add, a toggle, a remove and a clear', async () => {
+    const { user } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: 'Add a condition' }));
+    await user.selectOptions(screen.getByLabelText('Value'), 'Broken');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(
+      within(bar()).getByRole('button', { name: '+ group' }),
+    ).toHaveFocus();
+
+    await user.click(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    );
+    await user.selectOptions(screen.getByLabelText('Value'), 'Stale');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    ).toHaveFocus();
+
+    await user.click(
+      within(group(1)).getByRole('button', { name: 'AND, switch to OR' }),
+    );
+    expect(
+      within(group(1)).getByRole('button', { name: 'OR, switch to AND' }),
+    ).toHaveFocus();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Remove status is Stale' }),
+    );
+    expect(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    ).toHaveFocus();
+
+    await user.click(within(bar()).getByRole('button', { name: 'Clear' }));
+    expect(
+      within(bar()).getByRole('button', { name: 'Add a condition' }),
+    ).toHaveFocus();
+  });
+
+  it('lands on the condition just added when the group has no room for another', async () => {
+    const { user } = renderApp({
+      route: paths.checks({
+        filter: conditionsOf(MAX_CONDITIONS_PER_GROUP - 1),
+      }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    );
+    await user.selectOptions(screen.getByLabelText('Value'), 'Broken');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      within(group(1)).queryByRole('button', { name: '+ condition' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(group(1)).getByRole('button', { name: 'Remove status is Broken' }),
+    ).toHaveFocus();
+  });
+
+  it("lands on the new group's offer to add when the filter has no room for another group", async () => {
+    const { user } = renderApp({
+      route: paths.checks({ filter: groupsOf(MAX_GROUPS - 1) }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(within(bar()).getByRole('button', { name: '+ group' }));
+    await user.selectOptions(screen.getByLabelText('Value'), 'Broken');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      within(bar()).queryByRole('button', { name: '+ group' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(group(MAX_GROUPS)).getByRole('button', { name: '+ condition' }),
+    ).toHaveFocus();
   });
 
   it('offers the areas the workspace has when an area is being chosen', async () => {

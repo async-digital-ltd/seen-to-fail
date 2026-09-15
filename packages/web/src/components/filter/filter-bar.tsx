@@ -2,6 +2,7 @@ import {
   emptyFilter,
   MAX_CONDITIONS_PER_GROUP,
   MAX_GROUPS,
+  serializeFilter,
 } from '@seen-to-fail/filter';
 import type { Filter, FilterIssue } from '@seen-to-fail/filter';
 import type { ReactElement } from 'react';
@@ -57,6 +58,14 @@ function canShow(picker: Picker, filter: Filter): boolean {
   }
 }
 
+/** Where focus goes once the filter a change asked for is on screen. */
+interface PendingFocus {
+  /** The filter the change asked for, as serializeFilter writes it. */
+  readonly address: string;
+  /** Element ids in order of preference; the first one on screen takes focus. */
+  readonly targets: readonly string[];
+}
+
 /** The sentence under "No conditions": what the list shows instead. */
 function listedSentence(total: number): string {
   return total === 1
@@ -93,7 +102,9 @@ interface FilterBarProps {
  * Focus is sent on after a change rather than left where it was, because the
  * control a reader just used has usually gone: the picker closes when it
  * adds, and a chip's remove button goes with the chip. It lands on the offer
- * to add another, in the same group where the group survives.
+ * to add another, in the same group where the group survives. Where the cap
+ * has taken that offer away, it lands on the condition just added, or on the
+ * new group's own offer.
  */
 export function FilterBar({
   filter,
@@ -106,28 +117,46 @@ export function FilterBar({
   const addGroupId = `${id}-add-group`;
   const addConditionId = (group: number): string =>
     `${id}-add-${String(group)}`;
+  const removeId = (group: number, condition: number): string =>
+    `${id}-remove-${String(group)}-${String(condition)}`;
 
   const [picker, setPicker] = useState<Picker>(closed);
   const href = useHref(useLocation());
+  const address = serializeFilter(filter);
 
-  const focusNext = useRef<string | null>(null);
+  // Focus is placed once the filter the change asked for is the one on
+  // screen, not on the render that closed the picker. The address is the only
+  // copy of the filter, so a change comes back to this bar on a later render
+  // than the one its own state caused, and the button to land on may only
+  // exist in that later tree.
+  const focusNext = useRef<PendingFocus | null>(null);
   useEffect(() => {
-    const target = focusNext.current;
-    if (target !== null) {
-      focusNext.current = null;
-      document.getElementById(target)?.focus();
+    const pending = focusNext.current;
+    if (pending?.address !== address) {
+      return;
+    }
+    focusNext.current = null;
+    for (const target of pending.targets) {
+      const element = document.getElementById(target);
+      if (element !== null) {
+        element.focus();
+        return;
+      }
     }
   });
 
   /** Closes the picker and sends focus to the button that opened it. */
   const closePicker = (thenFocus: string): void => {
-    focusNext.current = thenFocus;
+    focusNext.current = { address, targets: [thenFocus] };
     setPicker(closed);
   };
 
-  /** Hands a changed filter on, with the picker closed and focus placed. */
-  const change = (next: Filter, thenFocus: string): void => {
-    focusNext.current = thenFocus;
+  /**
+   * Hands a changed filter on, with the picker closed and focus placed on the
+   * first of the targets that the changed filter's screen has.
+   */
+  const change = (next: Filter, thenFocus: readonly string[]): void => {
+    focusNext.current = { address: serializeFilter(next), targets: thenFocus };
     setPicker(closed);
     onChange(next);
   };
@@ -160,7 +189,12 @@ export function FilterBar({
         <div className="filter-group filter-group--new">
           <ConditionPicker
             onAdd={(condition) => {
-              change(addGroup(filter, condition), addGroupId);
+              // The new group is the one after the last; when it is the last
+              // the language takes, "+ group" goes and its own offer stands.
+              change(addGroup(filter, condition), [
+                addGroupId,
+                addConditionId(groupCount),
+              ]);
             }}
             onCancel={() => {
               closePicker(addGroupId);
@@ -203,14 +237,18 @@ export function FilterBar({
                   number={index + 1}
                   group={group}
                   addId={addConditionId(index)}
+                  removeId={(condition) => removeId(index, condition)}
                   picker={
                     open.kind === 'condition' && open.group === index
                       ? {
                           onAdd: (condition) => {
-                            change(
-                              addCondition(filter, index, condition),
+                            // The condition added is the one after the
+                            // group's last; when the group is then full, its
+                            // offer goes and the new chip's remove stands.
+                            change(addCondition(filter, index, condition), [
                               addConditionId(index),
-                            );
+                              removeId(index, group.conditions.length),
+                            ]);
                           },
                           onCancel: () => {
                             closePicker(addConditionId(index));
@@ -231,7 +269,7 @@ export function FilterBar({
                       next.groups.length === groupCount;
                     change(
                       next,
-                      groupSurvives ? addConditionId(index) : addGroupId,
+                      groupSurvives ? [addConditionId(index)] : [addGroupId],
                     );
                   }}
                 />
@@ -256,7 +294,7 @@ export function FilterBar({
             className="button"
             disabled={filter.kind === 'empty'}
             onClick={() => {
-              change(emptyFilter, addGroupId);
+              change(emptyFilter, [addGroupId]);
             }}
           >
             Clear

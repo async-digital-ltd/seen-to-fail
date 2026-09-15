@@ -18,6 +18,11 @@ interface ConditionGroupProps {
   readonly group: Group;
   /** The id of the "+ condition" button, so focus can be sent back to it. */
   readonly addId: string;
+  /**
+   * The id for one condition's remove button, so focus can land on the
+   * condition just added when the group is full and has no offer to land on.
+   */
+  readonly removeId: (conditionIndex: number) => string;
   /** The picker, while one is open inside this group; undefined otherwise. */
   readonly picker: OpenPicker | undefined;
   readonly onOpenPicker: () => void;
@@ -41,6 +46,7 @@ export function ConditionGroup({
   number,
   group,
   addId,
+  removeId,
   picker,
   onOpenPicker,
   onToggleJoiner,
@@ -85,6 +91,7 @@ export function ConditionGroup({
               </>
             ) : null}
             <ConditionChip
+              id={removeId(index)}
               condition={condition}
               onRemove={() => {
                 onRemove(index);
