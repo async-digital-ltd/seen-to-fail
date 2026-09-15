@@ -395,6 +395,23 @@ describe('the filter in the address', () => {
       filter: { kind: 'empty' },
     });
   });
+
+  it('adds no history entry for a change that leaves the filter as it is', async () => {
+    const { user, router } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Broken/ }));
+    await screen.findByText('1 of 5 checks');
+    await user.click(screen.getByRole('button', { name: /^1 Broken/ }));
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Broken');
+
+    // One step back undoes the one thing that was done.
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.search).toBe('');
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+  });
 });
 
 /**
