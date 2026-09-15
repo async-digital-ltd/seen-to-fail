@@ -1,13 +1,49 @@
-import { packageName as filterPackageName } from '@seen-to-fail/filter';
+// pnpm dev:server
+//
+// The development server. Reads the configuration, opens a pool against the
+// development database and listens.
+
+import { createServer } from 'node:http';
+
+import { Pool } from 'pg';
+
+import './environment.ts';
+
+import { loadDatabaseConfig } from './config.ts';
+import { databaseName } from './database/databases.ts';
+import {
+  createGraphQLServer,
+  graphqlRoute,
+  healthRoute,
+  readinessRoute,
+  serverPort,
+} from './graphql/server.ts';
 
 /**
- * The GraphQL API: schema, resolvers and the PostgreSQL layer behind them.
- *
- * None of that exists yet, so nothing here starts a server. The function below
- * reads the filter package's name through the workspace dependency declared in
- * this package's package.json, which is the one thing worth proving at this
- * stage: the packages are linked, and the link type-checks.
+ * A pool rather than one connection, so that two requests arriving together do
+ * not queue behind each other. Nothing here needs a transaction, and the reads
+ * that make up a response are each one statement, so no request cares which
+ * connection it gets.
  */
-export function describeServer(): string {
-  return `server, using the filter language from ${filterPackageName}`;
-}
+const { databaseUrl } = loadDatabaseConfig();
+const pool = new Pool({ connectionString: databaseUrl });
+
+const handle = createGraphQLServer({ database: pool });
+
+/**
+ * The handler answers asynchronously and a Node server wants a listener that
+ * returns nothing, so the promise is dropped on purpose. By the time it settles
+ * the response has been written and any failure has already been turned into
+ * one, so there is nothing left here to do with it.
+ */
+const server = createServer((request, response) => {
+  void handle(request, response);
+});
+
+server.listen(serverPort, () => {
+  const address = `http://localhost:${String(serverPort)}`;
+  console.log(`Serving ${databaseName(databaseUrl)} on ${address}.`);
+  console.log(`  GraphiQL:  ${address}${graphqlRoute}`);
+  console.log(`  Health:    ${address}${healthRoute}`);
+  console.log(`  Readiness: ${address}${readinessRoute}`);
+});

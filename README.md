@@ -107,6 +107,17 @@ and describes no real team's tooling. It empties the four tables before it
 inserts, so running it again replaces the workspace rather than failing, and it
 only ever points at the development database.
 
+### The server
+
+```sh
+pnpm dev:server
+```
+
+Serves GraphiQL at `http://localhost:4000/graphql`, where the schema and its
+queries can be read and run. There is a liveness route at `/health`, which
+answers whenever the process is up, and a readiness route at `/ready`, which
+answers only once the database does.
+
 ### The checks
 
 ```sh
@@ -132,9 +143,8 @@ apply the migrations before the first of them, and empty every table between
 tests, so they are repeatable without anyone tidying up by hand. They fail if
 no database is running, which is the honest answer rather than a quiet skip.
 
-Nothing else is implemented yet, so the server does not start and the client
-renders nothing. These commands are all there is so far, and every later change
-has to keep them passing.
+The client renders nothing yet. Every later change has to keep the commands
+above passing.
 
 ## Plan
 
