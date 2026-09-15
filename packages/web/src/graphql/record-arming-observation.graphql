@@ -1,0 +1,20 @@
+mutation RecordArmingObservation($input: RecordArmingObservationInput!) {
+  recordArmingObservation(input: $input) {
+    __typename
+    ... on ArmingObservationRecorded {
+      armingObservation {
+        id
+      }
+      check {
+        id
+        status
+      }
+    }
+    ... on ValidationErrors {
+      errors {
+        path
+        message
+      }
+    }
+  }
+}

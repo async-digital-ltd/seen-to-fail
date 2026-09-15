@@ -1,0 +1,23 @@
+/* A button, drawn as a link because it sits at the end of a line of text. */
+.record-observation__toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.record-observation__toggle:hover {
+  color: var(--primary-hover);
+}
+
+/* Its own line under the arming line, at the page's size rather than the line's. */
+.record-observation__form {
+  flex-basis: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 1rem;
+}

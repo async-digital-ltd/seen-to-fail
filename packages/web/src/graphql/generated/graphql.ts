@@ -31,6 +31,18 @@ export type Outcome =
   /** The defect was planted and the check said nothing. */
   | 'MISSED';
 
+/** Evidence, on one day, about whether a check is switched on. */
+export type RecordArmingObservationInput = {
+  /** What they found. */
+  armed: boolean;
+  /** The check that was looked at. It has to exist. */
+  checkId: string | number;
+  /** Anything worth telling the next person. A blank note is stored as none. */
+  note?: string | null | undefined;
+  /** The day somebody looked. Not in the future. */
+  observedOn: string;
+};
+
 /**
  * The five statuses a check can hold.
  *
@@ -122,6 +134,23 @@ export type LogTestRunMutation = {
         __typename: 'TestRunLogged';
         testRun: { id: string };
         check: { id: string; name: string; status: Status; runCount: number };
+      }
+    | {
+        __typename: 'ValidationErrors';
+        errors: Array<{ path: string; message: string }>;
+      };
+};
+
+export type RecordArmingObservationMutationVariables = Exact<{
+  input: RecordArmingObservationInput;
+}>;
+
+export type RecordArmingObservationMutation = {
+  recordArmingObservation:
+    | {
+        __typename: 'ArmingObservationRecorded';
+        armingObservation: { id: string };
+        check: { id: string; status: Status };
       }
     | {
         __typename: 'ValidationErrors';
@@ -504,6 +533,131 @@ export const LogTestRunDocument = {
     },
   ],
 } as unknown as DocumentNode<LogTestRunMutation, LogTestRunMutationVariables>;
+export const RecordArmingObservationDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'RecordArmingObservation' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'RecordArmingObservationInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'recordArmingObservation' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'ArmingObservationRecorded' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'armingObservation' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'id' },
+                            },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'check' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'id' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'status' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'ValidationErrors' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'errors' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'path' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'message' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  RecordArmingObservationMutation,
+  RecordArmingObservationMutationVariables
+>;
 export const StatusCountsDocument = {
   kind: 'Document',
   definitions: [

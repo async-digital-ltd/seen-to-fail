@@ -18,6 +18,7 @@ type Documents = {
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}': typeof types.CheckOptionsDocument;
   'query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}': typeof types.ChecksDocument;
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.LogTestRunDocument;
+  'mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.RecordArmingObservationDocument;
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}': typeof types.StatusCountsDocument;
 };
 const documents: Documents = {
@@ -29,6 +30,8 @@ const documents: Documents = {
     types.ChecksDocument,
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
     types.LogTestRunDocument,
+  'mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
+    types.RecordArmingObservationDocument,
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}':
     types.StatusCountsDocument,
 };
@@ -71,6 +74,12 @@ export function graphql(
 export function graphql(
   source: 'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}',
 ): (typeof documents)['mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}'];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}',
+): (typeof documents)['mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}'];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

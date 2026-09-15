@@ -84,7 +84,12 @@
   font-weight: 400;
 }
 
-.check-detail__card .check-detail__arming {
+/* The latest observation, with "Record an observation" beside it. */
+.check-detail__arming {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
   margin-top: 0.5rem;
   font-size: 0.875rem;
 }

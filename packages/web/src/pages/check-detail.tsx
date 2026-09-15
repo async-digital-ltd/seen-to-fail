@@ -15,6 +15,7 @@ import { paths } from '../paths';
 import { statusFromName } from '../status';
 import { today } from '../today';
 import './check-detail.css';
+import { RecordObservation } from './record-observation';
 
 type RecordedCheck = NonNullable<CheckDetailQuery['check']>;
 type Run = RecordedCheck['runs'][number];
@@ -183,7 +184,10 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
             How you can tell it is switched on
           </h2>
           <WrittenDown text={check.howToTellArmed} />
-          <p className="muted check-detail__arming">{armingLine(check, day)}</p>
+          <div className="check-detail__arming">
+            <p className="muted">{armingLine(check, day)}</p>
+            <RecordObservation checkId={check.id} />
+          </div>
         </section>
       </div>
 
