@@ -1,6 +1,6 @@
-import { parseFilter } from './parse';
-import type { FilterIssue, ParseFilterResult } from './parse';
-import type { Condition, Filter, Group } from './types';
+import { parseFilter } from './parse.ts';
+import type { FilterIssue, ParseFilterResult } from './parse.ts';
+import type { Condition, Filter, Group } from './types.ts';
 
 /**
  * The filter as it travels in a link, under the `f` query parameter.

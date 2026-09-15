@@ -9,7 +9,7 @@ import {
   packageName,
   parseFilter,
   STATUSES,
-} from './index';
+} from './index.ts';
 
 it('exports its own name', () => {
   expect(packageName).toBe('@seen-to-fail/filter');

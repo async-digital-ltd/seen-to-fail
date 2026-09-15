@@ -1,5 +1,5 @@
-import { filterSchema } from './schema';
-import type { Filter } from './types';
+import { filterSchema } from './schema.ts';
+import type { Filter } from './types.ts';
 
 /**
  * One reason an input was rejected.

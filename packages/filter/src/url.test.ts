@@ -1,8 +1,8 @@
 import fc from 'fast-check';
 import { expect, it } from 'vitest';
 
-import { parseFilterString, serializeFilter } from './url';
-import type { FilterIssue } from './parse';
+import { parseFilterString, serializeFilter } from './url.ts';
+import type { FilterIssue } from './parse.ts';
 import {
   emptyFilter,
   JOINERS,
@@ -17,7 +17,7 @@ import {
   type LastCaughtNeverCondition,
   type RunsCondition,
   type StatusCondition,
-} from './types';
+} from './types.ts';
 
 /**
  * The three examples here are the ones `packages/filter/README.md` documents.

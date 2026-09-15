@@ -1,12 +1,12 @@
 import { expect, it } from 'vitest';
 
-import { parseFilter } from './parse';
+import { parseFilter } from './parse.ts';
 import {
   MAX_CONDITIONS_PER_GROUP,
   MAX_GROUPS,
   type Condition,
   type Filter,
-} from './types';
+} from './types.ts';
 
 /**
  * Everything here goes in as `unknown`, the way a decoded request body or a

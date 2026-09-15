@@ -5,7 +5,7 @@ import {
   MAX_CONDITIONS_PER_GROUP,
   MAX_GROUPS,
   STATUSES,
-} from './types';
+} from './types.ts';
 
 /**
  * The runtime half of the filter language: the schema that decides whether

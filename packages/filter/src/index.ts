@@ -24,7 +24,7 @@ export {
   MAX_CONDITIONS_PER_GROUP,
   MAX_GROUPS,
   STATUSES,
-} from './types';
+} from './types.ts';
 
 export type {
   AreaCondition,
@@ -39,17 +39,17 @@ export type {
   RunsCondition,
   Status,
   StatusCondition,
-} from './types';
+} from './types.ts';
 
-export { filterSchema } from './schema';
+export { filterSchema } from './schema.ts';
 
-export { parseFilter } from './parse';
+export { parseFilter } from './parse.ts';
 
-export type { FilterIssue, ParseFilterResult } from './parse';
+export type { FilterIssue, ParseFilterResult } from './parse.ts';
 
-export { compileFilter } from './compile';
+export { compileFilter } from './compile.ts';
 
-export type { CompiledFilter, CompileOptions } from './compile';
+export type { CompiledFilter, CompileOptions } from './compile.ts';
 
 /**
  * The package's own name.
@@ -60,4 +60,4 @@ export type { CompiledFilter, CompileOptions } from './compile';
  */
 export const packageName = '@seen-to-fail/filter';
 
-export { parseFilterString, serializeFilter } from './url';
+export { parseFilterString, serializeFilter } from './url.ts';

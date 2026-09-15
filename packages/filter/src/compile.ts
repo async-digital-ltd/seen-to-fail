@@ -1,4 +1,4 @@
-import type { Condition, Filter, Group, Joiner } from './types';
+import type { Condition, Filter, Group, Joiner } from './types.ts';
 
 /**
  * The compiler: a parsed filter becomes a parameterised SQL predicate.

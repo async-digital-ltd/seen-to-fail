@@ -1,13 +1,13 @@
 import { expect, it } from 'vitest';
 
-import { compileFilter, type CompileOptions } from './compile';
+import { compileFilter, type CompileOptions } from './compile.ts';
 import {
   emptyFilter,
   type Condition,
   type Filter,
   type Group,
   type Joiner,
-} from './types';
+} from './types.ts';
 
 /**
  * The compiler is a pure function from a filter to a string and an array, so

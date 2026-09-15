@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 
-import type { Condition, Filter, Group } from './types';
+import type { Condition, Filter, Group } from './types.ts';
 
 /**
  * These tests are proved by the compiler as much as by the runner.
