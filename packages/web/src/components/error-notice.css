@@ -1,0 +1,16 @@
+.error-notice {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.error-notice__what {
+  margin: 0 0 0.75rem;
+  color: var(--error);
+  font-weight: 600;
+}
+
+.error-notice p:last-child {
+  margin-bottom: 0;
+}
