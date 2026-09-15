@@ -718,6 +718,14 @@ describe('the filter bar', () => {
       within(group(1)).getByRole('button', { name: 'OR, switch to AND' }),
     ).toHaveFocus();
 
+    await user.click(within(bar()).getByRole('button', { name: '+ group' }));
+    await user.selectOptions(screen.getByLabelText('Value'), 'Proven');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(within(bar()).getAllByRole('group')).toHaveLength(2);
+    expect(
+      within(bar()).getByRole('button', { name: '+ group' }),
+    ).toHaveFocus();
+
     await user.click(
       screen.getByRole('button', { name: 'Remove status is Stale' }),
     );
@@ -726,6 +734,34 @@ describe('the filter bar', () => {
     ).toHaveFocus();
 
     await user.click(within(bar()).getByRole('button', { name: 'Clear' }));
+    expect(
+      within(bar()).getByRole('button', { name: 'Add a condition' }),
+    ).toHaveFocus();
+  });
+
+  it('lands on the group when a chip is removed, and on the start when the last is', async () => {
+    const { user } = renderApp({
+      route: `/${readmeAddress}`,
+      answers: answersFor(workspace),
+    });
+    await screen.findByRole('region', { name: 'Filter' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Remove status is Unproven' }),
+    );
+    expect(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    ).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: 'Remove area is CI' }));
+    expect(
+      within(bar()).getByRole('button', { name: '+ group' }),
+    ).toHaveFocus();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Remove status is Stale' }),
+    );
+    expect(bar()).toHaveTextContent('No conditions.');
     expect(
       within(bar()).getByRole('button', { name: 'Add a condition' }),
     ).toHaveFocus();

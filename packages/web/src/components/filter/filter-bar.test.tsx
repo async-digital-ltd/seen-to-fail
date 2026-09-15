@@ -10,8 +10,6 @@ import type {
   GroupedFilter,
 } from '@seen-to-fail/filter';
 import { screen, within } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AreasDocument } from '../../graphql/generated/graphql';
@@ -73,27 +71,6 @@ function renderBar(
     onChange,
     bar: screen.getByRole('region', { name: 'Filter' }),
   };
-}
-
-/** The bar holding its own filter, for what happens after a change lands. */
-function Editable({ initial }: { readonly initial: Filter }): ReactElement {
-  const [filter, setFilter] = useState(initial);
-  return (
-    <FilterBar
-      filter={filter}
-      onChange={setFilter}
-      total={5}
-      unreadable={undefined}
-    />
-  );
-}
-
-function renderEditable(initial: Filter): Rendered & { bar: HTMLElement } {
-  const rendered = renderWithProviders(<Editable initial={initial} />, {
-    route: paths.checks({ filter: initial }),
-    answers: [areas],
-  });
-  return { ...rendered, bar: screen.getByRole('region', { name: 'Filter' }) };
 }
 
 function groupNumber(bar: HTMLElement, number: number): HTMLElement {
@@ -617,7 +594,7 @@ describe('from the keyboard', () => {
   });
 
   it('opens the picker onto its field, and closes it back onto the button', async () => {
-    const { user, bar } = renderEditable(readme);
+    const { user, bar } = renderBar(readme);
     const open = within(groupNumber(bar, 1)).getByRole('button', {
       name: '+ condition',
     });
@@ -641,55 +618,8 @@ describe('from the keyboard', () => {
     ).toHaveFocus();
   });
 
-  it('lands on the offer to add another once a condition is added', async () => {
-    const { user, bar } = renderEditable(emptyFilter);
-
-    await user.click(screen.getByRole('button', { name: 'Add a condition' }));
-    await user.selectOptions(screen.getByLabelText('Value'), 'Broken');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
-
-    expect(
-      within(bar).getByRole('button', { name: 'Remove status is Broken' }),
-    ).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: '+ group' })).toHaveFocus();
-
-    await user.keyboard('{Enter}');
-    await user.selectOptions(screen.getByLabelText('Value'), 'Stale');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
-
-    expect(within(bar).getAllByRole('group')).toHaveLength(2);
-    expect(within(bar).getByRole('button', { name: '+ group' })).toHaveFocus();
-
-    await user.click(
-      within(groupNumber(bar, 2)).getByRole('button', { name: '+ condition' }),
-    );
-    await user.selectOptions(screen.getByLabelText('Value'), 'Proven');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
-
-    expect(
-      within(groupNumber(bar, 2)).getByRole('button', { name: '+ condition' }),
-    ).toHaveFocus();
-  });
-
-  it('lands on the group when a chip is removed, and on the start when the last is', async () => {
-    const { user, bar } = renderEditable(readme);
-
-    await user.click(
-      screen.getByRole('button', { name: 'Remove status is Unproven' }),
-    );
-    expect(
-      within(groupNumber(bar, 1)).getByRole('button', { name: '+ condition' }),
-    ).toHaveFocus();
-
-    await user.click(screen.getByRole('button', { name: 'Remove area is CI' }));
-    expect(within(bar).getByRole('button', { name: '+ group' })).toHaveFocus();
-
-    await user.click(
-      screen.getByRole('button', { name: 'Remove status is Stale' }),
-    );
-    expect(bar).toHaveTextContent('No conditions.');
-    expect(
-      within(bar).getByRole('button', { name: 'Add a condition' }),
-    ).toHaveFocus();
-  });
+  // Where focus lands once a change is on screen is tested through the
+  // app's route table in checks-page.test.tsx, because the change comes back
+  // to the bar from the address, and a bar holding its own filter would show
+  // the landing on a render the app never has.
 });
