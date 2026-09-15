@@ -19,11 +19,16 @@ import type { TestRunOutcome } from '../database/rows.ts';
  * reading both enums out of the built schema and comparing, which is what
  * catches the schema being the side that is wrong.
  *
- * Only the outward direction is here. Nothing a caller sends carries either of
- * these as an enum. The filter argument does carry statuses, but as JSON in the
- * filter language, spelled the way that language spells them and judged by its
- * own validator, so it never passes through a map here. A function with no
- * caller would be a claim nothing tests.
+ * Statuses only go outward. Nothing a caller sends carries one as an enum. The
+ * filter argument does carry statuses, but as JSON in the filter language,
+ * spelled the way that language spells them and judged by its own validator, so
+ * it never passes through a map here. A function with no caller would be a
+ * claim nothing tests.
+ *
+ * Outcomes go both ways, because logging a run sends one. The inward map is
+ * pinned the same way from the other side: its keys are the upper case of the
+ * outcomes and each value is the outcome its key spells, so a swapped pair or a
+ * missing one fails to compile.
  */
 
 const statusNames = {
@@ -39,6 +44,13 @@ const outcomeNames = {
   missed: 'MISSED',
 } as const satisfies { readonly [O in TestRunOutcome]: Uppercase<O> };
 
+const outcomesByName = {
+  CAUGHT: 'caught',
+  MISSED: 'missed',
+} as const satisfies {
+  readonly [O in TestRunOutcome as Uppercase<O>]: O;
+};
+
 /** How a status is spelled on the wire. */
 export type StatusName = (typeof statusNames)[Status];
 
@@ -53,4 +65,9 @@ export function statusName(status: Status): StatusName {
 /** The outcome, as the schema's enum spells it. */
 export function outcomeName(outcome: TestRunOutcome): OutcomeName {
   return outcomeNames[outcome];
+}
+
+/** The outcome a caller sent, as the run table's enum spells it. */
+export function outcomeFromName(name: OutcomeName): TestRunOutcome {
+  return outcomesByName[name];
 }

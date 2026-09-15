@@ -90,8 +90,11 @@ const afterAsOfAndThreshold: CompileOptions = { firstParam: 3, asOfParam: 1 };
  * otherwise get a database error where it asked a reasonable question. Checked
  * here so that the answer to "is there a check under this id" is no, which is
  * both true and the thing the caller can act on.
+ *
+ * Exported because a write against a check has the same problem, and one
+ * pattern means a read and a write cannot disagree about what an id looks like.
  */
-const uuidPattern =
+export const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The checks a filter selects, and how many checks there are in all. */

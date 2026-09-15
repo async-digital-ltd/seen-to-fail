@@ -71,6 +71,18 @@ export type ArmingObservation = {
   observedOn: Scalars['Date']['output'];
 };
 
+/** An observation that was recorded, with the check it was about. */
+export type ArmingObservationRecorded = {
+  __typename?: 'ArmingObservationRecorded';
+  armingObservation: ArmingObservation;
+  /** The check as it reads now, with the new observation counted in its status. */
+  check: Check;
+};
+
+/** The observation that was recorded, or why nothing was. */
+export type ArmingObservationResult =
+  ArmingObservationRecorded | ValidationErrors;
+
 /**
  * An automated check: one thing that is supposed to catch something.
  *
@@ -127,6 +139,82 @@ export type CheckList = {
   matching: Scalars['Int']['output'];
 };
 
+/** The check that was created, or why nothing was. */
+export type CheckResult = Check | ValidationErrors;
+
+/** A new check, as somebody would describe it in a form. */
+export type CreateCheckInput = {
+  /** Where the check runs, in the team's own words. Not blank. */
+  area: Scalars['String']['input'];
+  /** How a reader can tell it is switched on. Not blank. */
+  howToTellArmed: Scalars['String']['input'];
+  /** Unique across the workspace, and not blank. */
+  name: Scalars['String']['input'];
+  /** What it is there to stop. Not blank. */
+  protects: Scalars['String']['input'];
+};
+
+/**
+ * One field of an input that was refused, and why.
+ *
+ * Meant to be shown beside the field it names.
+ */
+export type FieldError = {
+  __typename?: 'FieldError';
+  /** What is wrong with it, written for the person who filled it in. */
+  message: Scalars['String']['output'];
+  /** The input field at fault, named as the input names it, such as runOn. */
+  path: Scalars['String']['output'];
+};
+
+/** One planted defect, and what the check did about it. */
+export type LogTestRunInput = {
+  /** The check the defect was planted for. It has to exist. */
+  checkId: Scalars['ID']['input'];
+  /** What the check was expected to do about it. Not blank. */
+  expected: Scalars['String']['input'];
+  /** Anything worth telling the next person. A blank note is stored as none. */
+  note?: InputMaybe<Scalars['String']['input']>;
+  /** What it actually did. */
+  outcome: Outcome;
+  /** What was planted. Not blank. */
+  planted: Scalars['String']['input'];
+  /** The day the defect was planted. Not in the future. */
+  runOn: Scalars['Date']['input'];
+};
+
+export type Mutation = {
+  __typename?: 'Mutation';
+  /**
+   * Adds a check, which reads Unarmed until a run or an observation is recorded
+   * against it. A blank field is refused on that field, and a name already in use
+   * on name.
+   */
+  createCheck: CheckResult;
+  /**
+   * Logs a test run. A blank field is refused on that field, an unknown check on
+   * checkId, and a day after today on runOn.
+   */
+  logTestRun: TestRunResult;
+  /**
+   * Records an arming observation. An unknown check is refused on checkId, and a
+   * day after today on observedOn.
+   */
+  recordArmingObservation: ArmingObservationResult;
+};
+
+export type MutationCreateCheckArgs = {
+  input: CreateCheckInput;
+};
+
+export type MutationLogTestRunArgs = {
+  input: LogTestRunInput;
+};
+
+export type MutationRecordArmingObservationArgs = {
+  input: RecordArmingObservationInput;
+};
+
 /** What a check did with the defect that was planted for it. */
 export type Outcome =
   /** It reported the planted defect, which is the only thing that proves it works. */
@@ -163,6 +251,18 @@ export type QueryCheckArgs = {
 
 export type QueryChecksArgs = {
   filter?: InputMaybe<Scalars['FilterInput']['input']>;
+};
+
+/** Evidence, on one day, about whether a check is switched on. */
+export type RecordArmingObservationInput = {
+  /** What they found. */
+  armed: Scalars['Boolean']['input'];
+  /** The check that was looked at. It has to exist. */
+  checkId: Scalars['ID']['input'];
+  /** Anything worth telling the next person. A blank note is stored as none. */
+  note?: InputMaybe<Scalars['String']['input']>;
+  /** The day somebody looked. Not in the future. */
+  observedOn: Scalars['Date']['input'];
 };
 
 /**
@@ -217,6 +317,27 @@ export type TestRun = {
   planted: Scalars['String']['output'];
   /** The day the defect was planted, which may be before it was written down. */
   runOn: Scalars['Date']['output'];
+};
+
+/** A run that was logged, with the check it was logged against. */
+export type TestRunLogged = {
+  __typename?: 'TestRunLogged';
+  /** The check as it reads now, with the new run counted in its status. */
+  check: Check;
+  testRun: TestRun;
+};
+
+/** The run that was logged, or why nothing was. */
+export type TestRunResult = TestRunLogged | ValidationErrors;
+
+/**
+ * Why an input was refused, one entry per field at fault.
+ *
+ * Nothing was written. Every field at fault is listed, not only the first.
+ */
+export type ValidationErrors = {
+  __typename?: 'ValidationErrors';
+  errors: Array<FieldError>;
 };
 
 export type ResolverTypeWrapper<T> = Promise<T> | T;
@@ -336,42 +457,106 @@ export type DirectiveResolverFn<
   info: GraphQLResolveInfo,
 ) => TResult | Promise<TResult>;
 
+/** Mapping of union types */
+export type ResolversUnionTypes<_RefType extends Record<string, unknown>> = {
+  ArmingObservationResult:
+    | (Omit<ArmingObservationRecorded, 'armingObservation' | 'check'> & {
+        armingObservation: _RefType['ArmingObservation'];
+        check: _RefType['Check'];
+      })
+    | ValidationErrors;
+  CheckResult: CheckRecord | ValidationErrors;
+  TestRunResult:
+    | (Omit<TestRunLogged, 'check' | 'testRun'> & {
+        check: _RefType['Check'];
+        testRun: _RefType['TestRun'];
+      })
+    | ValidationErrors;
+};
+
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
   ArmingObservation: ResolverTypeWrapper<ArmingObservationRow>;
+  ArmingObservationRecorded: ResolverTypeWrapper<
+    Omit<ArmingObservationRecorded, 'armingObservation' | 'check'> & {
+      armingObservation: ResolversTypes['ArmingObservation'];
+      check: ResolversTypes['Check'];
+    }
+  >;
+  ArmingObservationResult: ResolverTypeWrapper<
+    ResolversUnionTypes<ResolversTypes>['ArmingObservationResult']
+  >;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Check: ResolverTypeWrapper<CheckRecord>;
   CheckList: ResolverTypeWrapper<
     Omit<CheckList, 'checks'> & { checks: Array<ResolversTypes['Check']> }
   >;
+  CheckResult: ResolverTypeWrapper<
+    ResolversUnionTypes<ResolversTypes>['CheckResult']
+  >;
+  CreateCheckInput: CreateCheckInput;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
+  FieldError: ResolverTypeWrapper<FieldError>;
   FilterInput: ResolverTypeWrapper<Scalars['FilterInput']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
+  LogTestRunInput: LogTestRunInput;
+  Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Outcome: Outcome;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  RecordArmingObservationInput: RecordArmingObservationInput;
   Status: Status;
   StatusCounts: ResolverTypeWrapper<StatusCounts>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   TestRun: ResolverTypeWrapper<TestRunRow>;
+  TestRunLogged: ResolverTypeWrapper<
+    Omit<TestRunLogged, 'check' | 'testRun'> & {
+      check: ResolversTypes['Check'];
+      testRun: ResolversTypes['TestRun'];
+    }
+  >;
+  TestRunResult: ResolverTypeWrapper<
+    ResolversUnionTypes<ResolversTypes>['TestRunResult']
+  >;
+  ValidationErrors: ResolverTypeWrapper<ValidationErrors>;
 };
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
   ArmingObservation: ArmingObservationRow;
+  ArmingObservationRecorded: Omit<
+    ArmingObservationRecorded,
+    'armingObservation' | 'check'
+  > & {
+    armingObservation: ResolversParentTypes['ArmingObservation'];
+    check: ResolversParentTypes['Check'];
+  };
+  ArmingObservationResult: ResolversUnionTypes<ResolversParentTypes>['ArmingObservationResult'];
   Boolean: Scalars['Boolean']['output'];
   Check: CheckRecord;
   CheckList: Omit<CheckList, 'checks'> & {
     checks: Array<ResolversParentTypes['Check']>;
   };
+  CheckResult: ResolversUnionTypes<ResolversParentTypes>['CheckResult'];
+  CreateCheckInput: CreateCheckInput;
   Date: Scalars['Date']['output'];
+  FieldError: FieldError;
   FilterInput: Scalars['FilterInput']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
+  LogTestRunInput: LogTestRunInput;
+  Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
+  RecordArmingObservationInput: RecordArmingObservationInput;
   StatusCounts: StatusCounts;
   String: Scalars['String']['output'];
   TestRun: TestRunRow;
+  TestRunLogged: Omit<TestRunLogged, 'check' | 'testRun'> & {
+    check: ResolversParentTypes['Check'];
+    testRun: ResolversParentTypes['TestRun'];
+  };
+  TestRunResult: ResolversUnionTypes<ResolversParentTypes>['TestRunResult'];
+  ValidationErrors: ValidationErrors;
 };
 
 export type ArmingObservationResolvers<
@@ -383,6 +568,32 @@ export type ArmingObservationResolvers<
   id: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   note: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   observedOn: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+};
+
+export type ArmingObservationRecordedResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['ArmingObservationRecorded'] =
+    ResolversParentTypes['ArmingObservationRecorded'],
+> = {
+  armingObservation: Resolver<
+    ResolversTypes['ArmingObservation'],
+    ParentType,
+    ContextType
+  >;
+  check: Resolver<ResolversTypes['Check'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type ArmingObservationResultResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['ArmingObservationResult'] =
+    ResolversParentTypes['ArmingObservationResult'],
+> = {
+  __resolveType: TypeResolveFn<
+    'ArmingObservationRecorded' | 'ValidationErrors',
+    ParentType,
+    ContextType
+  >;
 };
 
 export type CheckResolvers<
@@ -421,6 +632,7 @@ export type CheckResolvers<
   runCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   runs: Resolver<Array<ResolversTypes['TestRun']>, ParentType, ContextType>;
   status: Resolver<ResolversTypes['Status'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export type CheckListResolvers<
@@ -433,6 +645,18 @@ export type CheckListResolvers<
   matching: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
+export type CheckResultResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['CheckResult'] =
+    ResolversParentTypes['CheckResult'],
+> = {
+  __resolveType: TypeResolveFn<
+    'Check' | 'ValidationErrors',
+    ParentType,
+    ContextType
+  >;
+};
+
 export interface DateScalarConfig extends GraphQLScalarTypeConfig<
   ResolversTypes['Date'],
   any
@@ -440,12 +664,46 @@ export interface DateScalarConfig extends GraphQLScalarTypeConfig<
   name: 'Date';
 }
 
+export type FieldErrorResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['FieldError'] =
+    ResolversParentTypes['FieldError'],
+> = {
+  message: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  path: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
 export interface FilterInputScalarConfig extends GraphQLScalarTypeConfig<
   ResolversTypes['FilterInput'],
   any
 > {
   name: 'FilterInput';
 }
+
+export type MutationResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['Mutation'] =
+    ResolversParentTypes['Mutation'],
+> = {
+  createCheck?: Resolver<
+    ResolversTypes['CheckResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateCheckArgs, 'input'>
+  >;
+  logTestRun?: Resolver<
+    ResolversTypes['TestRunResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationLogTestRunArgs, 'input'>
+  >;
+  recordArmingObservation?: Resolver<
+    ResolversTypes['ArmingObservationResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRecordArmingObservationArgs, 'input'>
+  >;
+};
 
 export type QueryResolvers<
   ContextType = RequestContext,
@@ -497,13 +755,56 @@ export type TestRunResolvers<
   runOn: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
 };
 
+export type TestRunLoggedResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['TestRunLogged'] =
+    ResolversParentTypes['TestRunLogged'],
+> = {
+  check: Resolver<ResolversTypes['Check'], ParentType, ContextType>;
+  testRun: Resolver<ResolversTypes['TestRun'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type TestRunResultResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['TestRunResult'] =
+    ResolversParentTypes['TestRunResult'],
+> = {
+  __resolveType: TypeResolveFn<
+    'TestRunLogged' | 'ValidationErrors',
+    ParentType,
+    ContextType
+  >;
+};
+
+export type ValidationErrorsResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['ValidationErrors'] =
+    ResolversParentTypes['ValidationErrors'],
+> = {
+  errors: Resolver<
+    Array<ResolversTypes['FieldError']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type Resolvers<ContextType = RequestContext> = {
   ArmingObservation: ArmingObservationResolvers<ContextType>;
+  ArmingObservationRecorded: ArmingObservationRecordedResolvers<ContextType>;
+  ArmingObservationResult: ArmingObservationResultResolvers<ContextType>;
   Check: CheckResolvers<ContextType>;
   CheckList: CheckListResolvers<ContextType>;
+  CheckResult: CheckResultResolvers<ContextType>;
   Date: GraphQLScalarType;
+  FieldError: FieldErrorResolvers<ContextType>;
   FilterInput: GraphQLScalarType;
+  Mutation: MutationResolvers<ContextType>;
   Query: QueryResolvers<ContextType>;
   StatusCounts: StatusCountsResolvers<ContextType>;
   TestRun: TestRunResolvers<ContextType>;
+  TestRunLogged: TestRunLoggedResolvers<ContextType>;
+  TestRunResult: TestRunResultResolvers<ContextType>;
+  ValidationErrors: ValidationErrorsResolvers<ContextType>;
 };

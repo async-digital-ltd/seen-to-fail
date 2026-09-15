@@ -184,3 +184,123 @@ type Query {
   """
   statusCounts: StatusCounts!
 }
+
+"A new check, as somebody would describe it in a form."
+input CreateCheckInput {
+  "Unique across the workspace, and not blank."
+  name: String!
+  "Where the check runs, in the team's own words. Not blank."
+  area: String!
+  "What it is there to stop. Not blank."
+  protects: String!
+  "How a reader can tell it is switched on. Not blank."
+  howToTellArmed: String!
+}
+
+"One planted defect, and what the check did about it."
+input LogTestRunInput {
+  "The check the defect was planted for. It has to exist."
+  checkId: ID!
+  "The day the defect was planted. Not in the future."
+  runOn: Date!
+  "What was planted. Not blank."
+  planted: String!
+  "What the check was expected to do about it. Not blank."
+  expected: String!
+  "What it actually did."
+  outcome: Outcome!
+  "Anything worth telling the next person. A blank note is stored as none."
+  note: String
+}
+
+"Evidence, on one day, about whether a check is switched on."
+input RecordArmingObservationInput {
+  "The check that was looked at. It has to exist."
+  checkId: ID!
+  "The day somebody looked. Not in the future."
+  observedOn: Date!
+  "What they found."
+  armed: Boolean!
+  "Anything worth telling the next person. A blank note is stored as none."
+  note: String
+}
+
+"""
+One field of an input that was refused, and why.
+
+Meant to be shown beside the field it names.
+"""
+type FieldError {
+  "The input field at fault, named as the input names it, such as runOn."
+  path: String!
+  "What is wrong with it, written for the person who filled it in."
+  message: String!
+}
+
+"""
+Why an input was refused, one entry per field at fault.
+
+Nothing was written. Every field at fault is listed, not only the first.
+"""
+type ValidationErrors {
+  errors: [FieldError!]!
+}
+
+"The check that was created, or why nothing was."
+union CheckResult = Check | ValidationErrors
+
+"A run that was logged, with the check it was logged against."
+type TestRunLogged {
+  testRun: TestRun!
+  "The check as it reads now, with the new run counted in its status."
+  check: Check!
+}
+
+"The run that was logged, or why nothing was."
+union TestRunResult = TestRunLogged | ValidationErrors
+
+"An observation that was recorded, with the check it was about."
+type ArmingObservationRecorded {
+  armingObservation: ArmingObservation!
+  "The check as it reads now, with the new observation counted in its status."
+  check: Check!
+}
+
+"The observation that was recorded, or why nothing was."
+union ArmingObservationResult = ArmingObservationRecorded | ValidationErrors
+
+# The three ways the record grows. Rows are only ever added: nothing here edits
+# or deletes a check, a run or an observation, because the record is a history
+# of what was seen and when.
+#
+# An input that breaks a rule is answered with ValidationErrors in the data, and
+# nothing is written. That is a union rather than a GraphQL error because a form
+# refusing what somebody typed is an expected answer, and a union is what the
+# client's generated types can see. The shape of an input, such as a missing
+# required field or a Date that is not a day, is still refused by GraphQL itself
+# before any rule is applied; the client's generated types stop a form sending
+# one of those in the first place.
+#
+# The prose is kept in this comment rather than in a description on the type,
+# because the generator copies a type's description onto every argument type it
+# derives from it.
+type Mutation {
+  """
+  Adds a check, which reads Unarmed until a run or an observation is recorded
+  against it. A blank field is refused on that field, and a name already in use
+  on name.
+  """
+  createCheck(input: CreateCheckInput!): CheckResult!
+  """
+  Logs a test run. A blank field is refused on that field, an unknown check on
+  checkId, and a day after today on runOn.
+  """
+  logTestRun(input: LogTestRunInput!): TestRunResult!
+  """
+  Records an arming observation. An unknown check is refused on checkId, and a
+  day after today on observedOn.
+  """
+  recordArmingObservation(
+    input: RecordArmingObservationInput!
+  ): ArmingObservationResult!
+}

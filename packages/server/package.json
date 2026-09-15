@@ -13,7 +13,8 @@
     "@seen-to-fail/filter": "workspace:*",
     "graphql": "^17.0.2",
     "graphql-yoga": "^5.23.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@graphql-codegen/add": "^7.1.0",

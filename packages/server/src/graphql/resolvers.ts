@@ -3,17 +3,39 @@ import {
   findCheck,
   listChecks,
 } from '../database/checks.ts';
+import type { CheckRecord } from '../database/checks.ts';
+import {
+  parseNewArmingObservation,
+  parseNewCheck,
+  parseNewTestRun,
+} from '../database/new-records.ts';
+import type { RecordIssue } from '../database/new-records.ts';
+import {
+  insertArmingObservation,
+  insertCheck,
+  insertTestRun,
+} from '../database/writes.ts';
+import type { RequestContext } from './context.ts';
 import { dateScalar } from './date.ts';
-import { outcomeName, statusName } from './enums.ts';
+import { outcomeFromName, outcomeName, statusName } from './enums.ts';
 import { filterFromArgument, filterInputScalar } from './filter-input.ts';
 import type {
+  ArmingObservationRecordedResolvers,
   ArmingObservationResolvers,
+  ArmingObservationResultResolvers,
   CheckListResolvers,
   CheckResolvers,
+  CheckResultResolvers,
+  FieldErrorResolvers,
+  MutationResolvers,
   QueryResolvers,
   Resolvers,
   StatusCountsResolvers,
+  TestRunLoggedResolvers,
   TestRunResolvers,
+  TestRunResultResolvers,
+  ValidationErrors as ValidationErrorsResult,
+  ValidationErrorsResolvers,
 } from './generated/resolvers.ts';
 
 /**
@@ -23,22 +45,23 @@ import type {
  * resolver types are produced with optionals switched off, so a field added to
  * the schema and left out of this file fails the type check rather than
  * returning null to whoever asks for it first. The one gap the generator leaves
- * is the root query, whose fields it makes optional so that a large API can be
- * assembled from several files; this one is not large, so the type below closes
- * that gap by hand and the same rule holds all the way down.
+ * is the root query and mutation, whose fields it makes optional so that a large
+ * API can be assembled from several files; this one is not large, so the type
+ * below closes that gap by hand and the same rule holds all the way down.
  *
  * Most of what follows is a field reading the value of the same name off the
  * row behind it. Written out rather than left to the default resolver, because
  * the default is invisible: a row that stopped carrying a field would resolve
  * to null and nothing would say so, whereas the explicit version stops
  * compiling. The fields that are not a plain read are the interesting ones and
- * they stand out by being longer: the two enums change spelling, and the two
- * lists go through a loader.
+ * they stand out by being longer: the writes, the two enums that change
+ * spelling, and the two lists that go through a loader.
  */
 
-/** The resolver map, with the root query's fields required as well. */
-type CompleteResolvers = Omit<Resolvers, 'Query'> & {
+/** The resolver map, with the root fields required as well. */
+type CompleteResolvers = Omit<Resolvers, 'Query' | 'Mutation'> & {
   Query: Required<QueryResolvers>;
+  Mutation: Required<MutationResolvers>;
 };
 
 const Query: Required<QueryResolvers> = {
@@ -85,6 +108,147 @@ const Query: Required<QueryResolvers> = {
         totals.Broken,
     };
   },
+};
+
+/** A refusal, as the ValidationErrors member of a mutation's result. */
+function refused(errors: readonly RecordIssue[]): ValidationErrorsResult {
+  return { errors: [...errors] };
+}
+
+/**
+ * The check a write was made against, read back after the write.
+ *
+ * Read afterwards and in a statement of its own, because the status is derived
+ * from the rows and the row that changes it has only just been added. A form's
+ * success card can then say what the check reads now rather than what it read
+ * before.
+ *
+ * Nothing deletes a check, and the write that got here has just proved this one
+ * exists, so a check that cannot be read back is a fault in this server rather
+ * than an answer to give.
+ */
+async function checkAfterWrite(
+  context: RequestContext,
+  id: string,
+): Promise<CheckRecord> {
+  const check = await findCheck(
+    context.database,
+    id,
+    context.asOf,
+    context.staleAfterDays,
+  );
+  if (check === null) {
+    throw new Error(`The check ${id} was written to and then not found.`);
+  }
+  return check;
+}
+
+/**
+ * The three writes.
+ *
+ * Each one has the same order and it is the point of the file: the input goes
+ * through its parse function, and a refusal is answered before the database is
+ * asked anything. Only then is the row inserted, and the insert can still be
+ * refused for the two reasons only the database knows. Either kind of refusal
+ * comes back as ValidationErrors in the data rather than as an error, so a form
+ * shows it beside the field it names.
+ *
+ * Today, for the rule that a day is not in the future, is the day the request
+ * reads statuses as of. It is fixed once per request, so the rule and the
+ * status on the returned check are read on the same day.
+ */
+const Mutation: Required<MutationResolvers> = {
+  createCheck: async (_parent, args, context) => {
+    const parsed = parseNewCheck(args.input);
+    if (!parsed.ok) {
+      return refused(parsed.errors);
+    }
+
+    const written = await insertCheck(context.database, parsed.value);
+    if (!written.ok) {
+      return refused(written.errors);
+    }
+    return checkAfterWrite(context, written.row.id);
+  },
+
+  logTestRun: async (_parent, args, context) => {
+    const parsed = parseNewTestRun(
+      { ...args.input, outcome: outcomeFromName(args.input.outcome) },
+      context.asOf,
+    );
+    if (!parsed.ok) {
+      return refused(parsed.errors);
+    }
+
+    const written = await insertTestRun(context.database, parsed.value);
+    if (!written.ok) {
+      return refused(written.errors);
+    }
+    return {
+      testRun: written.row,
+      check: await checkAfterWrite(context, written.row.checkId),
+    };
+  },
+
+  recordArmingObservation: async (_parent, args, context) => {
+    const parsed = parseNewArmingObservation(args.input, context.asOf);
+    if (!parsed.ok) {
+      return refused(parsed.errors);
+    }
+
+    const written = await insertArmingObservation(
+      context.database,
+      parsed.value,
+    );
+    if (!written.ok) {
+      return refused(written.errors);
+    }
+    return {
+      armingObservation: written.row,
+      check: await checkAfterWrite(context, written.row.checkId),
+    };
+  },
+};
+
+/**
+ * Which member of a result a resolver returned.
+ *
+ * A refusal is the only member with an errors list, so that is what tells the
+ * two apart. It is asked of the value rather than stamped on it, so neither
+ * member has to carry a type name the rows behind it know nothing about.
+ */
+const CheckResult: CheckResultResolvers = {
+  __resolveType: (result) =>
+    'errors' in result ? 'ValidationErrors' : 'Check',
+};
+
+const TestRunResult: TestRunResultResolvers = {
+  __resolveType: (result) =>
+    'errors' in result ? 'ValidationErrors' : 'TestRunLogged',
+};
+
+const ArmingObservationResult: ArmingObservationResultResolvers = {
+  __resolveType: (result) =>
+    'errors' in result ? 'ValidationErrors' : 'ArmingObservationRecorded',
+};
+
+const TestRunLogged: TestRunLoggedResolvers = {
+  testRun: (logged) => logged.testRun,
+  check: (logged) => logged.check,
+};
+
+const ArmingObservationRecorded: ArmingObservationRecordedResolvers = {
+  armingObservation: (recorded) => recorded.armingObservation,
+  check: (recorded) => recorded.check,
+};
+
+const ValidationErrors: ValidationErrorsResolvers = {
+  errors: (refusal) => refusal.errors,
+};
+
+const FieldError: FieldErrorResolvers = {
+  path: (error) => error.path,
+  message: (error) => error.message,
 };
 
 const CheckList: CheckListResolvers = {
@@ -145,9 +309,17 @@ export const resolvers: CompleteResolvers = {
   Date: dateScalar,
   FilterInput: filterInputScalar,
   Query,
+  Mutation,
   CheckList,
   Check,
   TestRun,
   ArmingObservation,
   StatusCounts,
+  CheckResult,
+  TestRunResult,
+  ArmingObservationResult,
+  TestRunLogged,
+  ArmingObservationRecorded,
+  ValidationErrors,
+  FieldError,
 };
