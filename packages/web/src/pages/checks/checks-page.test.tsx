@@ -1,4 +1,5 @@
-import type { Filter, Status } from '@seen-to-fail/filter';
+import { MAX_GROUPS, parseFilterString } from '@seen-to-fail/filter';
+import type { Condition, Filter, Group, Status } from '@seen-to-fail/filter';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -419,6 +420,25 @@ describe('the filter bar', () => {
   const readmeAddress =
     '?f=and!or*status.is.Unproven*status.is.Stale!and*area.is.CI';
 
+  const never: Condition = { field: 'lastCaught', op: 'never' };
+
+  /** A filter of this many groups, each holding one condition. */
+  function groupsOf(count: number): Filter {
+    const [first, ...rest] = Array.from({ length: count }, (): Group => ({
+      joiner: 'and',
+      conditions: [never],
+    }));
+    if (first === undefined) {
+      throw new Error('A filter with groups needs at least one.');
+    }
+    return { kind: 'groups', joiner: 'and', groups: [first, ...rest] };
+  }
+
+  /** The filter the address holds, as the language reads it. */
+  function addressFilter(search: string): ReturnType<typeof parseFilterString> {
+    return parseFilterString(new URLSearchParams(search).get('f'));
+  }
+
   function bar(): HTMLElement {
     return screen.getByRole('region', { name: 'Filter' });
   }
@@ -589,6 +609,47 @@ describe('the filter bar', () => {
     expect(router.state.location.search).toBe('?f=and!and*status.is.Broken');
     expect(chips()).toEqual(['Remove status is Broken']);
     expect(await screen.findByText('1 of 5 checks')).toBeInTheDocument();
+  });
+
+  /**
+   * A picker stays open across a history step, and the step can put a filter
+   * on screen that has no room for what the picker would add. The bar reads
+   * the offer off the filter it shows, so the picker goes with the room and
+   * the address never holds more than the language takes.
+   */
+  it('closes a picker that a history step has left with nowhere to add, and never writes past the cap', async () => {
+    const { user, router } = renderApp({
+      route: paths.checks({ filter: groupsOf(MAX_GROUPS - 1) }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(within(bar()).getByRole('button', { name: '+ group' }));
+    expect(
+      screen.getByRole('form', { name: 'New condition' }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate(paths.checks({ filter: groupsOf(MAX_GROUPS) }));
+    });
+    expect(
+      screen.queryByRole('form', { name: 'New condition' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(bar()).queryByRole('button', { name: '+ group' }),
+    ).not.toBeInTheDocument();
+
+    // Back where there was room, the picker the reader opened is there again
+    // and adds the last group the language takes.
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    await user.selectOptions(screen.getByLabelText('Value'), 'Broken');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(addressFilter(router.state.location.search).ok).toBe(true);
+    expect(within(bar()).getAllByRole('group')).toHaveLength(MAX_GROUPS);
+    expect(within(bar()).queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('offers the areas the workspace has when an area is being chosen', async () => {

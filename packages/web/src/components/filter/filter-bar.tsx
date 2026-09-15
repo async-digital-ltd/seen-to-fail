@@ -1,4 +1,8 @@
-import { emptyFilter, MAX_GROUPS } from '@seen-to-fail/filter';
+import {
+  emptyFilter,
+  MAX_CONDITIONS_PER_GROUP,
+  MAX_GROUPS,
+} from '@seen-to-fail/filter';
 import type { Filter, FilterIssue } from '@seen-to-fail/filter';
 import type { ReactElement } from 'react';
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
@@ -24,6 +28,34 @@ type Picker =
   | { readonly kind: 'group' };
 
 const closed: Picker = { kind: 'closed' };
+
+/**
+ * Whether a picker has somewhere to add in a filter: its target is still there
+ * and has room for one more.
+ *
+ * A reader opens a picker for the filter on screen, and a history step can put
+ * a different filter on screen while the picker stays open. So the offer to
+ * add is read off the filter the bar is showing, never off the click that
+ * opened the picker: a picker whose target is full, or gone, is treated as
+ * closed. The add reads that same filter, which is what keeps the address from
+ * ever holding more groups or conditions than the language takes.
+ */
+function canShow(picker: Picker, filter: Filter): boolean {
+  switch (picker.kind) {
+    case 'closed':
+      return true;
+    case 'group':
+      return filter.kind === 'empty' || filter.groups.length < MAX_GROUPS;
+    case 'condition': {
+      const group =
+        filter.kind === 'groups' ? filter.groups[picker.group] : undefined;
+      return (
+        group !== undefined &&
+        group.conditions.length < MAX_CONDITIONS_PER_GROUP
+      );
+    }
+  }
+}
 
 /** The sentence under "No conditions": what the list shows instead. */
 function listedSentence(total: number): string {
@@ -100,7 +132,8 @@ export function FilterBar({
     onChange(next);
   };
 
-  const groupPickerOpen = picker.kind === 'group';
+  const open = canShow(picker, filter) ? picker : closed;
+  const groupPickerOpen = open.kind === 'group';
   const groupCount = filter.kind === 'empty' ? 0 : filter.groups.length;
 
   let body: ReactElement;
@@ -171,7 +204,7 @@ export function FilterBar({
                   group={group}
                   addId={addConditionId(index)}
                   picker={
-                    picker.kind === 'condition' && picker.group === index
+                    open.kind === 'condition' && open.group === index
                       ? {
                           onAdd: (condition) => {
                             change(
