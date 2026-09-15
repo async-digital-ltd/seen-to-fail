@@ -68,7 +68,12 @@ function writeOut(draft: Draft): WrittenOut {
         ? { gap: 'Choose a status.' }
         : { candidate: { field, op: operator, value: draft.text } };
     case 'area':
-      return draft.text === ''
+      // Nothing but spaces is a gap, as an empty box is. The checks table
+      // refuses an area that btrim leaves empty (migration 0002), and btrim
+      // takes spaces only, so this is the one shape of text no check can
+      // have; a value with a space at its edge is kept as typed, since a
+      // check can hold that.
+      return /^ *$/.test(draft.text)
         ? { gap: 'Enter an area.' }
         : { candidate: { field, op: operator, value: draft.text } };
     case 'lastCaught':

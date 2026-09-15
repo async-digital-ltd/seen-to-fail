@@ -798,6 +798,20 @@ describe('the filter bar', () => {
     ).toHaveFocus();
   });
 
+  it('treats an area of nothing but spaces as a gap, and writes nothing into the address', async () => {
+    const { user, router } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: 'Add a condition' }));
+    await user.selectOptions(screen.getByLabelText('Field'), 'area');
+    await user.type(screen.getByLabelText('Value'), '   ');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter an area.');
+    expect(screen.getByLabelText('Value')).toHaveFocus();
+    expect(router.state.location.search).toBe('');
+  });
+
   it('offers the areas the workspace has when an area is being chosen', async () => {
     const { user } = renderApp({ answers: answersFor(workspace) });
     await screen.findByText('5 of 5 checks');

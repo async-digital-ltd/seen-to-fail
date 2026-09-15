@@ -64,6 +64,12 @@ describe('a draft with a gap', () => {
       ok: false,
       message: 'Enter an area.',
     });
+    // Spaces alone are the one text no check's area can be, by the table's
+    // own rule, so they are the same gap rather than a value nothing matches.
+    expect(conditionFrom(draft({ field: 'area', text: '   ' }))).toEqual({
+      ok: false,
+      message: 'Enter an area.',
+    });
     expect(
       conditionFrom(draft({ field: 'lastCaught', operator: 'after' })),
     ).toEqual({ ok: false, message: 'Enter a number of days.' });
