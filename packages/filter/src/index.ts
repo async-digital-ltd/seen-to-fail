@@ -36,6 +36,10 @@ export { parseFilter } from './parse';
 
 export type { FilterIssue, ParseFilterResult } from './parse';
 
+export { compileFilter } from './compile';
+
+export type { CompiledFilter, CompileOptions } from './compile';
+
 /**
  * The package's own name.
  *
