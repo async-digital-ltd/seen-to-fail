@@ -20,9 +20,10 @@ import type { TestRunOutcome } from '../database/rows.ts';
  * catches the schema being the side that is wrong.
  *
  * Only the outward direction is here. Nothing a caller sends carries either of
- * these yet: the filter argument is the first input that will, and it arrives
- * with the filter epic and brings the inward direction with it. A function with
- * no caller would be a claim nothing tests.
+ * these as an enum. The filter argument does carry statuses, but as JSON in the
+ * filter language, spelled the way that language spells them and judged by its
+ * own validator, so it never passes through a map here. A function with no
+ * caller would be a claim nothing tests.
  */
 
 const statusNames = {

@@ -29,6 +29,11 @@ async function seededServer(): Promise<ReturnType<typeof createGraphQLServer>> {
   return createGraphQLServer({ database: client, asOf });
 }
 
+/** What the list query answers with, for whichever fields of a check it asks. */
+interface Listed<Fields> {
+  readonly checks: { readonly checks: Fields[] };
+}
+
 interface CheckSummaryFields {
   readonly id: string;
   readonly name: string;
@@ -62,9 +67,11 @@ const aDayWrittenOut = /^\d{4}-\d{2}-\d{2}$/;
 it('lists the eight checks of the workspace, with the statuses it claims', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{ checks: CheckSummaryFields[] }>(
+  const {
+    checks: { checks },
+  } = await query<Listed<CheckSummaryFields>>(
     server,
-    `{ checks { ${checkSummaryFields} } }`,
+    `{ checks { checks { ${checkSummaryFields} } } }`,
   );
 
   expect(checks).toHaveLength(seedChecks.length);
@@ -82,9 +89,11 @@ it('lists the eight checks of the workspace, with the statuses it claims', async
 it('lists the checks by name', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{ checks: { name: string }[] }>(
+  const {
+    checks: { checks },
+  } = await query<Listed<{ name: string }>>(
     server,
-    '{ checks { name } }',
+    '{ checks { checks { name } } }',
   );
 
   const names = checks.map((check) => check.name);
@@ -94,9 +103,11 @@ it('lists the checks by name', async () => {
 it('reports the counts and dates that travel beside a status', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{ checks: CheckSummaryFields[] }>(
+  const {
+    checks: { checks },
+  } = await query<Listed<CheckSummaryFields>>(
     server,
-    `{ checks { ${checkSummaryFields} } }`,
+    `{ checks { checks { ${checkSummaryFields} } } }`,
   );
 
   const broken = checks.find(
@@ -145,9 +156,11 @@ it('reports the counts and dates that travel beside a status', async () => {
 it('returns one check by id, with its runs newest first', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{ checks: { id: string; name: string }[] }>(
+  const {
+    checks: { checks },
+  } = await query<Listed<{ id: string; name: string }>>(
     server,
-    '{ checks { id name } }',
+    '{ checks { checks { id name } } }',
   );
   const wanted = checks.find(
     (check) => check.name === 'Translations complete before release',
@@ -186,12 +199,17 @@ it('returns one check by id, with its runs newest first', async () => {
 it('returns arming observations newest first, and an empty list for none', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{
-    checks: {
+  const {
+    checks: { checks },
+  } = await query<
+    Listed<{
       name: string;
       armingObservations: { observedOn: string; armed: boolean }[];
-    }[];
-  }>(server, '{ checks { name armingObservations { observedOn armed } } }');
+    }>
+  >(
+    server,
+    '{ checks { checks { name armingObservations { observedOn armed } } } }',
+  );
 
   const switchedOff = checks.find(
     (check) => check.name === 'Dependency licence allow-list',
@@ -211,9 +229,12 @@ it('returns arming observations newest first, and an empty list for none', async
 it('returns an empty list of runs for a check nothing was planted for', async () => {
   const server = await seededServer();
 
-  const { checks } = await query<{
-    checks: { name: string; runs: { id: string }[] }[];
-  }>(server, '{ checks { name runs { id } } }');
+  const {
+    checks: { checks },
+  } = await query<Listed<{ name: string; runs: { id: string }[] }>>(
+    server,
+    '{ checks { checks { name runs { id } } } }',
+  );
 
   const neverRun = checks.find(
     (check) => check.name === 'Commit message format',
@@ -224,21 +245,25 @@ it('returns an empty list of runs for a check nothing was planted for', async ()
 it('counts the statuses, and the five add up to the total', async () => {
   const server = await seededServer();
 
-  const { statusCounts, checks } = await query<{
-    statusCounts: {
-      proven: number;
-      unproven: number;
-      stale: number;
-      unarmed: number;
-      broken: number;
-      total: number;
-    };
-    checks: { status: string }[];
-  }>(
+  const {
+    statusCounts,
+    checks: { checks },
+  } = await query<
+    {
+      statusCounts: {
+        proven: number;
+        unproven: number;
+        stale: number;
+        unarmed: number;
+        broken: number;
+        total: number;
+      };
+    } & Listed<{ status: string }>
+  >(
     server,
     `{
        statusCounts { proven unproven stale unarmed broken total }
-       checks { status }
+       checks { checks { status } }
      }`,
   );
 
@@ -309,7 +334,7 @@ it('answers with null, rather than an error, for an id that is not one', async (
 it('refuses a field the schema does not have', async () => {
   const server = await seededServer();
 
-  const { body } = await post(server, '{ checks { opinion } }');
+  const { body } = await post(server, '{ checks { checks { opinion } } }');
 
   expect(body.errors?.[0]?.message).toContain('opinion');
 });

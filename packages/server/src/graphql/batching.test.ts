@@ -40,11 +40,21 @@ async function queriesFor(document: string): Promise<number> {
 }
 
 it('reads the list of checks in one query', async () => {
-  expect(await queriesFor('{ checks { id name status runCount } }')).toBe(1);
+  expect(
+    await queriesFor('{ checks { checks { id name status runCount } } }'),
+  ).toBe(1);
+});
+
+it('reads the list and how many checks it hides in the same one query', async () => {
+  expect(await queriesFor('{ checks { checks { id } matching hidden } }')).toBe(
+    1,
+  );
 });
 
 it('reads the list with every run in two queries, not one per check', async () => {
-  const queries = await queriesFor('{ checks { id runs { id outcome } } }');
+  const queries = await queriesFor(
+    '{ checks { checks { id runs { id outcome } } } }',
+  );
 
   expect(queries).toBe(2);
   // Named so that a failure says what the alternative would have been. Eight
@@ -55,7 +65,7 @@ it('reads the list with every run in two queries, not one per check', async () =
 
 it('reads the list with runs and observations in three queries', async () => {
   const queries = await queriesFor(
-    '{ checks { id runs { id } armingObservations { id } } }',
+    '{ checks { checks { id runs { id } armingObservations { id } } } }',
   );
 
   expect(queries).toBe(3);
@@ -67,9 +77,11 @@ it('reads one check and everything under it in three queries', async () => {
   const { asOf } = await seedWorkspace(client);
   const server = createGraphQLServer({ database: client, asOf });
 
-  const { checks } = await query<{ checks: { id: string }[] }>(
+  const {
+    checks: { checks },
+  } = await query<{ checks: { checks: { id: string }[] } }>(
     server,
-    '{ checks { id } }',
+    '{ checks { checks { id } } }',
   );
   const id = checks[0]?.id ?? '';
 

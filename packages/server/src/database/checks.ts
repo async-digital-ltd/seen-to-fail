@@ -1,5 +1,5 @@
-import { STATUSES } from '@seen-to-fail/filter';
-import type { Status } from '@seen-to-fail/filter';
+import { compileFilter, STATUSES } from '@seen-to-fail/filter';
+import type { CompileOptions, Filter, Status } from '@seen-to-fail/filter';
 
 import { STALE_AFTER_DAYS } from '../staleness.ts';
 import {
@@ -45,19 +45,42 @@ import type { CheckSummary } from './summaries.ts';
  */
 export type CheckRecord = Check & Omit<CheckSummary, 'checkId'>;
 
+/**
+ * The names the checks table and the derivation go by in a check-with-status
+ * query.
+ *
+ * They are the names the filter compiler writes its predicate against, where
+ * `c` is a row of checks and `s` the summary derived for it. The compiler
+ * cannot import them from here, because it must not depend on the server, so
+ * they are agreed rather than shared. What holds the agreement is the filtered
+ * list's tests: a filter on a status reads `s` and a filter on an area reads
+ * `c`, and a query using any other name fails in PostgreSQL rather than
+ * answering a different question.
+ */
+const checkName = 'c';
+const summaryName = 's';
+
 /** The checks table joined onto the derivation, as one FROM clause. */
 function checksWithSummaries(
   asOfParameter: string,
   staleAfterDaysParameter: string,
 ): string {
   return (
-    `FROM checks JOIN ${checkSummariesFrom(asOfParameter, staleAfterDaysParameter)} ` +
-    `ON summaries.check_id = checks.id`
+    `FROM checks AS ${checkName} ` +
+    `JOIN ${checkSummariesFrom(asOfParameter, staleAfterDaysParameter, summaryName)} ` +
+    `ON ${summaryName}.check_id = ${checkName}.id`
   );
 }
 
 /** The columns a check-with-status query selects, named as CheckRecord. */
-const checkRecordColumns = `${checkColumnsFrom('checks')}, ${derivedSummaryColumnsFrom('summaries')}`;
+const checkRecordColumns = `${checkColumnsFrom(checkName)}, ${derivedSummaryColumnsFrom(summaryName)}`;
+
+/**
+ * Where a compiled filter's placeholders sit in the queries below: `$1` is the
+ * as-of day and `$2` the staleness threshold, so the filter's own values start
+ * at `$3` and its dated conditions count back from `$1`.
+ */
+const afterAsOfAndThreshold: CompileOptions = { firstParam: 3, asOfParam: 1 };
 
 /**
  * Whether a string could be an id this database issued.
@@ -71,25 +94,77 @@ const checkRecordColumns = `${checkColumnsFrom('checks')}, ${derivedSummaryColum
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** The checks a filter selects, and how many checks there are in all. */
+export interface CheckListing {
+  /** The checks the filter selects, ordered by name. */
+  readonly checks: CheckRecord[];
+  /** Every check in the workspace, whether the filter selects it or not. */
+  readonly total: number;
+}
+
 /**
- * Every check with its status, ordered by name.
+ * A row of the listing query: a matched check with the workspace total beside
+ * it, or the one row that carries the total alone when nothing matched.
+ */
+type ListingRow =
+  | (CheckRecord & { readonly total: string })
+  | { readonly id: null; readonly total: string };
+
+/**
+ * The checks a filter selects, with their statuses, ordered by name, and how
+ * many checks there are in all.
  *
  * Ordered here rather than by the caller, because the order a list is read in
  * is part of what the list is and two callers ordering it differently would be
  * two different lists. By name because a name is the only field a reader of the
  * list can predict; ordering by status would move a row the moment somebody
  * logged a run against it.
+ *
+ * It takes a `Filter` and never raw input, so the only way to reach this query
+ * is through `parseFilter`. The compiled predicate goes into the text and its
+ * values go into the parameters, after the as-of day and the threshold.
+ *
+ * The list and the total are one statement, so the number of checks a filter
+ * hides is worked out from a single reading of the workspace and cannot be
+ * thrown off by a check written between two. The total is counted on its own
+ * and the matched checks are joined onto it with a left join, which is what
+ * keeps the total when the filter matches nothing: there is then one row, with
+ * the total and nothing else, rather than no rows and no total.
  */
 export async function listChecks(
   database: Queryable,
+  filter: Filter,
   asOf: IsoDate,
   staleAfterDays: number = STALE_AFTER_DAYS,
-): Promise<CheckRecord[]> {
-  return selectRows<CheckRecord>(
+): Promise<CheckListing> {
+  const compiled = compileFilter(filter, afterAsOfAndThreshold);
+
+  const rows = await selectRows<ListingRow>(
     database,
-    `SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')} ORDER BY checks.name`,
-    [asOf, staleAfterDays],
+    `SELECT workspace.total, matched.*
+       FROM (SELECT count(*) AS total FROM checks) AS workspace
+       LEFT JOIN (
+         SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')}
+          WHERE ${compiled.where}
+       ) AS matched ON TRUE
+      ORDER BY matched.name`,
+    [asOf, staleAfterDays, ...compiled.values],
   );
+
+  const checks: CheckRecord[] = [];
+  for (const row of rows) {
+    if (row.id !== null) {
+      checks.push(row);
+    }
+  }
+
+  return {
+    checks,
+    // count() is bigint, which the driver hands back as text; see the note on
+    // countChecksByStatus below. Every row carries the same total, and there is
+    // always at least one row.
+    total: Number(rows[0]?.total ?? 0),
+  };
 }
 
 /**
@@ -111,7 +186,7 @@ export async function findCheck(
 
   const rows = await selectRows<CheckRecord>(
     database,
-    `SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')} WHERE checks.id = $3`,
+    `SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')} WHERE ${checkName}.id = $3`,
     [asOf, staleAfterDays, id],
   );
   return rows[0] ?? null;

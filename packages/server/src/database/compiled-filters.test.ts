@@ -30,10 +30,10 @@ import { listCheckSummaries } from './summaries.ts';
  * dependency runs this way round: the filter package knows nothing about these
  * tests, and this file imports the compiler the same way the API will.
  *
- * There is no production module beside this test file. The query that takes a
- * filter is the API story's to write; this splices the predicate by hand into
- * the same shape that story will use, so the compiler is proved against real
- * data before anything is built on it.
+ * The query the API runs with a filter is `listChecks` in checks.ts, and its
+ * own tests go through GraphQL. This file splices the predicate by hand into
+ * the bare summaries query instead, so what it proves about the compiler does
+ * not rest on that query being right as well.
  */
 const database = useTestDatabase();
 

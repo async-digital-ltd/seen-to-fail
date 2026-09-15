@@ -17,21 +17,34 @@ type Server = ReturnType<typeof createGraphQLServer>;
 /** Any origin will do: nothing is listening, and only the path is read. */
 const origin = 'http://seen-to-fail.test';
 
+/** One entry in a GraphQL response's errors. */
+export interface GraphQLResponseError {
+  readonly message: string;
+  /** The field the error was raised on, when it was raised by one. */
+  readonly path?: readonly (string | number)[];
+  /** Anything the server attached beyond the message. */
+  readonly extensions?: Readonly<Record<string, unknown>>;
+}
+
 /** What a GraphQL response looks like, whichever half of it arrives. */
 export interface GraphQLResponse<Data> {
   readonly data?: Data | null;
-  readonly errors?: readonly { readonly message: string }[];
+  readonly errors?: readonly GraphQLResponseError[];
 }
+
+/** The variables a document is sent with, as they go into the request body. */
+export type Variables = Readonly<Record<string, unknown>>;
 
 /** Sends the query and hands back the whole response, errors and all. */
 export async function post<Data>(
   server: Server,
   document: string,
+  variables?: Variables,
 ): Promise<{ status: number; body: GraphQLResponse<Data> }> {
   const response = await server.fetch(`${origin}${graphqlRoute}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ query: document }),
+    body: JSON.stringify({ query: document, variables }),
   });
   return {
     status: response.status,
@@ -50,8 +63,9 @@ export async function post<Data>(
 export async function query<Data>(
   server: Server,
   document: string,
+  variables?: Variables,
 ): Promise<Data> {
-  const { status, body } = await post<Data>(server, document);
+  const { status, body } = await post<Data>(server, document, variables);
 
   const firstError = body.errors?.[0];
   if (firstError !== undefined) {

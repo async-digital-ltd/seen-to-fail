@@ -76,12 +76,19 @@ export const summarySource = 'summaries';
 /** The columns a summary query selects, named as the fields of CheckSummary. */
 export const checkSummaryColumns = checkSummaryColumnsFrom(summarySource);
 
-/** The derivation, as a FROM item, with its two parameters left to the caller. */
+/**
+ * The derivation, as a FROM item, with its two parameters left to the caller.
+ *
+ * The name it goes by defaults to the one the column lists above assume. A
+ * query that names it something else, as the filtered list does to match the
+ * name the filter compiler writes against, says so here.
+ */
 export function checkSummariesFrom(
   asOfParameter: string,
   staleAfterDaysParameter: string,
+  name: string = summarySource,
 ): string {
-  return `check_summaries(${asOfParameter}, ${staleAfterDaysParameter}) AS ${summarySource}`;
+  return `check_summaries(${asOfParameter}, ${staleAfterDaysParameter}) AS ${name}`;
 }
 
 /**

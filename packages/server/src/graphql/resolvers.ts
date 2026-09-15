@@ -5,8 +5,10 @@ import {
 } from '../database/checks.ts';
 import { dateScalar } from './date.ts';
 import { outcomeName, statusName } from './enums.ts';
+import { filterFromArgument, filterInputScalar } from './filter-input.ts';
 import type {
   ArmingObservationResolvers,
+  CheckListResolvers,
   CheckResolvers,
   QueryResolvers,
   Resolvers,
@@ -40,8 +42,22 @@ type CompleteResolvers = Omit<Resolvers, 'Query'> & {
 };
 
 const Query: Required<QueryResolvers> = {
-  checks: (_parent, _args, context) =>
-    listChecks(context.database, context.asOf, context.staleAfterDays),
+  checks: async (_parent, args, context) => {
+    // Validated first, and thrown from, before anything is read. A filter that
+    // fails here never reaches the query below.
+    const filter = filterFromArgument(args.filter);
+    const { checks, total } = await listChecks(
+      context.database,
+      filter,
+      context.asOf,
+      context.staleAfterDays,
+    );
+    return {
+      checks,
+      matching: checks.length,
+      hidden: total - checks.length,
+    };
+  },
 
   check: (_parent, args, context) =>
     findCheck(context.database, args.id, context.asOf, context.staleAfterDays),
@@ -69,6 +85,12 @@ const Query: Required<QueryResolvers> = {
         totals.Broken,
     };
   },
+};
+
+const CheckList: CheckListResolvers = {
+  checks: (list) => list.checks,
+  matching: (list) => list.matching,
+  hidden: (list) => list.hidden,
 };
 
 const Check: CheckResolvers = {
@@ -121,7 +143,9 @@ const StatusCounts: StatusCountsResolvers = {
 
 export const resolvers: CompleteResolvers = {
   Date: dateScalar,
+  FilterInput: filterInputScalar,
   Query,
+  CheckList,
   Check,
   TestRun,
   ArmingObservation,

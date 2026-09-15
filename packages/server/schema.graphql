@@ -133,16 +133,54 @@ type StatusCounts {
   total: Int!
 }
 
+"""
+A filter over the list of checks, written as JSON in the filter language.
+
+The shape is the filter package's own: either { "kind": "empty" }, or
+{ "kind": "groups", "joiner": "and", "groups": [...] } where each group is
+{ "joiner": "or", "conditions": [...] }. A status inside a condition is spelled
+the way the filter language spells it, such as "Proven", rather than the way the
+Status enum is.
+
+It is a JSON scalar rather than a set of input types because the language is
+already defined, validated and tested in one place. Restating it here would be a
+second definition to keep in step with the first, and the two would drift.
+"""
+scalar FilterInput
+
+"""
+The checks a filter selects, and how many it leaves out.
+
+Both counts are read in the same statement as the list, so they describe the
+same workspace as the checks beside them.
+"""
+type CheckList {
+  "The checks the filter selects, ordered by name."
+  checks: [Check!]!
+  "How many checks the filter selects."
+  matching: Int!
+  "How many checks the filter leaves out. With matching, this is every check."
+  hidden: Int!
+}
+
 type Query {
   """
-  Every check, ordered by name.
+  The checks a filter selects, ordered by name, with how many it hides.
 
-  There is no filter argument yet. The filter language exists and compiles to
-  SQL already; wiring it in here arrives with the filter epic.
+  With no filter, or a null one, every check is listed and none is hidden.
+
+  A filter the language cannot express is refused before anything is read. The
+  error's extensions carry an errors list, one entry per bad node, each with the
+  path to that node, such as groups[1].conditions[0].days, and a message.
   """
-  checks: [Check!]!
+  checks(filter: FilterInput): CheckList!
   "One check, or null when nothing is recorded under that id."
   check(id: ID!): Check
-  "How many checks hold each status."
+  """
+  How many checks hold each status.
+
+  Always the whole workspace, whatever the list is filtered by, so the counts
+  show the whole picture beside a list that may be showing part of it.
+  """
   statusCounts: StatusCounts!
 }

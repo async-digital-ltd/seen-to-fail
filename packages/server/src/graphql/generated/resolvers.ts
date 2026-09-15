@@ -20,6 +20,7 @@ import type {
 import type { RequestContext } from '../context.ts';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & {
   [P in K]-?: NonNullable<T[P]>;
 };
@@ -38,6 +39,20 @@ export type Scalars = {
    * accepting a timestamp and quietly dropping the part it cannot use.
    */
   Date: { input: IsoDate; output: IsoDate };
+  /**
+   * A filter over the list of checks, written as JSON in the filter language.
+   *
+   * The shape is the filter package's own: either { "kind": "empty" }, or
+   * { "kind": "groups", "joiner": "and", "groups": [...] } where each group is
+   * { "joiner": "or", "conditions": [...] }. A status inside a condition is spelled
+   * the way the filter language spells it, such as "Proven", rather than the way the
+   * Status enum is.
+   *
+   * It is a JSON scalar rather than a set of input types because the language is
+   * already defined, validated and tested in one place. Restating it here would be a
+   * second definition to keep in step with the first, and the two would drift.
+   */
+  FilterInput: { input: unknown; output: unknown };
 };
 
 /**
@@ -96,6 +111,22 @@ export type Check = {
   status: Status;
 };
 
+/**
+ * The checks a filter selects, and how many it leaves out.
+ *
+ * Both counts are read in the same statement as the list, so they describe the
+ * same workspace as the checks beside them.
+ */
+export type CheckList = {
+  __typename?: 'CheckList';
+  /** The checks the filter selects, ordered by name. */
+  checks: Array<Check>;
+  /** How many checks the filter leaves out. With matching, this is every check. */
+  hidden: Scalars['Int']['output'];
+  /** How many checks the filter selects. */
+  matching: Scalars['Int']['output'];
+};
+
 /** What a check did with the defect that was planted for it. */
 export type Outcome =
   /** It reported the planted defect, which is the only thing that proves it works. */
@@ -108,18 +139,30 @@ export type Query = {
   /** One check, or null when nothing is recorded under that id. */
   check?: Maybe<Check>;
   /**
-   * Every check, ordered by name.
+   * The checks a filter selects, ordered by name, with how many it hides.
    *
-   * There is no filter argument yet. The filter language exists and compiles to
-   * SQL already; wiring it in here arrives with the filter epic.
+   * With no filter, or a null one, every check is listed and none is hidden.
+   *
+   * A filter the language cannot express is refused before anything is read. The
+   * error's extensions carry an errors list, one entry per bad node, each with the
+   * path to that node, such as groups[1].conditions[0].days, and a message.
    */
-  checks: Array<Check>;
-  /** How many checks hold each status. */
+  checks: CheckList;
+  /**
+   * How many checks hold each status.
+   *
+   * Always the whole workspace, whatever the list is filtered by, so the counts
+   * show the whole picture beside a list that may be showing part of it.
+   */
   statusCounts: StatusCounts;
 };
 
 export type QueryCheckArgs = {
   id: Scalars['ID']['input'];
+};
+
+export type QueryChecksArgs = {
+  filter?: InputMaybe<Scalars['FilterInput']['input']>;
 };
 
 /**
@@ -298,7 +341,11 @@ export type ResolversTypes = {
   ArmingObservation: ResolverTypeWrapper<ArmingObservationRow>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Check: ResolverTypeWrapper<CheckRecord>;
+  CheckList: ResolverTypeWrapper<
+    Omit<CheckList, 'checks'> & { checks: Array<ResolversTypes['Check']> }
+  >;
   Date: ResolverTypeWrapper<Scalars['Date']['output']>;
+  FilterInput: ResolverTypeWrapper<Scalars['FilterInput']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   Outcome: Outcome;
@@ -314,7 +361,11 @@ export type ResolversParentTypes = {
   ArmingObservation: ArmingObservationRow;
   Boolean: Scalars['Boolean']['output'];
   Check: CheckRecord;
+  CheckList: Omit<CheckList, 'checks'> & {
+    checks: Array<ResolversParentTypes['Check']>;
+  };
   Date: Scalars['Date']['output'];
+  FilterInput: Scalars['FilterInput']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
   Query: Record<PropertyKey, never>;
@@ -372,11 +423,28 @@ export type CheckResolvers<
   status: Resolver<ResolversTypes['Status'], ParentType, ContextType>;
 };
 
+export type CheckListResolvers<
+  ContextType = RequestContext,
+  ParentType extends ResolversParentTypes['CheckList'] =
+    ResolversParentTypes['CheckList'],
+> = {
+  checks: Resolver<Array<ResolversTypes['Check']>, ParentType, ContextType>;
+  hidden: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  matching: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
 export interface DateScalarConfig extends GraphQLScalarTypeConfig<
   ResolversTypes['Date'],
   any
 > {
   name: 'Date';
+}
+
+export interface FilterInputScalarConfig extends GraphQLScalarTypeConfig<
+  ResolversTypes['FilterInput'],
+  any
+> {
+  name: 'FilterInput';
 }
 
 export type QueryResolvers<
@@ -390,7 +458,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryCheckArgs, 'id'>
   >;
-  checks?: Resolver<Array<ResolversTypes['Check']>, ParentType, ContextType>;
+  checks?: Resolver<
+    ResolversTypes['CheckList'],
+    ParentType,
+    ContextType,
+    Partial<QueryChecksArgs>
+  >;
   statusCounts?: Resolver<
     ResolversTypes['StatusCounts'],
     ParentType,
@@ -427,7 +500,9 @@ export type TestRunResolvers<
 export type Resolvers<ContextType = RequestContext> = {
   ArmingObservation: ArmingObservationResolvers<ContextType>;
   Check: CheckResolvers<ContextType>;
+  CheckList: CheckListResolvers<ContextType>;
   Date: GraphQLScalarType;
+  FilterInput: GraphQLScalarType;
   Query: QueryResolvers<ContextType>;
   StatusCounts: StatusCountsResolvers<ContextType>;
   TestRun: TestRunResolvers<ContextType>;

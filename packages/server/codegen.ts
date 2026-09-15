@@ -55,6 +55,9 @@ const config: CodegenConfig = {
         strictScalars: true,
         scalars: {
           Date: '../../database/rows.ts#IsoDate',
+          // Untrusted JSON, and typed as exactly that. A resolver has to put it
+          // through parseFilter before it can hold a Filter.
+          FilterInput: 'unknown',
         },
         contextType: '../context.ts#RequestContext',
         // Two of these are named the same as the schema types they stand in
