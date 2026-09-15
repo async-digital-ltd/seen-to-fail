@@ -474,12 +474,12 @@ describe('when a query fails', () => {
     };
     const { user } = renderApp({ answers: [failsOnce, checks] });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      "The server couldn't be reached.",
-    );
+    // The notice is found by its role and its button, not its wording, which
+    // belongs to the shared notice rather than to this screen.
+    const notice = await screen.findByRole('alert');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
 
-    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await user.click(within(notice).getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -496,8 +496,10 @@ describe('when a query fails', () => {
       ],
     });
 
+    // Only the server's own message is asserted, since the sentence around it
+    // is the shared notice's.
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The server reported a problem: The filter is not one the filter language can express.',
+      'The filter is not one the filter language can express.',
     );
     expect(
       screen.getByRole('button', { name: /^1 Proven/ }),
