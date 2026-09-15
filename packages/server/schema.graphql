@@ -1,0 +1,148 @@
+# The contract between the API and everything that reads it.
+#
+# This file is the schema rather than a printout of one. The resolvers are typed
+# from it by graphql-codegen, and the generated types are checked in, so a field
+# added here and left unresolved is a type error before it is a runtime
+# surprise. The build regenerates the types and fails if what is checked in
+# differs, which is what stops this file and the code drifting apart.
+#
+# Every description below is shown in GraphiQL, so they are written for somebody
+# reading the API rather than for somebody reading this file.
+
+"""
+A calendar day, written as YYYY-MM-DD.
+
+Days are days in this product, not instants. A run is dated and never timed, so
+the scalar carries a day and refuses anything that is not one rather than
+accepting a timestamp and quietly dropping the part it cannot use.
+"""
+scalar Date
+
+"""
+The five statuses a check can hold.
+
+A status is worked out from the record as of a day, and no table stores one, so
+these are the readings a check can give rather than states it can be put into.
+"""
+enum Status {
+  "The latest run caught its planted defect, recently enough to still believe."
+  PROVEN
+  "There is evidence it is switched on, and nothing has ever been planted for it."
+  UNPROVEN
+  "It caught a planted defect before, but longer ago than the threshold."
+  STALE
+  "There is no evidence it is switched on at all."
+  UNARMED
+  "The latest run missed the defect that was planted for it."
+  BROKEN
+}
+
+"What a check did with the defect that was planted for it."
+enum Outcome {
+  "It reported the planted defect, which is the only thing that proves it works."
+  CAUGHT
+  "The defect was planted and the check said nothing."
+  MISSED
+}
+
+"""
+One planted defect, and what the check did about it.
+
+A run is the unit of evidence in this product. Everything a check's status
+claims is read off these.
+"""
+type TestRun {
+  id: ID!
+  "The day the defect was planted, which may be before it was written down."
+  runOn: Date!
+  "What was planted."
+  planted: String!
+  "What the check was expected to do about it."
+  expected: String!
+  "What it actually did."
+  outcome: Outcome!
+  "Anything worth telling the next person. Null when nobody wrote one."
+  note: String
+}
+
+"""
+Evidence, on one day, about whether a check is switched on at all.
+
+Kept apart from a test run because the two answer different questions. A check
+can be switched on and never proved, or proved and since switched off.
+"""
+type ArmingObservation {
+  id: ID!
+  "The day somebody looked."
+  observedOn: Date!
+  "What they found."
+  armed: Boolean!
+  note: String
+}
+
+"""
+An automated check: one thing that is supposed to catch something.
+
+The summary fields below are a reading of the check's record as of today, not
+columns on a row. Two calls on either side of midnight can differ without
+anything having been written.
+"""
+type Check {
+  id: ID!
+  name: String!
+  "Where the check runs, in the team's own words."
+  area: String!
+  "What it is there to stop. Empty when nobody has written it down."
+  protects: String!
+  "How a reader can tell it is switched on. Empty when not written down."
+  howToTellArmed: String!
+  "The status derived from everything below, as of today."
+  status: Status!
+  "The last day a run caught, or null when none ever has."
+  lastCaughtOn: Date
+  "The day of the latest run, or null when there are none."
+  lastRunOn: Date
+  runCount: Int!
+  caughtCount: Int!
+  missedCount: Int!
+  "The last day an observation said it was on, or null if none has."
+  lastSeenArmedOn: Date
+  """
+  What the latest observation said, or null when there has never been one.
+  Null is "nobody has looked" and false is "somebody looked and it was off",
+  which are different things to show a reader.
+  """
+  lastArmed: Boolean
+  "Every run against this check, newest first."
+  runs: [TestRun!]!
+  "Every observation about this check, newest first."
+  armingObservations: [ArmingObservation!]!
+}
+
+"""
+How many checks hold each status, as of today.
+
+The five counts add up to the total, because a check holds exactly one status.
+"""
+type StatusCounts {
+  proven: Int!
+  unproven: Int!
+  stale: Int!
+  unarmed: Int!
+  broken: Int!
+  total: Int!
+}
+
+type Query {
+  """
+  Every check, ordered by name.
+
+  There is no filter argument yet. The filter language exists and compiles to
+  SQL already; wiring it in here arrives with the filter epic.
+  """
+  checks: [Check!]!
+  "One check, or null when nothing is recorded under that id."
+  check(id: ID!): Check
+  "How many checks hold each status."
+  statusCounts: StatusCounts!
+}

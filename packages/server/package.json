@@ -6,13 +6,20 @@
   "description": "The GraphQL API.",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "codegen": "graphql-codegen --config codegen.ts"
   },
   "dependencies": {
     "@seen-to-fail/filter": "workspace:*",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.23.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@graphql-codegen/add": "^7.1.0",
+    "@graphql-codegen/cli": "^7.4.1",
+    "@graphql-codegen/typescript": "^6.1.0",
+    "@graphql-codegen/typescript-resolvers": "^6.1.0",
     "@types/node": "^24.13.4",
     "@types/pg": "^8.23.1",
     "typescript": "^6.0.3",

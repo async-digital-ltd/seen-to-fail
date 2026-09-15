@@ -83,6 +83,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The resolver types are generated from schema.graphql and checked in, so
+      # they drift the moment somebody edits the schema without running the
+      # generator, and nothing about a stale file looks wrong when you read it.
+      # Regenerating here and refusing a difference is what makes the committed
+      # file a statement about the schema being served rather than about the
+      # schema as it was at some point. `pnpm codegen` is the fix for a failure
+      # here; it is the same command this step runs before comparing.
+      - name: Check the generated types are current
+        run: pnpm codegen:check
+
       # The image creates POSTGRES_DB and nothing else, so the test database is
       # added by the same script a local `pnpm db:up` runs. It also waits for
       # the server to accept a connection, which the health check above has
