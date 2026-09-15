@@ -1,5 +1,5 @@
 import type { Filter, Status } from '@seen-to-fail/filter';
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -7,6 +7,7 @@ import type {
   StatusCountsQuery,
 } from '../../graphql/generated/graphql';
 import {
+  AreasDocument,
   ChecksDocument,
   StatusCountsDocument,
 } from '../../graphql/generated/graphql';
@@ -157,7 +158,7 @@ function passes(
   return check.status === condition.value.toUpperCase();
 }
 
-/** Answers both queries from one workspace, as the API would. */
+/** Answers the page's queries from one workspace, as the API would. */
 function answersFor(checks: readonly ListedCheck[]): Answer[] {
   return [
     answer(StatusCountsDocument, { statusCounts: countsOf(checks) }),
@@ -170,6 +171,9 @@ function answersFor(checks: readonly ListedCheck[]): Answer[] {
           hidden: checks.length - selected.length,
         },
       };
+    }),
+    answer(AreasDocument, {
+      areas: [...new Set(checks.map((check) => check.area))].sort(),
     }),
   ];
 }
@@ -388,6 +392,220 @@ describe('the filter in the address', () => {
   });
 });
 
+/**
+ * The bar through the app's real route table, so that what the picker writes
+ * is what the address carries and what the address carries is what the chips
+ * show. The bar's own controls are tested in filter-bar.test.tsx.
+ */
+describe('the filter bar', () => {
+  /** The README's example: (status is Unproven OR status is Stale) AND area is CI. */
+  const readmeExample: Filter = {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [
+      {
+        joiner: 'or',
+        conditions: [
+          { field: 'status', op: 'is', value: 'Unproven' },
+          { field: 'status', op: 'is', value: 'Stale' },
+        ],
+      },
+      {
+        joiner: 'and',
+        conditions: [{ field: 'area', op: 'is', value: 'CI' }],
+      },
+    ],
+  };
+  const readmeAddress =
+    '?f=and!or*status.is.Unproven*status.is.Stale!and*area.is.CI';
+
+  function bar(): HTMLElement {
+    return screen.getByRole('region', { name: 'Filter' });
+  }
+
+  function group(number: number): HTMLElement {
+    return within(bar()).getByRole('group', {
+      name: `Condition group ${String(number)}`,
+    });
+  }
+
+  /** The chips on screen, as their remove buttons name them. */
+  function chips(): string[] {
+    return within(bar())
+      .queryAllByRole('button', { name: /^Remove / })
+      .map((button) => button.getAttribute('aria-label') ?? '');
+  }
+
+  it("builds the README's example through the picker, and writes it into the address", async () => {
+    const { user, router, calls } = renderApp({
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: 'Add a condition' }));
+    await user.selectOptions(screen.getByLabelText('Value'), 'Unproven');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Unproven');
+
+    await user.click(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    );
+    await user.selectOptions(screen.getByLabelText('Value'), 'Stale');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(router.state.location.search).toBe(
+      '?f=and!and*status.is.Unproven*status.is.Stale',
+    );
+
+    await user.click(
+      within(group(1)).getByRole('button', { name: 'AND, switch to OR' }),
+    );
+    expect(router.state.location.search).toBe(
+      '?f=and!or*status.is.Unproven*status.is.Stale',
+    );
+
+    await user.click(within(bar()).getByRole('button', { name: '+ group' }));
+    await user.selectOptions(screen.getByLabelText('Field'), 'area');
+    await user.type(screen.getByLabelText('Value'), 'CI');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(router.state.location.pathname).toBe('/');
+    expect(router.state.location.search).toBe(readmeAddress);
+    expect(lastChecksCall(calls)?.variables).toEqual({ filter: readmeExample });
+  });
+
+  it('reads the same chips back from that address', async () => {
+    renderApp({ route: `/${readmeAddress}`, answers: answersFor(workspace) });
+    await screen.findByRole('region', { name: 'Filter' });
+
+    expect(chips()).toEqual([
+      'Remove status is Unproven',
+      'Remove status is Stale',
+      'Remove area is CI',
+    ]);
+    expect(
+      within(group(1)).getByRole('button', { name: 'OR, switch to AND' }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar()).getByRole('button', { name: 'AND, switch to OR' }),
+    ).toBeInTheDocument();
+    expect(within(bar()).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('writes a switched joiner into the address, and reads the list with it', async () => {
+    const { user, router, calls } = renderApp({
+      route: `/${readmeAddress}`,
+      answers: answersFor(workspace),
+    });
+    await screen.findByRole('region', { name: 'Filter' });
+
+    await user.click(
+      within(bar()).getByRole('button', { name: 'AND, switch to OR' }),
+    );
+
+    expect(router.state.location.search).toBe(
+      '?f=or!or*status.is.Unproven*status.is.Stale!and*area.is.CI',
+    );
+    await waitFor(() => {
+      expect(lastChecksCall(calls)?.variables).toEqual({
+        filter: { ...readmeExample, joiner: 'or' },
+      });
+    });
+    // The pill between the groups now reads OR, as the one inside the first
+    // group already did, and no pill reads AND any more.
+    expect(
+      within(bar()).getAllByRole('button', { name: 'OR, switch to AND' }),
+    ).toHaveLength(2);
+    expect(
+      within(bar()).queryByRole('button', { name: 'AND, switch to OR' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the filter a tile set as a chip, and clears it with the rest', async () => {
+    const { user, router } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Broken/ }));
+    await screen.findByText('1 of 5 checks');
+    expect(chips()).toEqual(['Remove status is Broken']);
+
+    await user.click(within(bar()).getByRole('button', { name: 'Clear' }));
+
+    expect(router.state.location.search).toBe('');
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+    expect(bar()).toHaveTextContent('No conditions. All 5 checks are listed.');
+  });
+
+  it('says so when the address does not read as a filter, and lists every check', async () => {
+    renderApp({
+      route: '/?f=status%20is%20Stale',
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    expect(within(bar()).getByRole('alert')).toHaveTextContent(
+      "The filter in this link couldn't be read, so every check is listed.",
+    );
+    expect(bar()).toHaveTextContent('No conditions. All 5 checks are listed.');
+    expect(chips()).toEqual([]);
+  });
+
+  /**
+   * Back and forward, which with a refresh are the acceptance criterion. Each
+   * change is a history entry, so back undoes the last change and forward
+   * redoes it, and the list follows the address both ways.
+   */
+  it('steps back and forward through what was built', async () => {
+    const { user, router } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Broken/ }));
+    await screen.findByText('1 of 5 checks');
+    await user.click(
+      within(group(1)).getByRole('button', { name: '+ condition' }),
+    );
+    await user.selectOptions(screen.getByLabelText('Field'), 'runs');
+    await user.type(screen.getByLabelText('Value'), '2{Enter}');
+    expect(router.state.location.search).toBe(
+      '?f=and!and*status.is.Broken*runs.moreThan.2',
+    );
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Broken');
+    expect(chips()).toEqual(['Remove status is Broken']);
+    expect(await screen.findByText('1 of 5 checks')).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.search).toBe('');
+    expect(chips()).toEqual([]);
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate(1);
+    });
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Broken');
+    expect(chips()).toEqual(['Remove status is Broken']);
+    expect(await screen.findByText('1 of 5 checks')).toBeInTheDocument();
+  });
+
+  it('offers the areas the workspace has when an area is being chosen', async () => {
+    const { user } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: 'Add a condition' }));
+    await user.selectOptions(screen.getByLabelText('Field'), 'area');
+
+    const listId = screen.getByLabelText('Value').getAttribute('list') ?? '';
+    const offered = [
+      ...(document.getElementById(listId)?.querySelectorAll('option') ?? []),
+    ].map((option) => option.value);
+    expect(offered).toEqual(['CI', 'Docs', 'Git', 'Lint', 'Operations']);
+  });
+});
+
 describe('a filter that matches nothing', () => {
   const nothingMatches: Answer = answer(ChecksDocument, {
     checks: { checks: [], matching: 0, hidden: workspace.length },
@@ -452,7 +670,9 @@ describe('while loading', () => {
     expect(
       await screen.findByRole('button', { name: /^1 Proven/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Loading checks…');
+    // Found by its text and then checked for its role, because the filter
+    // bar, up alongside the tiles, carries a status region of its own.
+    expect(screen.getByText('Loading checks…')).toHaveRole('status');
   });
 });
 

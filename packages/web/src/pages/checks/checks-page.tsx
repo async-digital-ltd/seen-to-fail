@@ -6,6 +6,7 @@ import type { UseQueryState } from 'urql';
 import { useQuery } from 'urql';
 
 import { ErrorNotice } from '../../components/error-notice';
+import { FilterBar } from '../../components/filter/filter-bar';
 import { Loading } from '../../components/loading';
 import { StatusTile } from '../../components/status-tile';
 import { useFilter } from '../../filter/use-filter';
@@ -62,11 +63,16 @@ function onlyStatus(status: Status): Filter {
  * The home page: how the workspace stands, and the checks the filter selects.
  *
  * Two queries, read side by side. The counts are the whole workspace whatever
- * the filter, so changing the filter re-reads only the list, and the tiles and
- * the lede stay on screen while it does.
+ * the filter, so changing the filter re-reads only the list, and the tiles,
+ * the lede and the filter bar stay on screen while it does.
+ *
+ * The tiles and the bar both change the list the same way, by putting a
+ * filter in the address, and the bar shows whatever the address holds. So a
+ * tile's filter appears in the bar as a chip, and a chip added in the bar is
+ * in the link the reader copies.
  */
 export function ChecksPage(): ReactElement {
-  const { filter, setFilter } = useFilter();
+  const { filter, setFilter, unreadable } = useFilter();
   const [counts, reexecuteCounts] = useQuery({ query: StatusCountsDocument });
   const [list, reexecuteList] = useQuery({
     query: ChecksDocument,
@@ -113,6 +119,12 @@ export function ChecksPage(): ReactElement {
             />
           ))}
         </div>
+        <FilterBar
+          filter={filter}
+          onChange={setFilter}
+          total={statusCounts.total}
+          unreadable={unreadable}
+        />
         <CheckList
           result={list}
           onRetry={retryList}

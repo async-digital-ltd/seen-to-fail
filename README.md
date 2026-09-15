@@ -164,9 +164,11 @@ proves the page reaches the code: the tests import modules, and only the
 bundler starts from `index.html`.
 
 The client's home page lists the checks under their status tiles, and a tile
-narrows the list to its status. Each check has its own page, and runs are
-logged through a form. The form for adding a check is still a placeholder.
-Every later change has to keep the commands above passing.
+narrows the list to its status. A filter bar between the two builds a filter
+condition by condition, and the filter lives in the page's address, so a
+refresh, the back button and "Copy link" all keep it. Each check has its own
+page, and runs are logged through a form. The form for adding a check is still
+a placeholder. Every later change has to keep the commands above passing.
 
 ## Plan
 
