@@ -87,6 +87,31 @@ export type CheckOptionsQuery = {
   checks: { checks: Array<{ id: string; name: string }> };
 };
 
+export type ChecksQueryVariables = Exact<{
+  filter?: import('@seen-to-fail/filter').Filter | null | undefined;
+}>;
+
+export type ChecksQuery = {
+  checks: {
+    matching: number;
+    hidden: number;
+    checks: Array<{
+      id: string;
+      name: string;
+      area: string;
+      status: Status;
+      lastCaughtOn: string | null;
+      runCount: number;
+      runs: Array<{
+        id: string;
+        runOn: string;
+        outcome: Outcome;
+        planted: string;
+      }>;
+    }>;
+  };
+};
+
 export type LogTestRunMutationVariables = Exact<{
   input: LogTestRunInput;
 }>;
@@ -251,6 +276,104 @@ export const CheckOptionsDocument = {
     },
   ],
 } as unknown as DocumentNode<CheckOptionsQuery, CheckOptionsQueryVariables>;
+export const ChecksDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'Checks' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'filter' },
+          },
+          type: {
+            kind: 'NamedType',
+            name: { kind: 'Name', value: 'FilterInput' },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'checks' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'filter' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'filter' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'checks' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'area' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'status' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'lastCaughtOn' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'runCount' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'runs' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'id' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'runOn' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'outcome' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'planted' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'matching' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'hidden' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ChecksQuery, ChecksQueryVariables>;
 export const LogTestRunDocument = {
   kind: 'Document',
   definitions: [

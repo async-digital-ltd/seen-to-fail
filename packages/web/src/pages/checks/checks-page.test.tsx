@@ -1,0 +1,555 @@
+import type { Filter, Status } from '@seen-to-fail/filter';
+import { screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type {
+  ChecksQuery,
+  StatusCountsQuery,
+} from '../../graphql/generated/graphql';
+import {
+  ChecksDocument,
+  StatusCountsDocument,
+} from '../../graphql/generated/graphql';
+import { paths } from '../../paths';
+import type { Answer, Call } from '../../testing/client';
+import {
+  answer,
+  graphqlFailure,
+  networkFailure,
+  pending,
+} from '../../testing/client';
+import { renderApp } from '../../testing/render';
+import type { ListedCheck } from './check-row';
+
+/**
+ * The list screen through the app's real route table, so the address a tile
+ * writes is the address the screen reads back.
+ *
+ * The clock is held on one day, because every "last caught" figure is counted
+ * from today. Only Date is faked; timers and promises run as they do in the
+ * browser.
+ */
+
+const today = new Date('2026-09-15T12:00:00Z');
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(today);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** An invented workspace with one check in each status. */
+const workspace: readonly ListedCheck[] = [
+  {
+    id: 'build-types',
+    name: 'Build fails on a type error',
+    area: 'CI',
+    status: 'PROVEN',
+    lastCaughtOn: '2026-09-12',
+    runCount: 2,
+    runs: [
+      {
+        id: 'run-2',
+        runOn: '2026-09-12',
+        outcome: 'CAUGHT',
+        planted: 'A string passed where a number belongs.',
+      },
+      {
+        id: 'run-1',
+        runOn: '2026-08-20',
+        outcome: 'CAUGHT',
+        planted: 'A property read off an object that lacks it.',
+      },
+    ],
+  },
+  {
+    id: 'format-commit',
+    name: 'Formatter runs before commit',
+    area: 'Git',
+    status: 'BROKEN',
+    lastCaughtOn: '2026-08-01',
+    runCount: 2,
+    runs: [
+      {
+        id: 'run-4',
+        runOn: '2026-09-14',
+        outcome: 'MISSED',
+        planted: 'A file indented with tabs.',
+      },
+      {
+        id: 'run-3',
+        runOn: '2026-08-01',
+        outcome: 'CAUGHT',
+        planted: 'A line far past the width limit.',
+      },
+    ],
+  },
+  {
+    id: 'docs-links',
+    name: 'Links checked on publish',
+    area: 'Docs',
+    status: 'STALE',
+    lastCaughtOn: '2026-07-06',
+    runCount: 1,
+    runs: [
+      {
+        id: 'run-5',
+        runOn: '2026-07-06',
+        outcome: 'CAUGHT',
+        planted: 'A link to a page that was taken down.',
+      },
+    ],
+  },
+  {
+    id: 'unused-code',
+    name: 'Unused code reported',
+    area: 'Lint',
+    status: 'UNPROVEN',
+    lastCaughtOn: null,
+    runCount: 0,
+    runs: [],
+  },
+  {
+    id: 'restore-backups',
+    name: 'Backups restored weekly',
+    area: 'Operations',
+    status: 'UNARMED',
+    lastCaughtOn: null,
+    runCount: 0,
+    runs: [],
+  },
+];
+
+/** The counts a workspace really has, so no test states one of its own. */
+function countsOf(
+  checks: readonly ListedCheck[],
+): StatusCountsQuery['statusCounts'] {
+  const holding = (status: ListedCheck['status']): number =>
+    checks.filter((check) => check.status === status).length;
+  return {
+    proven: holding('PROVEN'),
+    broken: holding('BROKEN'),
+    stale: holding('STALE'),
+    unproven: holding('UNPROVEN'),
+    unarmed: holding('UNARMED'),
+    total: checks.length,
+  };
+}
+
+/**
+ * Whether a check passes a filter. The stub only needs the filters a tile
+ * sets, a single `status is`, and lets every check through anything else.
+ */
+function passes(
+  filter: Filter | null | undefined,
+  check: ListedCheck,
+): boolean {
+  if (filter === null || filter === undefined || filter.kind === 'empty') {
+    return true;
+  }
+  const condition = filter.groups[0].conditions[0];
+  if (condition.field !== 'status' || condition.op !== 'is') {
+    return true;
+  }
+  return check.status === condition.value.toUpperCase();
+}
+
+/** Answers both queries from one workspace, as the API would. */
+function answersFor(checks: readonly ListedCheck[]): Answer[] {
+  return [
+    answer(StatusCountsDocument, { statusCounts: countsOf(checks) }),
+    answer(ChecksDocument, ({ filter }): ChecksQuery => {
+      const selected = checks.filter((check) => passes(filter, check));
+      return {
+        checks: {
+          checks: selected,
+          matching: selected.length,
+          hidden: checks.length - selected.length,
+        },
+      };
+    }),
+  ];
+}
+
+function onlyStatus(status: Status): Filter {
+  return {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [
+      {
+        joiner: 'and',
+        conditions: [{ field: 'status', op: 'is', value: status }],
+      },
+    ],
+  };
+}
+
+function rowFor(name: string): HTMLElement {
+  const row = screen.getByText(name).closest('li');
+  if (row === null) {
+    throw new Error(`${name} is not in a row.`);
+  }
+  return row;
+}
+
+function lastChecksCall(calls: readonly Call[]): Call | undefined {
+  return calls.findLast((call) => call.name === 'Checks');
+}
+
+const notProvenReasons =
+  'they have never been seen to catch anything, the last proof is old, or the latest run missed. A check nobody has watched fail is a check you are trusting on faith.';
+
+describe('a workspace with checks', () => {
+  it('opens with the lede, a tile for each status and every check', async () => {
+    renderApp({ answers: answersFor(workspace) });
+
+    expect(
+      await screen.findByText(
+        `Five checks in this workspace. Four are not proven: ${notProvenReasons}`,
+      ),
+    ).toBeInTheDocument();
+
+    const tiles = within(
+      screen.getByRole('group', { name: 'Show the checks with one status' }),
+    ).getAllByRole('button');
+    expect(tiles.map((tile) => tile.textContent)).toEqual([
+      '✓ 1 Proven Caught a planted defect',
+      '✕ 1 Broken Latest run missed',
+      '! 1 Stale Last proof is old',
+      '? 1 Unproven Never seen to fail',
+      '○ 1 Unarmed No evidence it is on',
+    ]);
+
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+    expect(screen.queryByText(/hidden by this filter/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { expanded: false })).toHaveLength(
+      workspace.length,
+    );
+  });
+
+  it('shows each check with its status, its last catch and its runs', async () => {
+    renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    const toggleOf = (name: string): HTMLElement =>
+      within(rowFor(name)).getByRole('button');
+
+    expect(toggleOf('Build fails on a type error')).toHaveTextContent(
+      'Build fails on a type error CI ✓Proven Last caught 3 days ago 2 runs ▼',
+    );
+    expect(toggleOf('Formatter runs before commit')).toHaveTextContent(
+      'Formatter runs before commit Git ✕Broken Last caught 45 days ago 2 runs ▼',
+    );
+    expect(toggleOf('Links checked on publish')).toHaveTextContent(
+      'Links checked on publish Docs !Stale Last caught 71 days ago 1 run ▼',
+    );
+    expect(toggleOf('Unused code reported')).toHaveTextContent(
+      'Unused code reported Lint ?Unproven Never caught a defect 0 runs ▼',
+    );
+    expect(toggleOf('Backups restored weekly')).toHaveAccessibleName(
+      'Backups restored weekly Operations Unarmed Never caught a defect 0 runs',
+    );
+  });
+
+  it('links every row to its own check', async () => {
+    renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    for (const check of workspace) {
+      const link = within(rowFor(check.name)).getByRole('link', {
+        name: 'Open check',
+      });
+      expect(link).toHaveAttribute('href', paths.check(check.id));
+      expect(link).toHaveAccessibleDescription(check.name);
+    }
+  });
+
+  it('opens a row in place to its runs, newest first, and closes it again', async () => {
+    const { user } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+    const row = rowFor('Formatter runs before commit');
+    const toggle = within(row).getByRole('button');
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(row).getByText('▲')).toBeInTheDocument();
+    expect(
+      within(row)
+        .getAllByRole('listitem')
+        .map((run) => run.textContent),
+    ).toEqual([
+      '14 Sep 2026 ✕Missed A file indented with tabs.',
+      '1 Aug 2026 ✓Caught A line far past the width limit.',
+    ]);
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(row).queryByRole('listitem')).not.toBeInTheDocument();
+  });
+
+  it('opens a check with no runs to the way to log its first', async () => {
+    const { user } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+    const row = rowFor('Unused code reported');
+
+    await user.click(within(row).getByRole('button'));
+
+    expect(row).toHaveTextContent(
+      "Nothing's been planted for this check yet. Plant the defect it's there to catch, then log what it did.",
+    );
+    expect(
+      within(row).getByRole('link', { name: 'Log a test run' }),
+    ).toHaveAttribute('href', paths.newRun({ check: 'unused-code' }));
+  });
+});
+
+describe('the status tiles', () => {
+  it('narrow the list to one status and write it into the address', async () => {
+    const { user, router, calls } = renderApp({
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Broken/ }));
+
+    expect(await screen.findByText('1 of 5 checks')).toBeInTheDocument();
+    expect(screen.getByText('4 hidden by this filter')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Broken');
+    expect(lastChecksCall(calls)?.variables).toEqual({
+      filter: onlyStatus('Broken'),
+    });
+    expect(
+      screen.getByText('Formatter runs before commit'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Build fails on a type error'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keep counting the whole workspace while the list is narrowed', async () => {
+    const { user } = renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Stale/ }));
+    await screen.findByText('1 of 5 checks');
+
+    expect(
+      screen.getByRole('button', { name: /^1 Proven/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Five checks in this workspace\./),
+    ).toBeInTheDocument();
+  });
+
+  it('replace a filter already in the address', async () => {
+    const { user, router } = renderApp({
+      route: paths.checks({ filter: onlyStatus('Stale') }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('1 of 5 checks');
+
+    await user.click(screen.getByRole('button', { name: /^1 Unproven/ }));
+
+    expect(router.state.location.search).toBe('?f=and!and*status.is.Unproven');
+    expect(await screen.findByText('Unused code reported')).toBeInTheDocument();
+  });
+});
+
+describe('the filter in the address', () => {
+  it('is what the list is read with when the page opens', async () => {
+    const { calls } = renderApp({
+      route: '/?f=and!and*status.is.Stale',
+      answers: answersFor(workspace),
+    });
+
+    expect(await screen.findByText('1 of 5 checks')).toBeInTheDocument();
+    expect(screen.getByText('Links checked on publish')).toBeInTheDocument();
+    expect(lastChecksCall(calls)?.variables).toEqual({
+      filter: onlyStatus('Stale'),
+    });
+  });
+
+  it('lists every check when it does not read as a filter', async () => {
+    const { calls } = renderApp({
+      route: '/?f=status%20is%20Stale',
+      answers: answersFor(workspace),
+    });
+
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+    expect(lastChecksCall(calls)?.variables).toEqual({
+      filter: { kind: 'empty' },
+    });
+  });
+});
+
+describe('a filter that matches nothing', () => {
+  const nothingMatches: Answer = answer(ChecksDocument, {
+    checks: { checks: [], matching: 0, hidden: workspace.length },
+  });
+
+  it('says so, and offers to clear the filter', async () => {
+    const { user, router } = renderApp({
+      route: paths.checks({ filter: onlyStatus('Unarmed') }),
+      answers: [...answersFor(workspace), nothingMatches],
+    });
+
+    expect(
+      await screen.findByText(
+        'No checks match this filter. Remove a condition, or widen it with OR.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('0 of 5 checks')).toBeInTheDocument();
+    expect(screen.getByText('5 hidden by this filter')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Clear filter' }));
+
+    expect(router.state.location.pathname).toBe('/');
+    expect(router.state.location.search).toBe('');
+  });
+});
+
+describe('an empty workspace', () => {
+  it('says there are no checks and offers to add one', async () => {
+    renderApp({ answers: answersFor([]) });
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'No checks yet' }),
+    ).toBeInTheDocument();
+    const add = screen.getByRole('link', { name: 'Add a check' });
+    expect(add).toHaveAttribute('href', paths.newCheck());
+    expect(add).toHaveClass('button--primary');
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+    expect(screen.queryByText(/ of 0 checks/)).not.toBeInTheDocument();
+  });
+});
+
+describe('while loading', () => {
+  it('holds the heading and says the checks are on their way', () => {
+    renderApp({
+      answers: [pending(StatusCountsDocument), pending(ChecksDocument)],
+    });
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Checks' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading checks…');
+  });
+
+  it('keeps the tiles up while only the list is on its way', async () => {
+    renderApp({
+      answers: [
+        answer(StatusCountsDocument, { statusCounts: countsOf(workspace) }),
+        pending(ChecksDocument),
+      ],
+    });
+
+    expect(
+      await screen.findByRole('button', { name: /^1 Proven/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading checks…');
+  });
+});
+
+describe('when a query fails', () => {
+  it('shows one notice when the server cannot be reached, and retries', async () => {
+    let attempts = 0;
+    const [counts, checks] = answersFor(workspace);
+    if (counts === undefined || checks === undefined) {
+      throw new Error('The workspace answers are missing.');
+    }
+    const failsOnce: Answer = {
+      operationName: 'StatusCounts',
+      respond: (operation) => {
+        attempts += 1;
+        return attempts === 1
+          ? networkFailure(StatusCountsDocument).respond(operation)
+          : counts.respond(operation);
+      },
+    };
+    const { user } = renderApp({ answers: [failsOnce, checks] });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "The server couldn't be reached.",
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('5 of 5 checks')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps the tiles and says what went wrong with the list', async () => {
+    renderApp({
+      answers: [
+        ...answersFor(workspace),
+        graphqlFailure(
+          ChecksDocument,
+          'The filter is not one the filter language can express.',
+        ),
+      ],
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The server reported a problem: The filter is not one the filter language can express.',
+    );
+    expect(
+      screen.getByRole('button', { name: /^1 Proven/ }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('every figure on the page', () => {
+  it('is counted from the data the API returns', async () => {
+    const provenOnly = Array.from({ length: 13 }, (_, index): ListedCheck => ({
+      id: `proven-${String(index)}`,
+      name: `Proven check ${String(index)}`,
+      area: 'CI',
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-15',
+      runCount: 1,
+      runs: [
+        {
+          id: `run-${String(index)}`,
+          runOn: '2026-09-15',
+          outcome: 'CAUGHT',
+          planted: 'A defect planted this morning.',
+        },
+      ],
+    }));
+    renderApp({ answers: answersFor(provenOnly) });
+
+    expect(
+      await screen.findByText(
+        '13 checks in this workspace. All 13 are proven. A check nobody has watched fail is a check you are trusting on faith.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^13 Proven/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^0 Broken/ }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('13 of 13 checks')).toBeInTheDocument();
+    expect(rowFor('Proven check 0')).toHaveTextContent('Last caught today');
+  });
+
+  it('counts days from today, whatever day that is', async () => {
+    vi.setSystemTime(new Date('2026-09-22T12:00:00Z'));
+    renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    expect(rowFor('Build fails on a type error')).toHaveTextContent(
+      'Last caught 10 days ago',
+    );
+    expect(rowFor('Links checked on publish')).toHaveTextContent(
+      'Last caught 78 days ago',
+    );
+  });
+});

@@ -1,0 +1,128 @@
+.check-row + .check-row {
+  border-top: 1px solid var(--border);
+}
+
+.check-row__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.check-row__toggle {
+  display: flex;
+  flex: 1 1 20rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem 1rem;
+  min-width: 0;
+  padding: 0.875rem 1.125rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.check-row__toggle:hover {
+  background: var(--surface);
+}
+
+.check-row__identity {
+  display: flex;
+  flex: 1 1 13rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.check-row__name {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.check-row__area {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.check-row__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.125rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Fixed widths keep the facts in columns down the list. */
+.check-row__facts .status-badge {
+  min-width: 6.5rem;
+}
+
+.check-row__caught {
+  min-width: 10rem;
+}
+
+.check-row__run-count {
+  min-width: 3.75rem;
+}
+
+.check-row__caret {
+  font-size: 0.75rem;
+}
+
+.check-row__open {
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.check-row__details {
+  padding: 0.75rem 1.125rem 1.125rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.check-row__runs-heading {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.check-row__no-runs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.check-row__no-runs p {
+  flex: 1 1 16rem;
+  max-width: 64ch;
+  margin: 0;
+}
+
+.run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-list__run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.run-list__day {
+  min-width: 6.5rem;
+  color: var(--muted);
+}
+
+/* Wide enough for the longer of the two outcome badges, so the column holds. */
+.run-list__outcome {
+  min-width: 5rem;
+}

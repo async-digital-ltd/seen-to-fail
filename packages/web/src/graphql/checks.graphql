@@ -1,0 +1,20 @@
+query Checks($filter: FilterInput) {
+  checks(filter: $filter) {
+    checks {
+      id
+      name
+      area
+      status
+      lastCaughtOn
+      runCount
+      runs {
+        id
+        runOn
+        outcome
+        planted
+      }
+    }
+    matching
+    hidden
+  }
+}
