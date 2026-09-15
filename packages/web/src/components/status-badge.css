@@ -1,0 +1,72 @@
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The word takes the status colour where it stays readable on the ground. */
+.status-badge--proven {
+  color: var(--success);
+}
+
+.status-badge--broken {
+  color: var(--error);
+}
+
+/* Amber is too light to read as text, so Stale says its word in ink. */
+.status-badge--stale {
+  color: var(--ink);
+}
+
+.status-badge--unproven,
+.status-badge--unarmed {
+  color: var(--muted);
+}
+
+.status-glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.status-glyph--proven {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--bg);
+}
+
+.status-glyph--broken {
+  border-color: var(--error);
+  background: var(--error);
+  color: var(--bg);
+}
+
+/* Amber only ever appears as a fill, with dark ink on it. */
+.status-glyph--stale {
+  border-color: var(--warning);
+  background: var(--warning);
+  color: var(--ink);
+}
+
+.status-glyph--unproven {
+  border-color: var(--muted);
+  background: var(--muted);
+  color: var(--bg);
+}
+
+/* Outlined rather than filled: there is no evidence to fill it with. */
+.status-glyph--unarmed {
+  border-color: var(--muted);
+  background: transparent;
+  color: var(--muted);
+}
