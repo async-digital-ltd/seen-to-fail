@@ -14,6 +14,7 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+  'query Areas {\n  areas\n}': typeof types.AreasDocument;
   'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}': typeof types.CheckDetailDocument;
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}': typeof types.CheckOptionsDocument;
   'query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}': typeof types.ChecksDocument;
@@ -22,6 +23,7 @@ type Documents = {
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}': typeof types.StatusCountsDocument;
 };
 const documents: Documents = {
+  'query Areas {\n  areas\n}': types.AreasDocument,
   'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}':
     types.CheckDetailDocument,
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}':
@@ -50,6 +52,12 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown;
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'query Areas {\n  areas\n}',
+): (typeof documents)['query Areas {\n  areas\n}'];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

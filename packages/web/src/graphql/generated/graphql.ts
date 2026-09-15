@@ -61,6 +61,10 @@ export type Status =
   /** There is evidence it is switched on, and nothing has ever been planted for it. */
   | 'UNPROVEN';
 
+export type AreasQueryVariables = Exact<{ [key: string]: never }>;
+
+export type AreasQuery = { areas: Array<string> };
+
 export type CheckDetailQueryVariables = Exact<{
   id: string | number;
 }>;
@@ -171,6 +175,20 @@ export type StatusCountsQuery = {
   };
 };
 
+export const AreasDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'Areas' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [{ kind: 'Field', name: { kind: 'Name', value: 'areas' } }],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AreasQuery, AreasQueryVariables>;
 export const CheckDetailDocument = {
   kind: 'Document',
   definitions: [

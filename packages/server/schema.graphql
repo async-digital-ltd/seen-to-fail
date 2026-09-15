@@ -177,6 +177,15 @@ type Query {
   "One check, or null when nothing is recorded under that id."
   check(id: ID!): Check
   """
+  Every area a check is in, once each, ordered by name.
+
+  For offering a reader the areas that already exist, such as beside a field
+  that takes one, so that a second spelling of an area is a choice rather than
+  a slip. An area is compared exactly wherever it is compared, so these are the
+  spellings the workspace holds. Empty when there are no checks.
+  """
+  areas: [String!]!
+  """
   How many checks hold each status.
 
   Always the whole workspace, whatever the list is filtered by, so the counts

@@ -230,6 +230,15 @@ export type Outcome =
 
 export type Query = {
   __typename?: 'Query';
+  /**
+   * Every area a check is in, once each, ordered by name.
+   *
+   * For offering a reader the areas that already exist, such as beside a field
+   * that takes one, so that a second spelling of an area is a choice rather than
+   * a slip. An area is compared exactly wherever it is compared, so these are the
+   * spellings the workspace holds. Empty when there are no checks.
+   */
+  areas: Array<Scalars['String']['output']>;
   /** One check, or null when nothing is recorded under that id. */
   check?: Maybe<Check>;
   /**
@@ -721,6 +730,7 @@ export type QueryResolvers<
   ParentType extends ResolversParentTypes['Query'] =
     ResolversParentTypes['Query'],
 > = {
+  areas?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   check?: Resolver<
     Maybe<ResolversTypes['Check']>,
     ParentType,

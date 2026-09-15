@@ -1,6 +1,7 @@
 import {
   countChecksByStatus,
   findCheck,
+  listAreas,
   listChecks,
 } from '../database/checks.ts';
 import type { CheckRecord } from '../database/checks.ts';
@@ -84,6 +85,8 @@ const Query: Required<QueryResolvers> = {
 
   check: (_parent, args, context) =>
     findCheck(context.database, args.id, context.asOf, context.staleAfterDays),
+
+  areas: (_parent, _args, context) => listAreas(context.database),
 
   statusCounts: async (_parent, _args, context) => {
     const totals = await countChecksByStatus(

@@ -196,6 +196,23 @@ export async function findCheck(
 }
 
 /**
+ * Every area a check is in, once each, ordered by name.
+ *
+ * Read from the checks table alone. An area is a check's own text and a filter
+ * compares it exactly, so the list is the spellings the workspace holds rather
+ * than a normalised set: a reader offered these picks a spelling that a filter
+ * will match. The order follows the database's collation, which is the same
+ * order the list of checks is read in.
+ */
+export async function listAreas(database: Queryable): Promise<string[]> {
+  const rows = await selectRows<{ area: string }>(
+    database,
+    'SELECT DISTINCT area FROM checks ORDER BY area',
+  );
+  return rows.map((row) => row.area);
+}
+
+/**
  * Every run recorded against any of the given checks, newest first.
  *
  * One statement for the whole set, which is what stops a list of checks asking
