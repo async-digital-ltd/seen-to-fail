@@ -149,7 +149,7 @@ async function checkAfterWrite(
  * Each one has the same order and it is the point of the file: the input goes
  * through its parse function, and a refusal is answered before the database is
  * asked anything. Only then is the row inserted, and the insert can still be
- * refused for the two reasons only the database knows. Either kind of refusal
+ * refused for the three reasons only the database knows. Either kind of refusal
  * comes back as ValidationErrors in the data rather than as an error, so a form
  * shows it beside the field it names.
  *

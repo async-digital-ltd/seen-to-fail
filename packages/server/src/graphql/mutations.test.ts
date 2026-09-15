@@ -1,11 +1,19 @@
 import { expect, it, vi } from 'vitest';
 
 import { todayInUtc } from '../day.ts';
-import { nameTaken, noSuchCheck } from '../database/new-records.ts';
+import {
+  MAX_LABEL_LENGTH,
+  MAX_TEXT_LENGTH,
+  nameTaken,
+  noSuchCheck,
+  observationDatedAfterToday,
+  runDatedAfterToday,
+} from '../database/new-records.ts';
 import type { IsoDate } from '../database/rows.ts';
 import { seedWorkspace } from '../database/seed.ts';
-import { query } from '../testing/graphql.ts';
+import { post, query } from '../testing/graphql.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
+import { buildSchema } from './schema.ts';
 import { createGraphQLServer } from './server.ts';
 
 /**
@@ -34,12 +42,59 @@ type Server = ReturnType<typeof createGraphQLServer>;
 
 const millisecondsPerDay = 86_400_000;
 
-/** The day after a day, both written as YYYY-MM-DD. */
-function dayAfter(day: IsoDate): IsoDate {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + millisecondsPerDay)
+/** A whole number of days after a day, both written as YYYY-MM-DD. */
+function daysAfter(day: IsoDate, days: number): IsoDate {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * millisecondsPerDay)
     .toISOString()
     .slice(0, 10);
 }
+
+/** The day after a day. */
+function dayAfter(day: IsoDate): IsoDate {
+  return daysAfter(day, 1);
+}
+
+/**
+ * Characters in an order PostgreSQL cannot compress, drawn from a run of
+ * character codes.
+ *
+ * The index that keeps names unique compresses what it stores, so a name of one
+ * character repeated fits in an index entry at almost any length and never meets
+ * the index's size limit. Text like this does, as a long paste would. It is
+ * generated rather than random so that every run sends the same text.
+ */
+function incompressible(
+  length: number,
+  [firstCode, codeCount]: readonly [number, number],
+): string {
+  let state = 2463534242;
+  let text = '';
+  for (let index = 0; index < length; index += 1) {
+    state = (state ^ (state << 13)) >>> 0;
+    state = (state ^ (state >>> 17)) >>> 0;
+    state = (state ^ (state << 5)) >>> 0;
+    text += String.fromCharCode(firstCode + (state % codeCount));
+  }
+  return text;
+}
+
+/** Printable ASCII other than the space, each stored in one byte. */
+const oneByteCharacters = [0x21, 94] as const;
+
+/**
+ * CJK ideographs, each stored in three bytes of UTF-8, which is the most a
+ * single UTF-16 code unit takes.
+ */
+const threeByteCharacters = [0x4e00, 20_000] as const;
+
+/** A NUL, which PostgreSQL refuses in text. */
+const withNul = 'Something with a \u0000 in it.';
+
+/**
+ * Half of a character: the first surrogate of a pair, alone. The driver swaps it
+ * for a replacement character, so PostgreSQL would store something else.
+ */
+const withHalfACharacter = 'Something with half of \uD83D in it.';
 
 /** A well formed id that the database never issued. */
 const unusedId = '3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
@@ -276,6 +331,100 @@ const requiredCheckFields = [
   'howToTellArmed',
 ] as const;
 
+type WriteName = 'createCheck' | 'logTestRun' | 'recordArmingObservation';
+
+/** Sends a write by name, so one table of fields can drive all three. */
+async function send(
+  server: Server,
+  write: WriteName,
+  input: Record<string, unknown>,
+): Promise<{ readonly __typename: string }> {
+  switch (write) {
+    case 'createCheck':
+      return createCheck(server, input);
+    case 'logTestRun':
+      return logTestRun(server, input);
+    case 'recordArmingObservation':
+      return recordArmingObservation(server, input);
+  }
+}
+
+/** An input to each write that breaks no rule, against the given check. */
+function validInput(
+  write: WriteName,
+  checkId: string,
+  today: IsoDate,
+): Record<string, unknown> {
+  switch (write) {
+    case 'createCheck':
+      return { ...newCheck };
+    case 'logTestRun':
+      return {
+        checkId,
+        runOn: today,
+        planted: 'A value of the wrong type.',
+        expected: 'The type check fails.',
+        outcome: 'CAUGHT',
+      };
+    case 'recordArmingObservation':
+      return { checkId, observedOn: today, armed: true };
+  }
+}
+
+/** One text field of one write, and the longest it may be. */
+interface TextField {
+  readonly write: WriteName;
+  readonly field: string;
+  readonly maxLength: number;
+}
+
+/** Every text field of every write. */
+const textFields: readonly TextField[] = [
+  { write: 'createCheck', field: 'name', maxLength: MAX_LABEL_LENGTH },
+  { write: 'createCheck', field: 'area', maxLength: MAX_LABEL_LENGTH },
+  { write: 'createCheck', field: 'protects', maxLength: MAX_TEXT_LENGTH },
+  { write: 'createCheck', field: 'howToTellArmed', maxLength: MAX_TEXT_LENGTH },
+  { write: 'logTestRun', field: 'planted', maxLength: MAX_TEXT_LENGTH },
+  { write: 'logTestRun', field: 'expected', maxLength: MAX_TEXT_LENGTH },
+  { write: 'logTestRun', field: 'note', maxLength: MAX_TEXT_LENGTH },
+  {
+    write: 'recordArmingObservation',
+    field: 'note',
+    maxLength: MAX_TEXT_LENGTH,
+  },
+];
+
+/**
+ * Puts a value that breaks a rule into every text field in turn, against the
+ * seeded workspace, and expects each write to be refused on that field alone
+ * and nothing to be written.
+ *
+ * Seeded, and aimed at a check that exists, so that a rule taken away shows up
+ * as a row written or as the database's own refusal, rather than being hidden
+ * behind a refusal on checkId.
+ */
+async function expectRefusedInEveryTextField(
+  valueFor: (textField: TextField) => string,
+): Promise<void> {
+  const { server, asOf, idOf, before } = await seeded();
+  const checkId = idOf('Type check on every pull request', 'PROVEN');
+
+  for (const textField of textFields) {
+    const result = await send(server, textField.write, {
+      ...validInput(textField.write, checkId, asOf),
+      [textField.field]: valueFor(textField),
+    });
+
+    const errors = refusalOf(result);
+    expect(
+      errors.map((error) => `${textField.write}.${error.path}`),
+    ).toStrictEqual([`${textField.write}.${textField.field}`]);
+    expect(errors[0]?.message.trim()).not.toBe('');
+  }
+
+  expect(await workspace(server)).toStrictEqual(before);
+}
+
 it('creates a check, stored trimmed, that reads Unarmed', async () => {
   const server = createGraphQLServer({
     database: database.client(),
@@ -342,6 +491,26 @@ it('reports every blank field of a new check at once, in the order of the form',
   });
 
   expect(pathsOf(result)).toStrictEqual([...requiredCheckFields]);
+});
+
+/**
+ * A field that breaks two rules is one field to fix, so it is listed once, with
+ * the first rule it breaks. A form counting what is wrong counts fields.
+ */
+it('lists a field that breaks two rules once, with the first it breaks', async () => {
+  const server = createGraphQLServer({
+    database: database.client(),
+    asOf: todayInUtc(),
+  });
+
+  const result = await createCheck(server, {
+    ...newCheck,
+    name: 'x'.repeat(MAX_LABEL_LENGTH) + withNul,
+  });
+
+  const errors = refusalOf(result);
+  expect(errors.map((error) => error.path)).toStrictEqual(['name']);
+  expect(errors[0]?.message).toContain(String(MAX_LABEL_LENGTH));
 });
 
 /**
@@ -596,6 +765,144 @@ it('refuses an observation about a check that does not exist on checkId', async 
   expect(await workspace(server)).toStrictEqual(before);
 });
 
+it('refuses text longer than its field allows on that field, and writes nothing', async () => {
+  await expectRefusedInEveryTextField(({ maxLength }) =>
+    'x'.repeat(maxLength + 1),
+  );
+});
+
+/**
+ * The longest text each field allows, written in characters that take the most
+ * bytes and in an order that cannot be compressed, so a name at its limit is as
+ * large an index entry as a name can be. A limit raised past what the index can
+ * hold fails here, with the database's own refusal. The spaces around the name
+ * are trimmed before it is measured.
+ */
+it('accepts text at the longest its field allows, measured after trimming', async () => {
+  const { server, asOf, idOf } = await seeded();
+  const checkId = idOf('Type check on every pull request', 'PROVEN');
+  const label = incompressible(MAX_LABEL_LENGTH, threeByteCharacters);
+  const text = incompressible(MAX_TEXT_LENGTH, threeByteCharacters);
+
+  const created = writtenAs(
+    await createCheck(server, {
+      name: `  ${label} `,
+      area: label,
+      protects: text,
+      howToTellArmed: text,
+    }),
+    'Check',
+  );
+  expect(created.name).toBe(label);
+
+  writtenAs(
+    await logTestRun(server, {
+      ...validInput('logTestRun', checkId, asOf),
+      planted: text,
+      expected: text,
+      note: text,
+    }),
+    'TestRunLogged',
+  );
+  writtenAs(
+    await recordArmingObservation(server, {
+      ...validInput('recordArmingObservation', checkId, asOf),
+      note: text,
+    }),
+    'ArmingObservationRecorded',
+  );
+});
+
+/**
+ * A long paste into the name, of the kind PostgreSQL cannot fit in the index
+ * that keeps names unique. The database refuses that with an error naming the
+ * unique constraint, so a writer that matched on the name alone would tell the
+ * person the name is taken while no check has it. It is refused here for its
+ * length before the database is asked.
+ */
+it('refuses a name too long to index as too long, not as a name in use', async () => {
+  const server = createGraphQLServer({
+    database: database.client(),
+    asOf: todayInUtc(),
+  });
+
+  const result = await createCheck(server, {
+    ...newCheck,
+    name: incompressible(4000, oneByteCharacters),
+  });
+
+  const errors = refusalOf(result);
+  expect(errors.map((error) => error.path)).toStrictEqual(['name']);
+  expect(errors[0]?.message).not.toBe(nameTaken.message);
+  expect(await workspace(server)).toStrictEqual([]);
+});
+
+it('refuses text holding a NUL on that field, and writes nothing', async () => {
+  await expectRefusedInEveryTextField(() => withNul);
+});
+
+it('refuses text holding half of a character on that field, and writes nothing', async () => {
+  await expectRefusedInEveryTextField(() => withHalfACharacter);
+});
+
+/**
+ * The server's today running ahead of the database's, as it does when the two
+ * clocks disagree across midnight. Pinned here a week ahead, so the rule checked
+ * against the request passes and the database's own constraint is the one that
+ * refuses. That refusal is the same rule, so it comes back as the same field
+ * error rather than as a failure.
+ */
+it('refuses a day the database counts as after today on that field, even when the server does not', async () => {
+  const { server, asOf, idOf, before } = await seeded();
+  const weekAhead = daysAfter(asOf, 7);
+  const ahead = createGraphQLServer({
+    database: database.client(),
+    asOf: weekAhead,
+  });
+  const checkId = idOf('Type check on every pull request', 'PROVEN');
+
+  const run = await logTestRun(ahead, {
+    ...validInput('logTestRun', checkId, asOf),
+    runOn: weekAhead,
+  });
+  expect(refusalOf(run)).toStrictEqual([runDatedAfterToday]);
+
+  const observation = await recordArmingObservation(ahead, {
+    ...validInput('recordArmingObservation', checkId, asOf),
+    observedOn: weekAhead,
+  });
+  expect(refusalOf(observation)).toStrictEqual([observationDatedAfterToday]);
+
+  expect(await workspace(server)).toStrictEqual(before);
+});
+
+/**
+ * A rule only the database can judge is judged as the row is written, so it is
+ * never reached while another rule is broken. Asking the database first would
+ * send a statement for an input already known to be invalid. The first input
+ * below breaks one of each and hears only about the blank field; the same input
+ * with the field filled in hears about the check.
+ *
+ * ValidationErrors is described in the schema, and the description is read
+ * here too, because it once promised every field at fault and this is the
+ * case where that was not true.
+ */
+it('reports a rule only the database can judge once every other rule has passed, as the schema says', async () => {
+  const { server, asOf } = await seeded();
+  const input = validInput('logTestRun', unusedId, asOf);
+
+  expect(
+    pathsOf(await logTestRun(server, { ...input, planted: '' })),
+  ).toStrictEqual(['planted']);
+  expect(refusalOf(await logTestRun(server, input))).toStrictEqual([
+    noSuchCheck,
+  ]);
+
+  const description =
+    buildSchema().getType('ValidationErrors')?.description ?? '';
+  expect(description).toContain('only found once every other rule has passed');
+});
+
 /**
  * The acceptance test for the edge: an input a rule refuses issues no statement
  * at all. Counted on the connection the server was handed, as the filter and
@@ -606,8 +913,13 @@ it('refuses an observation about a check that does not exist on checkId', async 
  * counts its insert and the read of the check after it, so a count of zero
  * below means nothing was sent rather than that the spy was not listening.
  *
- * The two rules only the database can apply are not in this list, because they
- * cannot be applied without asking it.
+ * Every text field is sent blank where it is required, one character too long,
+ * with a NUL and with half of a character. Beside those are the values that
+ * reached PostgreSQL before a rule was written for them: a name too long for
+ * its index, and a day in year 0000, which the Date scalar refuses as GraphQL
+ * reads the variables rather than as a rule. The three rules only the database
+ * can apply are not in the list, because they cannot be applied without asking
+ * it.
  */
 it('never reaches the database with an input a rule refuses', async () => {
   const client = database.client();
@@ -615,26 +927,40 @@ it('never reaches the database with an input a rule refuses', async () => {
   const server = createGraphQLServer({ database: client, asOf: today });
   const tomorrow = dayAfter(today);
 
-  const run = {
-    checkId: unusedId,
-    runOn: today,
-    planted: 'Something planted.',
-    expected: 'Something expected.',
-    outcome: 'CAUGHT',
-  };
-  const observation = { checkId: unusedId, observedOn: today, armed: true };
+  const inputFor = (write: WriteName, change: Record<string, unknown>) => ({
+    write,
+    input: { ...validInput(write, unusedId, today), ...change },
+  });
 
-  const refused: readonly (() => Promise<{ __typename: string }>)[] = [
-    () => createCheck(server, { ...newCheck, name: ' ' }),
-    () => createCheck(server, { ...newCheck, howToTellArmed: '' }),
-    () => logTestRun(server, { ...run, checkId: 'not-an-id' }),
-    () => logTestRun(server, { ...run, runOn: tomorrow }),
-    () => logTestRun(server, { ...run, planted: '' }),
-    () => logTestRun(server, { ...run, expected: '  ' }),
-    () =>
-      recordArmingObservation(server, { ...observation, checkId: 'not-an-id' }),
-    () =>
-      recordArmingObservation(server, { ...observation, observedOn: tomorrow }),
+  const refusedByRule = [
+    inputFor('createCheck', {
+      name: incompressible(4000, oneByteCharacters),
+    }),
+    inputFor('logTestRun', { checkId: 'not-an-id' }),
+    inputFor('logTestRun', { runOn: tomorrow }),
+    inputFor('recordArmingObservation', { checkId: 'not-an-id' }),
+    inputFor('recordArmingObservation', { observedOn: tomorrow }),
+  ];
+  for (const { write, field, maxLength } of textFields) {
+    const breaking = ['x'.repeat(maxLength + 1), withNul, withHalfACharacter];
+    if (field !== 'note') {
+      breaking.push('  ');
+    }
+    for (const value of breaking) {
+      refusedByRule.push(inputFor(write, { [field]: value }));
+    }
+  }
+
+  const refusedByScalar = [
+    {
+      document: logTestRunDocument,
+      input: inputFor('logTestRun', { runOn: '0000-01-01' }).input,
+    },
+    {
+      document: recordArmingObservationDocument,
+      input: inputFor('recordArmingObservation', { observedOn: '0000-01-01' })
+        .input,
+    },
   ];
 
   const watched = vi.spyOn(client, 'query');
@@ -642,12 +968,21 @@ it('never reaches the database with an input a rule refuses', async () => {
     writtenAs(await createCheck(server, newCheck), 'Check');
     expect(watched.mock.calls.length).toBeGreaterThan(0);
 
-    for (const write of refused) {
+    for (const { write, input } of refusedByRule) {
       watched.mockClear();
 
-      const result = await write();
+      const result = await send(server, write, input);
 
       expect(result.__typename).toBe('ValidationErrors');
+      expect(watched.mock.calls.length).toBe(0);
+    }
+
+    for (const { document, input } of refusedByScalar) {
+      watched.mockClear();
+
+      const { body } = await post(server, document, { input });
+
+      expect(body.errors?.[0]?.message).toContain('0000-01-01');
       expect(watched.mock.calls.length).toBe(0);
     }
   } finally {

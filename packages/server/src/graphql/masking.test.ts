@@ -39,16 +39,38 @@ const databaseCode = '22021';
 /** What the server tells a client in place of an error it did not expect. */
 const maskedMessage = 'Unexpected error.';
 
+/** What a failing statement carries, beyond the driver's error class. */
+interface Failure {
+  readonly message: string;
+  readonly code: string;
+  /** The function inside PostgreSQL that raised it, when that is known. */
+  readonly routine?: string;
+  /** The constraint PostgreSQL names, when the failure names one. */
+  readonly constraint?: string;
+}
+
+/** The failure most tests below use, which names no constraint. */
+const invalidEncoding: Failure = {
+  message: databaseMessage,
+  code: databaseCode,
+  routine: 'report_invalid_encoding',
+};
+
 /**
  * A connection whose every statement fails the way PostgreSQL would, and the
  * mock behind it, so a test can see that a statement was attempted.
  */
-function failingDatabase() {
+function failingDatabase(failure: Failure = invalidEncoding) {
   const query = vi.fn(() => {
-    const error = new DatabaseError(databaseMessage, 0, 'error');
+    const error = new DatabaseError(failure.message, 0, 'error');
     error.severity = 'ERROR';
-    error.code = databaseCode;
-    error.routine = 'report_invalid_encoding';
+    error.code = failure.code;
+    if (failure.routine !== undefined) {
+      error.routine = failure.routine;
+    }
+    if (failure.constraint !== undefined) {
+      error.constraint = failure.constraint;
+    }
     return Promise.reject(error);
   });
   const database: Queryable = { query };
@@ -127,5 +149,69 @@ for (const { field, document } of [...readsThatFail, ...writesThatFail]) {
     expect(sent).not.toContain(databaseCode);
     expect(sent).not.toContain('originalError');
     expect(sent).not.toContain('stack');
+  });
+}
+
+/**
+ * Failures that name a constraint, though not as a refusal the write expects.
+ *
+ * A write recognises a refusal it can explain by the SQLSTATE and the constraint
+ * together, and must mask everything else, including a failure that names one
+ * of its own constraints. The first is what PostgreSQL sends for a name too long
+ * to fit in the unique index: it names the unique constraint, with a code that
+ * means a limit was reached rather than that the name is in use. The rest name
+ * a constraint each write has and never expects to be refused by, its primary
+ * key, with the code a real collision would carry.
+ */
+const constraintsNotExpected = [
+  {
+    field: 'createCheck',
+    code: '54000',
+    constraint: 'checks_name_unique',
+    message:
+      'index row size 2712 exceeds btree version 4 maximum 2704 for index "checks_name_unique"',
+  },
+  {
+    field: 'createCheck',
+    code: '23505',
+    constraint: 'checks_pkey',
+    message: 'duplicate key value violates unique constraint "checks_pkey"',
+  },
+  {
+    field: 'logTestRun',
+    code: '23505',
+    constraint: 'test_runs_pkey',
+    message: 'duplicate key value violates unique constraint "test_runs_pkey"',
+  },
+  {
+    field: 'recordArmingObservation',
+    code: '23505',
+    constraint: 'arming_observations_pkey',
+    message:
+      'duplicate key value violates unique constraint "arming_observations_pkey"',
+  },
+];
+
+for (const failure of constraintsNotExpected) {
+  it(`masks ${failure.constraint} failing with ${failure.code} behind ${failure.field}`, async () => {
+    const write = writesThatFail.find(({ field }) => field === failure.field);
+    const { database, query } = failingDatabase(failure);
+    const server = createGraphQLServer({ database });
+
+    const { body } = await post(server, write?.document ?? '');
+
+    expect(query).toHaveBeenCalled();
+
+    // An error, masked, rather than an answer. A write that explained this
+    // failure as a refusal would put ValidationErrors in the data instead.
+    expect(body.data).toBeNull();
+    expect(body.errors).toHaveLength(1);
+    const [error] = body.errors ?? [];
+    expect(error?.message).toBe(maskedMessage);
+    expect(error?.path).toStrictEqual([failure.field]);
+
+    const sent = JSON.stringify(body);
+    expect(sent).not.toContain(failure.message);
+    expect(sent).not.toContain(failure.constraint);
   });
 }

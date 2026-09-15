@@ -26,6 +26,17 @@ import type { IsoDate } from '../database/rows.ts';
 const dayShape = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * The first day there is, as far as this product is concerned.
+ *
+ * ISO 8601 has a year 0000, which is the year before 0001, and JavaScript parses
+ * it happily. PostgreSQL counts years with no year zero, as the calendar did,
+ * and refuses the day outright, so a date column cannot hold one. It is refused
+ * here rather than sent, and nothing a check has ever caught happened then.
+ * Text in this shape sorts as the days it names, so comparing the text is enough.
+ */
+const firstDay = '0001-01-01';
+
+/**
  * Whether the text is a day that exists.
  *
  * The shape alone accepts 2026-02-30 and 2026-13-01, which are not days. The
@@ -34,7 +45,7 @@ const dayShape = /^\d{4}-\d{2}-\d{2}$/;
  * back gives different text. A month out of range does not parse at all.
  */
 function isRealDay(value: string): boolean {
-  if (!dayShape.test(value)) {
+  if (!dayShape.test(value) || value < firstDay) {
     return false;
   }
   const parsed = Date.parse(`${value}T00:00:00Z`);

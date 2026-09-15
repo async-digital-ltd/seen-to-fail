@@ -104,6 +104,21 @@ describe('on the way in, as a variable', () => {
     );
     expect(() => dateScalar.coerceInputValue(20260301)).toThrow(GraphQLError);
   });
+
+  /**
+   * JavaScript parses year 0000 as a real day and PostgreSQL refuses it, so a
+   * scalar that let it through would send a value the database cannot store.
+   * The first day of year 0001 is the other side of the same line.
+   */
+  it('refuses year 0000, which the database has no room for, and accepts year 0001', () => {
+    expect(() => dateScalar.coerceInputValue('0000-01-01')).toThrow(
+      GraphQLError,
+    );
+    expect(() => dateScalar.coerceInputValue('0000-12-31')).toThrow(
+      GraphQLError,
+    );
+    expect(dateScalar.coerceInputValue('0001-01-01')).toBe('0001-01-01');
+  });
 });
 
 describe('on the way in, written into the query', () => {
@@ -117,6 +132,15 @@ describe('on the way in, written into the query', () => {
     expect(() =>
       dateScalar.coerceInputLiteral?.(literal('2026-02-30')),
     ).toThrow(GraphQLError);
+  });
+
+  it('refuses year 0000, and accepts year 0001', () => {
+    expect(() =>
+      dateScalar.coerceInputLiteral?.(literal('0000-01-01')),
+    ).toThrow(GraphQLError);
+    expect(dateScalar.coerceInputLiteral?.(literal('0001-01-01'))).toBe(
+      '0001-01-01',
+    );
   });
 
   it('refuses a literal that is not a string, by its kind', () => {

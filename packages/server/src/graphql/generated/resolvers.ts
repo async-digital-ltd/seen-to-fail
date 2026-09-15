@@ -32,7 +32,7 @@ export type Scalars = {
   Int: { input: number; output: number };
   Float: { input: number; output: number };
   /**
-   * A calendar day, written as YYYY-MM-DD.
+   * A calendar day, written as YYYY-MM-DD, from 0001-01-01 on.
    *
    * Days are days in this product, not instants. A run is dated and never timed, so
    * the scalar carries a day and refuses anything that is not one rather than
@@ -187,17 +187,19 @@ export type Mutation = {
   __typename?: 'Mutation';
   /**
    * Adds a check, which reads Unarmed until a run or an observation is recorded
-   * against it. A blank field is refused on that field, and a name already in use
-   * on name.
+   * against it. A field that is blank, too long or holds a character that cannot
+   * be saved is refused on that field, and a name already in use on name.
    */
   createCheck: CheckResult;
   /**
-   * Logs a test run. A blank field is refused on that field, an unknown check on
-   * checkId, and a day after today on runOn.
+   * Logs a test run. A field that is blank, too long or holds a character that
+   * cannot be saved is refused on that field, an unknown check on checkId, and a
+   * day after today on runOn.
    */
   logTestRun: TestRunResult;
   /**
-   * Records an arming observation. An unknown check is refused on checkId, and a
+   * Records an arming observation. A note that is too long or holds a character
+   * that cannot be saved is refused on note, an unknown check on checkId, and a
    * day after today on observedOn.
    */
   recordArmingObservation: ArmingObservationResult;
@@ -331,9 +333,14 @@ export type TestRunLogged = {
 export type TestRunResult = TestRunLogged | ValidationErrors;
 
 /**
- * Why an input was refused, one entry per field at fault.
+ * Why an input was refused. Nothing was written.
  *
- * Nothing was written. Every field at fault is listed, not only the first.
+ * The rules that can be judged from the input alone are judged together, and every
+ * field that breaks one is listed, once, with the first rule it breaks. The rules
+ * only the database can judge, a name already in use, a check that does not exist
+ * and a day after the database's own today, are judged as the row is written. So
+ * one of those is only found once every other rule has passed, and is listed on
+ * its own.
  */
 export type ValidationErrors = {
   __typename?: 'ValidationErrors';
