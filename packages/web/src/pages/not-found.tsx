@@ -9,7 +9,7 @@ export function NotFound(): ReactElement {
     <>
       <h1>Page not found</h1>
       <p>
-        There is no page at this address.{' '}
+        There's no page at this address.{' '}
         <Link to={paths.checks()}>Go to the checks</Link>.
       </p>
     </>

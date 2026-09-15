@@ -80,6 +80,9 @@ describe('an address no screen claims', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Page not found' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveTextContent(
+      "There's no page at this address.",
+    );
     expect(
       screen.getByRole('link', { name: 'Go to the checks' }),
     ).toHaveAttribute('href', '/');
@@ -99,7 +102,7 @@ describe('a screen that throws', () => {
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Something went wrong.',
+      'The app ran into a bug.',
     );
     expect(
       screen.getByRole('link', { name: 'Log a test run' }),

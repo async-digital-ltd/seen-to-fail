@@ -13,7 +13,7 @@ export function Placeholder({ title }: PlaceholderProps): ReactElement {
   return (
     <>
       <h1>{title}</h1>
-      <p className="muted">This screen has not been built yet.</p>
+      <p className="muted">This screen hasn't been built yet.</p>
     </>
   );
 }

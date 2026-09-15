@@ -6,8 +6,8 @@ import './error-notice.css';
 interface ErrorNoticeProps {
   /**
    * What went wrong. A CombinedError from the client is put into plain words;
-   * anything else gets the general sentence, since its message was written for
-   * a developer.
+   * anything else is named as a bug in the app, and its own message stays off
+   * the screen, since it was written for a developer.
    */
   readonly error: unknown;
   /**
@@ -23,18 +23,21 @@ interface ErrorNoticeProps {
  * A network failure and a GraphQL error are told apart because the reader can
  * act on the first, by checking the server is running, and only report the
  * second.
+ *
+ * Every error the client hands a screen is a CombinedError, so anything else
+ * was thrown by the app's own code, and the sentence says so.
  */
 export function describeError(error: unknown): string {
   if (error instanceof CombinedError) {
     if (error.networkError !== undefined) {
-      return 'The server could not be reached.';
+      return "The server couldn't be reached.";
     }
     if (error.graphQLErrors.length > 0) {
       const messages = error.graphQLErrors.map((cause) => cause.message);
       return `The server reported a problem: ${messages.join(' ')}`;
     }
   }
-  return 'Something went wrong.';
+  return 'The app ran into a bug.';
 }
 
 /**

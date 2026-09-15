@@ -71,7 +71,7 @@ it('shows the error notice for a request that never arrived', async () => {
   });
 
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'The server could not be reached.',
+    "The server couldn't be reached.",
   );
 });
 
