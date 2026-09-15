@@ -97,6 +97,16 @@ runner applies them in filename order and records each one in a
 and says so. `pnpm db:reset` drops the development database, creates it again
 empty and reapplies every migration. It leaves the test database alone.
 
+```sh
+pnpm db:seed
+```
+
+Loads a small sample workspace of eight checks, so there is something to look
+at. Every check, run, observation and note in it is invented for this project
+and describes no real team's tooling. It empties the four tables before it
+inserts, so running it again replaces the workspace rather than failing, and it
+only ever points at the development database.
+
 ### The checks
 
 ```sh
