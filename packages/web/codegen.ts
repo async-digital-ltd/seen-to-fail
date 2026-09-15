@@ -38,10 +38,11 @@ const config: CodegenConfig = {
         strictScalars: true,
         scalars: {
           Date: 'string',
-          // JSON in the filter language, which the server validates. Nothing
-          // here sends one yet, so it stays unknown until an operation that
-          // does decides how the client should type it.
-          FilterInput: 'unknown',
+          // JSON in the filter language, which the server validates. Typed as
+          // the filter package's own Filter, so the only thing a query can
+          // send is a filter that has already been built or parsed by that
+          // package, never a hand-made object the server would refuse.
+          FilterInput: "import('@seen-to-fail/filter').Filter",
         },
       },
     },
