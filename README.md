@@ -54,7 +54,7 @@ must parse back into the same filter.
 - **GraphQL** API on Node, with frontend types generated from the schema.
 - **PostgreSQL**, starting with three tables: checks, test runs and saved
   filters.
-- **React** with Vite.
+- **React** with Vite, React Router and urql.
 - **Vitest** for tests, and GitHub Actions for type checking and tests.
 
 ## How to run
@@ -118,6 +118,16 @@ queries can be read and run. There is a liveness route at `/health`, which
 answers whenever the process is up, and a readiness route at `/ready`, which
 answers only once the database does.
 
+### The client
+
+```sh
+pnpm dev:web
+```
+
+Serves the app at `http://localhost:5173` and proxies `/graphql` to the
+server, so the server has to be running too. `pnpm build:web` writes the
+production bundle to `packages/web/dist`.
+
 ### The checks
 
 ```sh
@@ -149,8 +159,12 @@ apply the migrations before the first of them, and empty every table between
 tests, so they are repeatable without anyone tidying up by hand. They fail if
 no database is running, which is the honest answer rather than a quiet skip.
 
-The client renders nothing yet. Every later change has to keep the commands
-above passing.
+CI runs the four commands above and then `pnpm build:web`, which is what
+proves the page reaches the code: the tests import modules, and only the
+bundler starts from `index.html`.
+
+The client shows the app shell with a placeholder for each screen. Every later
+change has to keep the commands above passing.
 
 ## Plan
 

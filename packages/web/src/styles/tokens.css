@@ -1,0 +1,20 @@
+/*
+ * The palette. Every colour the client shows is one of these custom
+ * properties, and tokens.test.ts refuses a colour written anywhere else under
+ * this package, so a screen that wants a new colour adds it here first.
+ *
+ * Light mode only. There is no dark palette, because no brand colour here
+ * stays readable on a dark ground.
+ */
+:root {
+  --bg: #fdfbf7;
+  --surface: #f8f5ee;
+  --border: #e8e4dc;
+  --ink: #1f1c18;
+  --muted: #6b6560;
+  --primary: #8b3a2a;
+  --primary-hover: #7d3325;
+  --success: #3e7a4a;
+  --warning: #c48b2c;
+  --error: #cc2222;
+}

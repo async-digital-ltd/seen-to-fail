@@ -1,0 +1,51 @@
+/* One column, never wider than the design's 960 pixels. */
+.page {
+  display: flex;
+  flex-direction: column;
+  max-width: 960px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.top-bar__home {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.top-bar__home:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.top-bar__name {
+  font-weight: 700;
+}
+
+/* Grows to push the footer to the bottom of a short page. */
+.page__main {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+.footer {
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.footer p {
+  margin: 0;
+}
