@@ -57,10 +57,47 @@ must parse back into the same filter.
 
 ## How to run
 
-Requires Node 24, the version in `.nvmrc`, and pnpm.
+Requires Node 24, the version in `.nvmrc`, pnpm, and a PostgreSQL 16.
 
 ```sh
 pnpm install
+cp .env.example .env
+```
+
+`.env` holds `DATABASE_URL` and `TEST_DATABASE_URL`. The server reads both
+through one config module and stops with the name of the variable if either is
+missing, so there is nothing to guess at.
+
+### The database
+
+Any PostgreSQL 16 reachable at those two URLs will do. There are two routes
+here, and you want one of them, not both, because they would compete for port 5432.
+
+**Homebrew.** `pnpm db:up` starts `postgresql@16` as a service and creates the
+two databases named in `.env` if they are not there yet. `pnpm db:down` stops
+it. This is the route the project is developed on, and the one these
+instructions have been run against.
+
+**Docker.** `docker compose up -d` starts the compose file's PostgreSQL 16 with
+both databases. It is here because it is the easier route on most machines, but
+it has not been run on the maintainer's machine, which has no Docker installed.
+Treat it as unverified until someone reports otherwise.
+
+Either way, apply the migrations:
+
+```sh
+pnpm db:migrate
+```
+
+Migrations are numbered plain SQL files in `packages/server/migrations`. The
+runner applies them in filename order and records each one in a
+`schema_migrations` table, so running `pnpm db:migrate` again applies nothing
+and says so. `pnpm db:reset` drops the development database, creates it again
+empty and reapplies every migration. It leaves the test database alone.
+
+### The checks
+
+```sh
 pnpm typecheck
 pnpm lint
 pnpm format:check
@@ -78,9 +115,14 @@ The repository is a pnpm workspace with three packages:
 once over the whole tree from the repository root. `pnpm format` rewrites files
 in place instead of reporting on them.
 
-Nothing is implemented yet, so the server does not start and the client renders
-nothing. Those five commands are all there is so far, and every later change has
-to keep them passing.
+Some tests are backed by the database. They run against `TEST_DATABASE_URL`,
+apply the migrations before the first of them, and empty every table between
+tests, so they are repeatable without anyone tidying up by hand. They fail if
+no database is running, which is the honest answer rather than a quiet skip.
+
+Nothing else is implemented yet, so the server does not start and the client
+renders nothing. These commands are all there is so far, and every later change
+has to keep them passing.
 
 ## Plan
 
