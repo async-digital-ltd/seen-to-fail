@@ -48,3 +48,5 @@ export type { CompiledFilter, CompileOptions } from './compile';
  * they start using the language itself.
  */
 export const packageName = '@seen-to-fail/filter';
+
+export { parseFilterString, serializeFilter } from './url';

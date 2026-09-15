@@ -1,0 +1,403 @@
+import fc from 'fast-check';
+import { expect, it } from 'vitest';
+
+import { parseFilterString, serializeFilter } from './url';
+import type { FilterIssue } from './parse';
+import {
+  emptyFilter,
+  JOINERS,
+  MAX_CONDITIONS_PER_GROUP,
+  MAX_GROUPS,
+  STATUSES,
+  type AreaCondition,
+  type Condition,
+  type Filter,
+  type Group,
+  type LastCaughtAgeCondition,
+  type LastCaughtNeverCondition,
+  type RunsCondition,
+  type StatusCondition,
+} from './types';
+
+/**
+ * The three examples here are the ones `packages/filter/README.md` documents.
+ * They are written out as text rather than derived from the serialiser, so the
+ * grammar cannot quietly change underneath the documentation: an edit that
+ * moves a separator fails here and says which example it broke.
+ */
+
+/** One condition, in one group, so a condition's own text can be compared. */
+function oneCondition(condition: Condition): Filter {
+  return {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [{ joiner: 'and', conditions: [condition] }],
+  };
+}
+
+function parsedOrThrow(text: unknown): Filter {
+  const result = parseFilterString(text);
+  if (!result.ok) {
+    throw new Error(
+      `Expected the link to parse, but it was rejected: ${JSON.stringify(
+        result.errors,
+      )}`,
+    );
+  }
+  return result.filter;
+}
+
+function refusalOf(text: unknown): readonly FilterIssue[] {
+  const result = parseFilterString(text);
+  if (result.ok) {
+    throw new Error('Expected the link to be rejected, but it parsed.');
+  }
+  return result.errors;
+}
+
+/** Built fresh each time, so determinism is tested across separate values. */
+function readmeExample(): Filter {
+  return {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [
+      {
+        joiner: 'or',
+        conditions: [
+          { field: 'status', op: 'is', value: 'Unproven' },
+          { field: 'status', op: 'is', value: 'Stale' },
+        ],
+      },
+      {
+        joiner: 'and',
+        conditions: [{ field: 'area', op: 'is', value: 'ci' }],
+      },
+    ],
+  };
+}
+
+const README_EXAMPLE =
+  'and!or*status.is.Unproven*status.is.Stale!and*area.is.ci';
+
+const README_EVERYTHING = 'all';
+
+function readmeEscapedExample(): Filter {
+  return {
+    kind: 'groups',
+    joiner: 'or',
+    groups: [
+      {
+        joiner: 'and',
+        conditions: [
+          { field: 'runs', op: 'fewerThan', count: 5 },
+          { field: 'lastCaught', op: 'never' },
+        ],
+      },
+      {
+        joiner: 'and',
+        conditions: [{ field: 'area', op: 'isNot', value: 'smoke tests' }],
+      },
+    ],
+  };
+}
+
+const README_ESCAPED_EXAMPLE =
+  'or!and*runs.fewerThan.5*lastCaught.never!and*area.isNot.smoke~0020tests';
+
+it("writes the README's worked example exactly as the README shows it", () => {
+  expect(serializeFilter(readmeExample())).toBe(README_EXAMPLE);
+  expect(parsedOrThrow(README_EXAMPLE)).toEqual(readmeExample());
+});
+
+it('writes the filter that hides nothing as a single word', () => {
+  expect(serializeFilter(emptyFilter)).toBe(README_EVERYTHING);
+  expect(parsedOrThrow(README_EVERYTHING)).toEqual(emptyFilter);
+});
+
+it('escapes a value that would otherwise reach outside the alphabet', () => {
+  expect(serializeFilter(readmeEscapedExample())).toBe(README_ESCAPED_EXAMPLE);
+  expect(parsedOrThrow(README_ESCAPED_EXAMPLE)).toEqual(readmeEscapedExample());
+});
+
+it('gives two people the same link for the same filter', () => {
+  expect(serializeFilter(readmeExample())).toBe(
+    serializeFilter(readmeExample()),
+  );
+});
+
+/**
+ * Every field-and-operator pair the language has, each carrying the same
+ * argument as its partner so that the operator token is the only thing that
+ * can tell two of these apart.
+ */
+const EVERY_OPERATOR = [
+  { field: 'status', op: 'is', value: 'Proven' },
+  { field: 'status', op: 'isNot', value: 'Proven' },
+  { field: 'area', op: 'is', value: 'ci' },
+  { field: 'area', op: 'isNot', value: 'ci' },
+  { field: 'lastCaught', op: 'never' },
+  { field: 'lastCaught', op: 'before', days: 30 },
+  { field: 'lastCaught', op: 'after', days: 30 },
+  { field: 'runs', op: 'moreThan', count: 5 },
+  { field: 'runs', op: 'fewerThan', count: 5 },
+] as const satisfies readonly [Condition, ...Condition[]];
+
+it('round-trips a filter that uses every operator the language has', () => {
+  const filter: Filter = {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [{ joiner: 'or', conditions: EVERY_OPERATOR }],
+  };
+  const link = serializeFilter(filter);
+
+  expect(parsedOrThrow(link)).toEqual(filter);
+  expect(EVERY_OPERATOR.length).toBeLessThanOrEqual(MAX_CONDITIONS_PER_GROUP);
+});
+
+it('gives every operator a token of its own, across the whole language', () => {
+  const links = EVERY_OPERATOR.map((condition) =>
+    serializeFilter(oneCondition(condition)),
+  );
+
+  expect(new Set(links)).toHaveProperty('size', EVERY_OPERATOR.length);
+});
+
+/**
+ * The acceptance criterion states the same thing one field at a time. It is
+ * worth keeping alongside the whole-language check above, because a failure
+ * here names the field that lost its distinction instead of only reporting
+ * that two links collided somewhere.
+ */
+const OPERATOR_PAIRS: readonly (readonly [string, Condition, Condition])[] = [
+  [
+    'a status that is one of the five against one that is not',
+    { field: 'status', op: 'is', value: 'Broken' },
+    { field: 'status', op: 'isNot', value: 'Broken' },
+  ],
+  [
+    'an area that matches against one that does not',
+    { field: 'area', op: 'is', value: 'ci' },
+    { field: 'area', op: 'isNot', value: 'ci' },
+  ],
+  [
+    'a catch before a day count against one after it',
+    { field: 'lastCaught', op: 'before', days: 30 },
+    { field: 'lastCaught', op: 'after', days: 30 },
+  ],
+  [
+    'more runs than a count against fewer',
+    { field: 'runs', op: 'moreThan', count: 5 },
+    { field: 'runs', op: 'fewerThan', count: 5 },
+  ],
+];
+
+for (const [name, left, right] of OPERATOR_PAIRS) {
+  it(`writes ${name} differently`, () => {
+    expect(serializeFilter(oneCondition(left))).not.toBe(
+      serializeFilter(oneCondition(right)),
+    );
+  });
+}
+
+const anyJoiner = fc.constantFrom(...JOINERS);
+
+const anyStatusCondition: fc.Arbitrary<StatusCondition> = fc
+  .tuple(fc.constantFrom('is', 'isNot'), fc.constantFrom(...STATUSES))
+  .map(([op, value]): StatusCondition => ({ field: 'status', op, value }));
+
+/**
+ * Area values are arbitrary text, so the generator mixes the ordinary names a
+ * person would type with strings of arbitrary UTF-16 code units. The second
+ * kind is what exercises the escape: it includes the grammar's own separators,
+ * characters outside the basic plane, and unpaired surrogates, which are
+ * strings JavaScript can hold and a link therefore has to carry.
+ */
+const anyAreaText = fc.oneof(
+  fc.constantFrom('ci', 'lint', 'unit tests', 'build-and-release', ''),
+  fc.string({ unit: 'binary', maxLength: 12 }),
+);
+
+const anyAreaCondition: fc.Arbitrary<AreaCondition> = fc
+  .tuple(fc.constantFrom('is', 'isNot'), anyAreaText)
+  .map(([op, value]): AreaCondition => ({ field: 'area', op, value }));
+
+const neverCaught = fc.constant<LastCaughtNeverCondition>({
+  field: 'lastCaught',
+  op: 'never',
+});
+
+const anyLastCaughtAgeCondition: fc.Arbitrary<LastCaughtAgeCondition> = fc
+  .tuple(fc.constantFrom('before', 'after'), fc.nat({ max: 3650 }))
+  .map(([op, days]): LastCaughtAgeCondition => ({
+    field: 'lastCaught',
+    op,
+    days,
+  }));
+
+const anyRunsCondition: fc.Arbitrary<RunsCondition> = fc
+  .tuple(fc.constantFrom('moreThan', 'fewerThan'), fc.nat({ max: 100000 }))
+  .map(([op, count]): RunsCondition => ({ field: 'runs', op, count }));
+
+const anyCondition: fc.Arbitrary<Condition> = fc.oneof(
+  anyStatusCondition,
+  anyAreaCondition,
+  neverCaught,
+  anyLastCaughtAgeCondition,
+  anyRunsCondition,
+);
+
+/**
+ * A group and a filter are each built from a first item and a list of the rest,
+ * because both hold at least one item and a plain array cannot say so.
+ */
+const anyGroup: fc.Arbitrary<Group> = fc
+  .tuple(
+    anyJoiner,
+    anyCondition,
+    fc.array(anyCondition, { maxLength: MAX_CONDITIONS_PER_GROUP - 1 }),
+  )
+  .map(([joiner, first, rest]): Group => ({
+    joiner,
+    conditions: [first, ...rest],
+  }));
+
+const anyFilter: fc.Arbitrary<Filter> = fc.oneof(
+  fc.constant<Filter>(emptyFilter),
+  fc
+    .tuple(
+      anyJoiner,
+      anyGroup,
+      fc.array(anyGroup, { maxLength: MAX_GROUPS - 1 }),
+    )
+    .map(([joiner, first, rest]): Filter => ({
+      kind: 'groups',
+      joiner,
+      groups: [first, ...rest],
+    })),
+);
+
+/**
+ * The acceptance criterion asks for at least 500 cases. The count below is the
+ * setting; the counter inside the property is what proves the runner actually
+ * went through them, which a check on the setting alone would not.
+ */
+const PROPERTY_CASES = 500;
+
+it('round-trips an arbitrary filter, and writes the same link back', () => {
+  let cases = 0;
+
+  fc.assert(
+    fc.property(anyFilter, (filter) => {
+      cases += 1;
+      const link = serializeFilter(filter);
+      const parsed = parsedOrThrow(link);
+
+      expect(parsed).toEqual(filter);
+      expect(serializeFilter(parsed)).toBe(link);
+    }),
+    { numRuns: PROPERTY_CASES },
+  );
+
+  expect(cases).toBeGreaterThanOrEqual(500);
+});
+
+it('writes a link that survives a query string unchanged', () => {
+  fc.assert(
+    fc.property(anyFilter, (filter) => {
+      const link = serializeFilter(filter);
+
+      expect(encodeURIComponent(link)).toBe(link);
+    }),
+    { numRuns: PROPERTY_CASES },
+  );
+});
+
+/**
+ * One row per way a link can be wrong. The assertion is as much that nothing
+ * throws as that nothing parses: this text arrives from a URL somebody else
+ * wrote, and a thrown error there is a crash rather than a bad request.
+ */
+const MALFORMED: readonly (readonly [string, unknown])[] = [
+  ['a link with no filter in it at all', ''],
+  ['a filter truncated to its joiner', 'and'],
+  ['a group truncated to its joiner', 'and!and'],
+  ['a group truncated after its separator', 'and!and*'],
+  ['a condition truncated to its field', 'and!and*status'],
+  ['a condition truncated before its value', 'and!and*status.is'],
+  ['a joiner the language does not have', 'unless!and*lastCaught.never'],
+  ['a group joiner the language does not have', 'and!unless*lastCaught.never'],
+  ['a field the language does not have', 'and!and*owner.is.ci'],
+  ['an operator the field does not have', 'and!and*area.moreThan.ci'],
+  ['an operator no field has', 'and!and*status.sometimes.Proven'],
+  ['a status outside the five', 'and!and*status.is.Passing'],
+  ['a value on the operator that takes none', 'and!and*lastCaught.never.5'],
+  ['more parts than a condition has', 'and!and*status.is.Proven.today'],
+  ['a day count that is not a number', 'and!and*lastCaught.before.soon'],
+  ['a day count with a leading zero', 'and!and*lastCaught.before.007'],
+  ['a negative day count', 'and!and*lastCaught.before.-1'],
+  [
+    'a run count past what the language counts to',
+    'and!and*runs.moreThan.99999999999999999999',
+  ],
+  ['an injected query separator', 'and!and*area.is.ci&f=all'],
+  ['an injected percent escape', 'and!and*area.is.ci%2Fetc'],
+  ['an injected statement separator', 'and!and*area.is.ci;drop'],
+  ['an injected angle bracket', 'and!and*area.is.<script>'],
+  ['a half-written escape', 'and!and*area.is.ci~00'],
+  ['an escape written in lower case', 'and!and*area.is.ci~002e'],
+  ['an escape with no digits after it', 'and!and*area.is.ci~'],
+  [
+    'the word for everything with a filter after it',
+    'all!and*lastCaught.never',
+  ],
+  ['a filter that is not text at all', 42],
+  ['a filter that is missing altogether', null],
+];
+
+for (const [name, text] of MALFORMED) {
+  it(`refuses ${name}, and says why`, () => {
+    const errors = refusalOf(text);
+
+    expect(errors.length).toBeGreaterThan(0);
+    for (const issue of errors) {
+      expect(issue.message).not.toBe('');
+    }
+  });
+}
+
+it('names the group and the condition a bad token sits in', () => {
+  const errors = refusalOf(
+    'and!and*lastCaught.never!or*lastCaught.never*runs.moreThan.soon',
+  );
+
+  expect(errors.map((issue) => issue.path)).toContain(
+    'groups[1].conditions[1]',
+  );
+});
+
+/**
+ * The next three prove the link is not a second door into the language. Each
+ * one is refused by a rule that lives in the schema rather than in the grammar,
+ * which can only happen if the candidate really did go through `parseFilter`.
+ */
+it('lets the language refuse a status a link invented', () => {
+  expect(
+    refusalOf('and!and*status.is.Passing').map((issue) => issue.path),
+  ).toContain('groups[0].conditions[0].value');
+});
+
+it("reports a group with no conditions in the language's own words", () => {
+  expect(refusalOf('and!and')).toContainEqual({
+    path: 'groups[0].conditions',
+    message: 'A group needs at least one condition.',
+  });
+});
+
+it('refuses more groups than a filter takes', () => {
+  const tooMany = [
+    'and',
+    ...Array.from({ length: MAX_GROUPS + 1 }, () => 'and*lastCaught.never'),
+  ].join('!');
+
+  expect(refusalOf(tooMany).map((issue) => issue.path)).toContain('groups');
+});
