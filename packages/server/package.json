@@ -1,0 +1,19 @@
+{
+  "name": "@seen-to-fail/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The GraphQL API.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@seen-to-fail/filter": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
+  }
+}
