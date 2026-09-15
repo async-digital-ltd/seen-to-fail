@@ -1,6 +1,7 @@
 import type { Status } from '@seen-to-fail/filter';
 import type { Client } from 'pg';
 
+import { todayInUtc } from '../day.ts';
 import type { IsoDate, TestRunOutcome } from './rows.ts';
 
 /**
@@ -270,11 +271,6 @@ function daysBefore(asOf: IsoDate, days: number): IsoDate {
   return new Date(start - days * millisecondsPerDay).toISOString().slice(0, 10);
 }
 
-/** Today, in UTC, for the same reason daysBefore works in UTC. */
-function today(): IsoDate {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * Empties the four tables and loads the invented workspace, returning the day
  * its dates were counted back from.
@@ -293,7 +289,7 @@ function today(): IsoDate {
  * one it was getting.
  */
 export async function seedWorkspace(client: Client): Promise<SeedResult> {
-  const asOf = today();
+  const asOf = todayInUtc();
 
   await client.query('BEGIN');
   try {

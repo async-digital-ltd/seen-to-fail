@@ -1,4 +1,4 @@
-import type { Client, QueryResultRow } from 'pg';
+import type { QueryResult, QueryResultRow } from 'pg';
 
 /**
  * The shapes a query returns, the SQL that produces them, and the one function
@@ -14,6 +14,29 @@ import type { Client, QueryResultRow } from 'pg';
  * None of these types carry a status. A status is derived from these rows as of
  * a date; no row stores one.
  */
+
+/**
+ * Anything that can run one parameterised statement and hand back its rows.
+ *
+ * Narrower than the driver's Client on purpose. A single statement does not
+ * care whether it travels down a connection of its own or one borrowed from a
+ * pool, and the two callers differ on exactly that point: the running server
+ * holds a pool so that concurrent requests do not queue behind each other,
+ * while a test holds one connection it can empty the tables through. Both
+ * satisfy this, so the functions below take it and neither caller has to
+ * pretend to be the other.
+ *
+ * Anything that needs several statements to land together still takes a Client,
+ * because a transaction belongs to one connection and a pool is free to hand
+ * the next statement to a different one. Seeding is the example: it takes a
+ * Client, and that is the type saying so rather than a comment asking nicely.
+ */
+export interface Queryable {
+  query<Row extends QueryResultRow>(
+    sql: string,
+    values?: unknown[],
+  ): Promise<QueryResult<Row>>;
+}
 
 /**
  * A calendar day, written as YYYY-MM-DD.
@@ -95,11 +118,11 @@ export interface SavedFilter {
  * above are what make it true, and the read-back tests are what prove it.
  */
 export async function selectRows<Row>(
-  client: Client,
+  database: Queryable,
   sql: string,
   values: readonly unknown[] = [],
 ): Promise<Row[]> {
-  const result = await client.query<Row & QueryResultRow>(sql, [...values]);
+  const result = await database.query<Row & QueryResultRow>(sql, [...values]);
   return result.rows;
 }
 
@@ -117,15 +140,30 @@ export function isoDate(column: string): string {
   return `to_char(${column}, 'YYYY-MM-DD')`;
 }
 
-/** The columns a checks query selects, named as the fields of Check. */
-export const checkColumns = [
-  'id',
-  'name',
-  'area',
-  'protects',
-  'how_to_tell_armed AS "howToTellArmed"',
-  'created_at AS "createdAt"',
-].join(', ');
+/**
+ * The columns a checks query selects, named as the fields of Check and
+ * qualified with the table they come from.
+ *
+ * Qualified because a query that joins the checks table to anything else has
+ * two sources of column names, and an unqualified list would be read against
+ * whichever of them happened to have the name. That is a query that works until
+ * the other side gains a column, which is the kind of breakage nobody sees
+ * coming. Taking the table as an argument is what lets one list serve both the
+ * plain read and the joined one, so there is no second copy to keep in step.
+ */
+export function checkColumnsFrom(table: string): string {
+  return [
+    `${table}.id`,
+    `${table}.name`,
+    `${table}.area`,
+    `${table}.protects`,
+    `${table}.how_to_tell_armed AS "howToTellArmed"`,
+    `${table}.created_at AS "createdAt"`,
+  ].join(', ');
+}
+
+/** The columns a checks query selects, read straight from the checks table. */
+export const checkColumns = checkColumnsFrom('checks');
 
 /** The columns a test-runs query selects, named as the fields of TestRun. */
 export const testRunColumns = [
