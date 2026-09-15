@@ -8,6 +8,70 @@ export type Incremental<T> =
       [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never;
     };
 import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
+/** One planted defect, and what the check did about it. */
+export type LogTestRunInput = {
+  /** The check the defect was planted for. It has to exist. */
+  checkId: string | number;
+  /** What the check was expected to do about it. Not blank. */
+  expected: string;
+  /** Anything worth telling the next person. A blank note is stored as none. */
+  note?: string | null | undefined;
+  /** What it actually did. */
+  outcome: Outcome;
+  /** What was planted. Not blank. */
+  planted: string;
+  /** The day the defect was planted. Not in the future. */
+  runOn: string;
+};
+
+/** What a check did with the defect that was planted for it. */
+export type Outcome =
+  /** It reported the planted defect, which is the only thing that proves it works. */
+  | 'CAUGHT'
+  /** The defect was planted and the check said nothing. */
+  | 'MISSED';
+
+/**
+ * The five statuses a check can hold.
+ *
+ * A status is worked out from the record as of a day, and no table stores one, so
+ * these are the readings a check can give rather than states it can be put into.
+ */
+export type Status =
+  /** The latest run missed the defect that was planted for it. */
+  | 'BROKEN'
+  /** The latest run caught its planted defect, recently enough to still believe. */
+  | 'PROVEN'
+  /** It caught a planted defect before, but longer ago than the threshold. */
+  | 'STALE'
+  /** There is no evidence it is switched on at all. */
+  | 'UNARMED'
+  /** There is evidence it is switched on, and nothing has ever been planted for it. */
+  | 'UNPROVEN';
+
+export type CheckOptionsQueryVariables = Exact<{ [key: string]: never }>;
+
+export type CheckOptionsQuery = {
+  checks: { checks: Array<{ id: string; name: string }> };
+};
+
+export type LogTestRunMutationVariables = Exact<{
+  input: LogTestRunInput;
+}>;
+
+export type LogTestRunMutation = {
+  logTestRun:
+    | {
+        __typename: 'TestRunLogged';
+        testRun: { id: string };
+        check: { id: string; name: string; status: Status; runCount: number };
+      }
+    | {
+        __typename: 'ValidationErrors';
+        errors: Array<{ path: string; message: string }>;
+      };
+};
+
 export type StatusCountsQueryVariables = Exact<{ [key: string]: never }>;
 
 export type StatusCountsQuery = {
@@ -21,6 +85,171 @@ export type StatusCountsQuery = {
   };
 };
 
+export const CheckOptionsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'CheckOptions' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'checks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'checks' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CheckOptionsQuery, CheckOptionsQueryVariables>;
+export const LogTestRunDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'LogTestRun' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'LogTestRunInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'logTestRun' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'TestRunLogged' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'testRun' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'id' },
+                            },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'check' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'id' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'name' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'status' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'runCount' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'ValidationErrors' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'errors' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'path' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'message' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LogTestRunMutation, LogTestRunMutationVariables>;
 export const StatusCountsDocument = {
   kind: 'Document',
   definitions: [

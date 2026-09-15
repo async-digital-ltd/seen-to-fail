@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router';
 
+import { LogRun } from './pages/log-run';
 import { NotFound } from './pages/not-found';
 import { Placeholder } from './pages/placeholder';
 import { RouteError } from './pages/route-error';
@@ -16,7 +17,7 @@ export const screens: RouteObject[] = [
   { index: true, element: <Placeholder title="Checks" /> },
   { path: 'checks/new', element: <Placeholder title="Add a check" /> },
   { path: 'checks/:id', element: <Placeholder title="Check" /> },
-  { path: 'runs/new', element: <Placeholder title="Log a test run" /> },
+  { path: 'runs/new', element: <LogRun /> },
   { path: '*', element: <NotFound /> },
 ];
 

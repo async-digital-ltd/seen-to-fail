@@ -14,9 +14,15 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+  'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}': typeof types.CheckOptionsDocument;
+  'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.LogTestRunDocument;
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}': typeof types.StatusCountsDocument;
 };
 const documents: Documents = {
+  'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}':
+    types.CheckOptionsDocument,
+  'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
+    types.LogTestRunDocument,
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}':
     types.StatusCountsDocument,
 };
@@ -35,6 +41,18 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown;
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}',
+): (typeof documents)['query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}'];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}',
+): (typeof documents)['mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}'];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

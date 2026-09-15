@@ -1,0 +1,24 @@
+/* Narrower than the page: a form is read down, not across. */
+.log-run {
+  max-width: 600px;
+}
+
+.log-run__lede {
+  margin-bottom: 1.5rem;
+}
+
+.run-logged {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.run-logged__sentence {
+  font-size: 1.125rem;
+}
+
+/* Focus is put here for the announcement; nobody can tab to it. */
+.run-logged__sentence:focus {
+  outline: none;
+}

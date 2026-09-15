@@ -1,0 +1,22 @@
+mutation LogTestRun($input: LogTestRunInput!) {
+  logTestRun(input: $input) {
+    __typename
+    ... on TestRunLogged {
+      testRun {
+        id
+      }
+      check {
+        id
+        name
+        status
+        runCount
+      }
+    }
+    ... on ValidationErrors {
+      errors {
+        path
+        message
+      }
+    }
+  }
+}
