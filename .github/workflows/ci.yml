@@ -120,3 +120,10 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # The client's entry is index.html, and the tests reach the code through
+      # modules, never through the page. Bundling is what proves the page
+      # resolves its script, and that the whole client compiles for a browser
+      # rather than only for the type checker.
+      - name: Build the client
+        run: pnpm build:web
