@@ -2,8 +2,10 @@ import { screen, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { CheckDetailDocument } from './graphql/generated/graphql';
 import { paths } from './paths';
 import { createRoutes } from './routes';
+import { answer } from './testing/client';
 import { renderApp } from './testing/render';
 
 const footerSentence =
@@ -13,7 +15,6 @@ const footerSentence =
 const screens = [
   { route: paths.checks(), heading: 'Checks' },
   { route: paths.newCheck(), heading: 'Add a check' },
-  { route: paths.check('ci-lint'), heading: 'Check' },
   { route: paths.newRun(), heading: 'Log a test run' },
   { route: paths.newRun({ check: 'ci-lint' }), heading: 'Log a test run' },
 ];
@@ -35,6 +36,24 @@ describe.each(screens)('at $route', ({ route, heading }) => {
     expect(
       container.querySelectorAll('.button--primary').length,
     ).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('at a check address', () => {
+  it('renders the check detail screen inside the shell', async () => {
+    const { calls } = renderApp({
+      route: paths.check('ci-lint'),
+      answers: [answer(CheckDetailDocument, { check: null })],
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Check not found' }),
+    ).toBeInTheDocument();
+    expect(calls).toEqual([
+      { kind: 'query', name: 'CheckDetail', variables: { id: 'ci-lint' } },
+    ]);
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toHaveTextContent(footerSentence);
   });
 });
 

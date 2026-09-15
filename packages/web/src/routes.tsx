@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router';
 
+import { CheckDetail } from './pages/check-detail';
 import { LogRun } from './pages/log-run';
 import { NotFound } from './pages/not-found';
 import { Placeholder } from './pages/placeholder';
@@ -11,12 +12,12 @@ import { Shell } from './shell/shell';
  * `checks/:id` is `/checks/:id`. A static segment outranks a parameter, which
  * is why `checks/new` never reads as a check called "new".
  *
- * Each one is a placeholder until its own story replaces it.
+ * A screen whose story has not landed is a placeholder until it does.
  */
 export const screens: RouteObject[] = [
   { index: true, element: <Placeholder title="Checks" /> },
   { path: 'checks/new', element: <Placeholder title="Add a check" /> },
-  { path: 'checks/:id', element: <Placeholder title="Check" /> },
+  { path: 'checks/:id', element: <CheckDetail /> },
   { path: 'runs/new', element: <LogRun /> },
   { path: '*', element: <NotFound /> },
 ];

@@ -14,11 +14,14 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+  'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}': typeof types.CheckDetailDocument;
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}': typeof types.CheckOptionsDocument;
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.LogTestRunDocument;
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}': typeof types.StatusCountsDocument;
 };
 const documents: Documents = {
+  'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}':
+    types.CheckDetailDocument,
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}':
     types.CheckOptionsDocument,
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
@@ -41,6 +44,12 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown;
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}',
+): (typeof documents)['query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}'];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

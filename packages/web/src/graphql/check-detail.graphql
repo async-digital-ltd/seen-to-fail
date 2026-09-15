@@ -1,0 +1,27 @@
+query CheckDetail($id: ID!) {
+  check(id: $id) {
+    id
+    name
+    area
+    protects
+    howToTellArmed
+    status
+    lastCaughtOn
+    runCount
+    caughtCount
+    missedCount
+    runs {
+      id
+      runOn
+      planted
+      expected
+      outcome
+      note
+    }
+    armingObservations {
+      id
+      observedOn
+      armed
+    }
+  }
+}

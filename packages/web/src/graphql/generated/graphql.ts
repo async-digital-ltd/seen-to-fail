@@ -49,6 +49,38 @@ export type Status =
   /** There is evidence it is switched on, and nothing has ever been planted for it. */
   | 'UNPROVEN';
 
+export type CheckDetailQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+export type CheckDetailQuery = {
+  check: {
+    id: string;
+    name: string;
+    area: string;
+    protects: string;
+    howToTellArmed: string;
+    status: Status;
+    lastCaughtOn: string | null;
+    runCount: number;
+    caughtCount: number;
+    missedCount: number;
+    runs: Array<{
+      id: string;
+      runOn: string;
+      planted: string;
+      expected: string;
+      outcome: Outcome;
+      note: string | null;
+    }>;
+    armingObservations: Array<{
+      id: string;
+      observedOn: string;
+      armed: boolean;
+    }>;
+  } | null;
+};
+
 export type CheckOptionsQueryVariables = Exact<{ [key: string]: never }>;
 
 export type CheckOptionsQuery = {
@@ -85,6 +117,105 @@ export type StatusCountsQuery = {
   };
 };
 
+export const CheckDetailDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'CheckDetail' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'check' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'id' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'area' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'protects' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'howToTellArmed' },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'status' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'lastCaughtOn' },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'runCount' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'caughtCount' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'missedCount' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'runs' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'runOn' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'planted' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'expected' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'outcome' },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'note' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'armingObservations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'observedOn' },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'armed' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CheckDetailQuery, CheckDetailQueryVariables>;
 export const CheckOptionsDocument = {
   kind: 'Document',
   definitions: [
