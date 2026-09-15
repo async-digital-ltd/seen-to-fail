@@ -17,6 +17,8 @@
     "codegen": "pnpm -r codegen && prettier --write packages/server/src/graphql/generated packages/web/src/graphql/generated",
     "codegen:check": "pnpm codegen && git diff --exit-code -- packages/server/src/graphql/generated packages/web/src/graphql/generated",
     "dev:server": "node packages/server/src/index.ts",
+    "dev:web": "pnpm --filter @seen-to-fail/web dev",
+    "build:web": "pnpm --filter @seen-to-fail/web build",
     "db:up": "bash scripts/db-up.sh",
     "db:down": "bash scripts/db-down.sh",
     "db:migrate": "node packages/server/src/scripts/migrate.ts",
@@ -27,6 +29,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0"

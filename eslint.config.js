@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -19,6 +20,13 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    // The rules React asks for on the package that renders: hooks called in
+    // the same order every render, effects declaring what they read, and the
+    // compiler's checks on top.
+    files: ['packages/web/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat.recommended],
   },
   {
     // The client preset writes a blanket eslint-disable into every file it
