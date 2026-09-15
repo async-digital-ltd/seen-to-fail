@@ -1,0 +1,10 @@
+query StatusCounts {
+  statusCounts {
+    proven
+    unproven
+    stale
+    unarmed
+    broken
+    total
+  }
+}

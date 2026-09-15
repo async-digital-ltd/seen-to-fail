@@ -138,6 +138,12 @@ The repository is a pnpm workspace with three packages:
 once over the whole tree from the repository root. `pnpm format` rewrites files
 in place instead of reporting on them.
 
+The server's resolver types and the client's typed queries are generated from
+`packages/server/schema.graphql` and checked in. After changing the schema or a
+`.graphql` query in `packages/web`, run `pnpm codegen`. CI runs
+`pnpm codegen:check`, which regenerates both and fails when the result differs
+from what is committed.
+
 Some tests are backed by the database. They run against `TEST_DATABASE_URL`,
 apply the migrations before the first of them, and empty every table between
 tests, so they are repeatable without anyone tidying up by hand. They fail if

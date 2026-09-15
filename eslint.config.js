@@ -20,6 +20,14 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // The client preset writes a blanket eslint-disable into every file it
+    // generates, including an index that only re-exports and has nothing to
+    // disable. Reporting that as unused would print a warning on every lint
+    // run over a file nobody is meant to edit.
+    files: ['packages/web/src/graphql/generated/**'],
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
+  },
   // Must come last: it switches off the rules Prettier already decides.
   eslintConfigPrettier,
 );

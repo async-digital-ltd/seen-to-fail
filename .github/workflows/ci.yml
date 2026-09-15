@@ -83,13 +83,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The resolver types are generated from schema.graphql and checked in, so
-      # they drift the moment somebody edits the schema without running the
-      # generator, and nothing about a stale file looks wrong when you read it.
-      # Regenerating here and refusing a difference is what makes the committed
-      # file a statement about the schema being served rather than about the
-      # schema as it was at some point. `pnpm codegen` is the fix for a failure
-      # here; it is the same command this step runs before comparing.
+      # The server's resolver types and the web client's typed queries are both
+      # generated from schema.graphql and checked in, so they drift the moment
+      # somebody edits the schema or a query without running the generator, and
+      # nothing about a stale file looks wrong when you read it. Regenerating
+      # here and refusing a difference is what makes the committed files a
+      # statement about the schema being served rather than about the schema as
+      # it was at some point. A query naming a field the schema does not have
+      # fails here too, because generating validates every query first.
+      # `pnpm codegen` is the fix for a failure here; it is the same command
+      # this step runs before comparing.
       - name: Check the generated types are current
         run: pnpm codegen:check
 
