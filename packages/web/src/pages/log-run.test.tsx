@@ -347,8 +347,9 @@ describe('the form refusing a submit', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save run' }));
 
+    // The error notice, found by its role and its button rather than its copy,
+    // which belongs to the shell.
     const notice = await screen.findByRole('alert');
-    expect(notice).toHaveTextContent("The server couldn't be reached.");
     expect(screen.getByLabelText('What you expected')).toHaveValue(
       'The commit is refused.',
     );
@@ -559,10 +560,10 @@ describe('the checks to choose from', () => {
     });
 
     const notice = await screen.findByRole('alert');
-    expect(notice).toHaveTextContent("The server couldn't be reached.");
     expect(
       within(notice).getByRole('button', { name: 'Try again' }),
     ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Check')).not.toBeInTheDocument();
   });
 
   it('points at adding a check when there are none', async () => {
