@@ -85,7 +85,11 @@ button {
   background: var(--border);
 }
 
-/* The one primary action on a screen. */
+/*
+ * The one primary action on a screen, and the only brick fill anywhere in the
+ * client. brick-fill.test.ts refuses a brick background on any other rule, so
+ * a screen shows one filled brick button at most.
+ */
 .button--primary {
   border-color: var(--primary);
   background: var(--primary);
@@ -96,4 +100,20 @@ button {
   border-color: var(--primary-hover);
   background: var(--primary-hover);
   color: var(--bg);
+}
+
+/*
+ * Brick text and a brick border on the page, for an action the shell carries
+ * on every screen. It leaves the fill to the screen's own primary action.
+ */
+.button--outlined {
+  border-color: var(--primary);
+  background: var(--bg);
+  color: var(--primary);
+}
+
+.button--outlined:hover {
+  border-color: var(--primary-hover);
+  background: var(--surface);
+  color: var(--primary-hover);
 }

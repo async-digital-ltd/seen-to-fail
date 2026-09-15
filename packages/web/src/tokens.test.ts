@@ -1,8 +1,10 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+
+import { filesUnder } from './testing/files';
 
 /**
  * The guard on the palette: every colour lives in styles/tokens.css, and no
@@ -294,13 +296,6 @@ describe('the scanner', () => {
     ).toEqual([]);
   });
 });
-
-function filesUnder(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    return entry.isDirectory() ? filesUnder(path) : [path];
-  });
-}
 
 /** Every file in this package that could carry a colour, but the two above. */
 const scannedFiles = [

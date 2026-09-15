@@ -11,6 +11,9 @@ import './shell.css';
  * The name and the studio are one link rather than two. Both go home, and a
  * reader tabbing through the bar should meet one way there, not the same way
  * twice.
+ *
+ * Logging a run is outlined, not filled. It is on every screen, so a filled
+ * button here would compete with each screen's own primary action.
  */
 export function Shell(): ReactElement {
   return (
@@ -20,7 +23,7 @@ export function Shell(): ReactElement {
           <span className="top-bar__name">Seen to Fail</span>{' '}
           <span className="muted">Async Digital</span>
         </Link>
-        <Link to={paths.newRun()} className="button button--primary">
+        <Link to={paths.newRun()} className="button button--outlined">
           Log a test run
         </Link>
       </header>

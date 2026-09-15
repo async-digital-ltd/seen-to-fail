@@ -28,6 +28,14 @@ describe.each(screens)('at $route', ({ route, heading }) => {
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toHaveTextContent(footerSentence);
   });
+
+  it('fills no more than one action with brick', () => {
+    const { container } = renderApp({ route });
+
+    expect(
+      container.querySelectorAll('.button--primary').length,
+    ).toBeLessThanOrEqual(1);
+  });
 });
 
 describe('the top bar', () => {
@@ -40,14 +48,15 @@ describe('the top bar', () => {
     expect(home).toHaveAttribute('href', '/');
   });
 
-  it('offers to log a test run from every screen', () => {
+  it('offers to log a test run from every screen, outlined rather than filled', () => {
     renderApp({ route: paths.newCheck() });
 
     const button = within(screen.getByRole('banner')).getByRole('link', {
       name: 'Log a test run',
     });
     expect(button).toHaveAttribute('href', '/runs/new');
-    expect(button).toHaveClass('button--primary');
+    expect(button).toHaveClass('button', 'button--outlined');
+    expect(button).not.toHaveClass('button--primary');
   });
 
   it('goes home when the name is clicked', async () => {
@@ -96,5 +105,29 @@ describe('a screen that throws', () => {
       screen.getByRole('link', { name: 'Log a test run' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toHaveTextContent(footerSentence);
+  });
+});
+
+describe('a screen with a primary action of its own', () => {
+  function Form(): ReactElement {
+    return (
+      <form>
+        <h1>A form</h1>
+        <button type="submit" className="button button--primary">
+          Save
+        </button>
+      </form>
+    );
+  }
+
+  it('is the only thing on the page filled with brick', () => {
+    const { container } = renderApp({
+      route: '/form',
+      routes: createRoutes([{ path: 'form', element: <Form /> }]),
+    });
+
+    expect([...container.querySelectorAll('.button--primary')]).toEqual([
+      screen.getByRole('button', { name: 'Save' }),
+    ]);
   });
 });
