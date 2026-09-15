@@ -1,10 +1,10 @@
 import type { RouteObject } from 'react-router';
 
+import { AddCheck } from './pages/add-check';
 import { CheckDetail } from './pages/check-detail';
 import { ChecksPage } from './pages/checks/checks-page';
 import { LogRun } from './pages/log-run';
 import { NotFound } from './pages/not-found';
-import { Placeholder } from './pages/placeholder';
 import { RouteError } from './pages/route-error';
 import { Shell } from './shell/shell';
 
@@ -13,11 +13,13 @@ import { Shell } from './shell/shell';
  * `checks/:id` is `/checks/:id`. A static segment outranks a parameter, which
  * is why `checks/new` never reads as a check called "new".
  *
- * A screen whose story has not landed is a placeholder until it does.
+ * Every address here answers with its own screen. A screen whose story has not
+ * landed takes the Placeholder in ./pages/placeholder until it does; none does
+ * today, which is why that component appears in no route below.
  */
 export const screens: RouteObject[] = [
   { index: true, element: <ChecksPage /> },
-  { path: 'checks/new', element: <Placeholder title="Add a check" /> },
+  { path: 'checks/new', element: <AddCheck /> },
   { path: 'checks/:id', element: <CheckDetail /> },
   { path: 'runs/new', element: <LogRun /> },
   { path: '*', element: <NotFound /> },

@@ -18,6 +18,7 @@ type Documents = {
   'query CheckDetail($id: ID!) {\n  check(id: $id) {\n    id\n    name\n    area\n    protects\n    howToTellArmed\n    status\n    lastCaughtOn\n    runCount\n    caughtCount\n    missedCount\n    runs {\n      id\n      runOn\n      planted\n      expected\n      outcome\n      note\n    }\n    armingObservations {\n      id\n      observedOn\n      armed\n    }\n  }\n}': typeof types.CheckDetailDocument;
   'query CheckOptions {\n  checks {\n    checks {\n      id\n      name\n    }\n  }\n}': typeof types.CheckOptionsDocument;
   'query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}': typeof types.ChecksDocument;
+  'mutation CreateCheck($input: CreateCheckInput!) {\n  createCheck(input: $input) {\n    __typename\n    ... on Check {\n      id\n      name\n      status\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.CreateCheckDocument;
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.LogTestRunDocument;
   'mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}': typeof types.RecordArmingObservationDocument;
   'query StatusCounts {\n  statusCounts {\n    proven\n    unproven\n    stale\n    unarmed\n    broken\n    total\n  }\n}': typeof types.StatusCountsDocument;
@@ -30,6 +31,8 @@ const documents: Documents = {
     types.CheckOptionsDocument,
   'query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}':
     types.ChecksDocument,
+  'mutation CreateCheck($input: CreateCheckInput!) {\n  createCheck(input: $input) {\n    __typename\n    ... on Check {\n      id\n      name\n      status\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
+    types.CreateCheckDocument,
   'mutation LogTestRun($input: LogTestRunInput!) {\n  logTestRun(input: $input) {\n    __typename\n    ... on TestRunLogged {\n      testRun {\n        id\n      }\n      check {\n        id\n        name\n        status\n        runCount\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
     types.LogTestRunDocument,
   'mutation RecordArmingObservation($input: RecordArmingObservationInput!) {\n  recordArmingObservation(input: $input) {\n    __typename\n    ... on ArmingObservationRecorded {\n      armingObservation {\n        id\n      }\n      check {\n        id\n        status\n      }\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}':
@@ -76,6 +79,12 @@ export function graphql(
 export function graphql(
   source: 'query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}',
 ): (typeof documents)['query Checks($filter: FilterInput) {\n  checks(filter: $filter) {\n    checks {\n      id\n      name\n      area\n      status\n      lastCaughtOn\n      runCount\n      runs {\n        id\n        runOn\n        outcome\n        planted\n      }\n    }\n    matching\n    hidden\n  }\n}'];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: 'mutation CreateCheck($input: CreateCheckInput!) {\n  createCheck(input: $input) {\n    __typename\n    ... on Check {\n      id\n      name\n      status\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}',
+): (typeof documents)['mutation CreateCheck($input: CreateCheckInput!) {\n  createCheck(input: $input) {\n    __typename\n    ... on Check {\n      id\n      name\n      status\n    }\n    ... on ValidationErrors {\n      errors {\n        path\n        message\n      }\n    }\n  }\n}'];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

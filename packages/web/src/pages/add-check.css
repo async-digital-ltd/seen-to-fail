@@ -1,0 +1,8 @@
+/* Narrower than the page: a form is read down, not across. */
+.add-check {
+  max-width: 600px;
+}
+
+.add-check__lede {
+  margin-bottom: 1.5rem;
+}

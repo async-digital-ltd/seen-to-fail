@@ -1,0 +1,16 @@
+mutation CreateCheck($input: CreateCheckInput!) {
+  createCheck(input: $input) {
+    __typename
+    ... on Check {
+      id
+      name
+      status
+    }
+    ... on ValidationErrors {
+      errors {
+        path
+        message
+      }
+    }
+  }
+}

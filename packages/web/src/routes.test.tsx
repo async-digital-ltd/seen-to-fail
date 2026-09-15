@@ -1,8 +1,11 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { CheckDetailDocument } from './graphql/generated/graphql';
+import {
+  AreasDocument,
+  CheckDetailDocument,
+} from './graphql/generated/graphql';
 import { paths } from './paths';
 import { createRoutes } from './routes';
 import { answer } from './testing/client';
@@ -36,6 +39,32 @@ describe.each(screens)('at $route', ({ route, heading }) => {
     expect(
       container.querySelectorAll('.button--primary').length,
     ).toBeLessThanOrEqual(1);
+  });
+});
+
+/**
+ * The heading alone does not say a screen has landed: a placeholder carries
+ * the heading its finished screen will carry, which is what kept this address
+ * passing the block above while nothing was built. So this asks the address
+ * for something only the screen itself has.
+ */
+describe('at the add-check address', () => {
+  it('answers with the form, not a screen still to come', async () => {
+    const { calls } = renderApp({
+      route: paths.newCheck(),
+      answers: [answer(AreasDocument, { areas: ['CI'] })],
+    });
+
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Save check' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("This screen hasn't been built yet."),
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(calls.map((call) => call.name)).toContain('Areas');
+    });
   });
 });
 

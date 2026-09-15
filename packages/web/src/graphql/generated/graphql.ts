@@ -8,6 +8,21 @@ export type Incremental<T> =
       [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never;
     };
 import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
+/** A new check, as somebody would describe it in a form. */
+export type CreateCheckInput = {
+  /** Where the check runs, in the team's own words. Not blank. */
+  area: string;
+  /**
+   * How a reader can tell it is switched on. May be blank, and a blank one is
+   * stored as empty.
+   */
+  howToTellArmed: string;
+  /** Unique across the workspace, and not blank. */
+  name: string;
+  /** What it is there to stop. May be blank, and a blank one is stored as empty. */
+  protects: string;
+};
+
 /** One planted defect, and what the check did about it. */
 export type LogTestRunInput = {
   /** The check the defect was planted for. It has to exist. */
@@ -126,6 +141,19 @@ export type ChecksQuery = {
       }>;
     }>;
   };
+};
+
+export type CreateCheckMutationVariables = Exact<{
+  input: CreateCheckInput;
+}>;
+
+export type CreateCheckMutation = {
+  createCheck:
+    | { __typename: 'Check'; id: string; name: string; status: Status }
+    | {
+        __typename: 'ValidationErrors';
+        errors: Array<{ path: string; message: string }>;
+      };
 };
 
 export type LogTestRunMutationVariables = Exact<{
@@ -421,6 +449,104 @@ export const ChecksDocument = {
     },
   ],
 } as unknown as DocumentNode<ChecksQuery, ChecksQueryVariables>;
+export const CreateCheckDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'CreateCheck' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: {
+            kind: 'Variable',
+            name: { kind: 'Name', value: 'input' },
+          },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'CreateCheckInput' },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'createCheck' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: {
+                  kind: 'Variable',
+                  name: { kind: 'Name', value: 'input' },
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'Check' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'status' },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'ValidationErrors' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'errors' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'path' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'message' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CreateCheckMutation, CreateCheckMutationVariables>;
 export const LogTestRunDocument = {
   kind: 'Document',
   definitions: [
