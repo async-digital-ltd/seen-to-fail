@@ -1,10 +1,46 @@
 /**
- * The filter language: parsing a filter, validating it, and compiling it to a
- * parameterised SQL query.
+ * The filter language, shared by the server and the web client.
  *
- * None of that exists yet. The package is created empty on purpose, so the
- * server and the web client can each depend on the filter language without
- * either one depending on the other. The constant below is a placeholder that
- * gives the package something to export and its test something to assert.
+ * `parseFilter` is the edge: it is the only way to turn untrusted input into a
+ * `Filter`. Everything else exported here is the vocabulary a parsed filter is
+ * expressed in, plus the schema, so the API layer can validate with the same
+ * rules rather than a copy of them.
+ */
+
+export {
+  emptyFilter,
+  JOINERS,
+  MAX_CONDITIONS_PER_GROUP,
+  MAX_GROUPS,
+  STATUSES,
+} from './types';
+
+export type {
+  AreaCondition,
+  Condition,
+  EmptyFilter,
+  Filter,
+  Group,
+  GroupedFilter,
+  Joiner,
+  LastCaughtAgeCondition,
+  LastCaughtNeverCondition,
+  RunsCondition,
+  Status,
+  StatusCondition,
+} from './types';
+
+export { filterSchema } from './schema';
+
+export { parseFilter } from './parse';
+
+export type { FilterIssue, ParseFilterResult } from './parse';
+
+/**
+ * The package's own name.
+ *
+ * It survives from the scaffold because the server and the web client still
+ * import it as their placeholder dependency on this package. Both drop it when
+ * they start using the language itself.
  */
 export const packageName = '@seen-to-fail/filter';
