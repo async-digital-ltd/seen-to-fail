@@ -65,7 +65,43 @@ const readsThatFail = [
   },
 ];
 
-for (const { field, document } of readsThatFail) {
+/**
+ * One document per write, each valid, so that it passes every rule and reaches
+ * its insert. The writes turn a database refusal into ValidationErrors when the
+ * constraint behind it is one they expect, and must throw anything else on
+ * rather than answer it: a write that turned every database error into a field
+ * error would hand the database's message to the form.
+ */
+const writesThatFail = [
+  {
+    field: 'createCheck',
+    document: `mutation {
+      createCheck(input: {
+        name: "Any name", area: "CI", protects: "Anything", howToTellArmed: "Anyhow"
+      }) { __typename }
+    }`,
+  },
+  {
+    field: 'logTestRun',
+    document: `mutation {
+      logTestRun(input: {
+        checkId: "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", runOn: "2026-01-01",
+        planted: "Anything", expected: "Anything", outcome: CAUGHT
+      }) { __typename }
+    }`,
+  },
+  {
+    field: 'recordArmingObservation',
+    document: `mutation {
+      recordArmingObservation(input: {
+        checkId: "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", observedOn: "2026-01-01",
+        armed: true
+      }) { __typename }
+    }`,
+  },
+];
+
+for (const { field, document } of [...readsThatFail, ...writesThatFail]) {
   it(`masks a database failure behind ${field}`, async () => {
     const { database, query } = failingDatabase();
     const server = createGraphQLServer({ database });
