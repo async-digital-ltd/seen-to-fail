@@ -29,3 +29,19 @@ export type StatusName = Uppercase<Status>;
 export function statusFromName(name: StatusName): Status {
   return statusesByName[name];
 }
+
+/**
+ * The order the statuses are shown in, from the one a reader can trust to the
+ * one they know least about.
+ *
+ * The filter package's list is in no particular order for reading, so the
+ * screen keeps its own. It holds the same five words and no others, which
+ * status.test.ts checks against that list.
+ */
+export const statusOrder: readonly Status[] = [
+  'Proven',
+  'Broken',
+  'Stale',
+  'Unproven',
+  'Unarmed',
+];
