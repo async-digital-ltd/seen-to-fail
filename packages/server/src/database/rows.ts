@@ -108,8 +108,12 @@ export async function selectRows<Row>(
  *
  * to_char rather than a cast to text, because a cast reads DateStyle and would
  * hand back a different string to a session that has changed it.
+ *
+ * Exported so that every column list returning a day formats it the same way,
+ * including the ones in other files. A null column stays null: to_char of
+ * nothing is nothing, rather than an empty string.
  */
-function isoDate(column: string): string {
+export function isoDate(column: string): string {
   return `to_char(${column}, 'YYYY-MM-DD')`;
 }
 
