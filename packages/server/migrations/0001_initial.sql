@@ -1,0 +1,6 @@
+-- The first migration. It creates nothing.
+--
+-- It exists so the runner has something to apply before any table does: running
+-- it records a row in schema_migrations, and a second run finds nothing to do.
+-- The checks, test runs and saved filters tables arrive in the migration after
+-- this one.

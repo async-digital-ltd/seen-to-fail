@@ -9,10 +9,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@seen-to-fail/filter": "workspace:*"
+    "@seen-to-fail/filter": "workspace:*",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.4",
+    "@types/pg": "^8.23.1",
     "typescript": "^6.0.3",
     "vitest": "^5.0.0"
   }
