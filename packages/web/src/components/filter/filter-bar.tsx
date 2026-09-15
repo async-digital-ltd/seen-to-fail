@@ -288,11 +288,20 @@ export function FilterBar({
           Filter
         </h2>
         <div className="filter-bar__actions">
-          <CopyLink key={href} href={href} />
+          <CopyLink
+            key={href}
+            href={href}
+            disabled={unreadable !== undefined}
+          />
+          {/*
+            Clear is offered whenever the address holds anything, including
+            text the language refused: a reader who followed a broken link
+            needs a way to a clean address, not only a notice about it.
+          */}
           <button
             type="button"
             className="button"
-            disabled={filter.kind === 'empty'}
+            disabled={filter.kind === 'empty' && unreadable === undefined}
             onClick={() => {
               change(emptyFilter, [addGroupId]);
             }}

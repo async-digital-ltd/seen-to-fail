@@ -756,6 +756,31 @@ describe('the filter bar', () => {
     ).toHaveFocus();
   });
 
+  it('lets a reader clear an address that did not read, and holds Copy link back until they do', async () => {
+    const { user, router } = renderApp({
+      route: '/?f=status%20is%20Stale',
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('5 of 5 checks');
+    expect(within(bar()).getByRole('alert')).toBeInTheDocument();
+    expect(
+      within(bar()).getByRole('button', { name: 'Copy link' }),
+    ).toBeDisabled();
+    const clear = within(bar()).getByRole('button', { name: 'Clear' });
+    expect(clear).toBeEnabled();
+
+    await user.click(clear);
+
+    expect(router.state.location.search).toBe('');
+    expect(within(bar()).queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      within(bar()).getByRole('button', { name: 'Copy link' }),
+    ).toBeEnabled();
+    expect(
+      within(bar()).getByRole('button', { name: 'Add a condition' }),
+    ).toHaveFocus();
+  });
+
   it('offers the areas the workspace has when an area is being chosen', async () => {
     const { user } = renderApp({ answers: answersFor(workspace) });
     await screen.findByText('5 of 5 checks');

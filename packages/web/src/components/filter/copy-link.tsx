@@ -12,6 +12,13 @@ const words = {
 interface CopyLinkProps {
   /** The page's own address, as the router writes it, without the origin. */
   readonly href: string;
+  /**
+   * Whether the address is one not to pass on. The bar sets this while the
+   * address holds a filter the language refused: the notice beside the button
+   * already says the link was not read, and a copy of it would carry the same
+   * fault to the next reader. Clear gives a clean address to copy instead.
+   */
+  readonly disabled: boolean;
 }
 
 /**
@@ -27,7 +34,7 @@ interface CopyLinkProps {
  * the address, so the word clears when the filter changes and cannot claim a
  * link that is no longer the one on screen.
  */
-export function CopyLink({ href }: CopyLinkProps): ReactElement {
+export function CopyLink({ href, disabled }: CopyLinkProps): ReactElement {
   const [outcome, setOutcome] = useState<Outcome>('idle');
 
   const copy = async (): Promise<void> => {
@@ -47,6 +54,7 @@ export function CopyLink({ href }: CopyLinkProps): ReactElement {
       <button
         type="button"
         className="button"
+        disabled={disabled}
         onClick={() => {
           void copy();
         }}
