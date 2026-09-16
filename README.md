@@ -163,8 +163,14 @@ here, and you want one of them, not both, because they would compete for port 54
 `postgresql@16` as a service and creates the two databases named in `.env` if
 they are not there yet. `pnpm db:down` stops it. A server started this way has
 no `seen_to_fail` role and no password, so the values in `.env.example` will not
-reach it as they stand: point both URLs at your own user instead, as in
-`postgresql://localhost:5432/seen_to_fail_dev`.
+reach it as they stand. It does let in the user you are logged in as, and a URL
+with no user in it connects as that user, so take the user and password out of
+both URLs altogether:
+
+```sh
+DATABASE_URL=postgresql://localhost:5432/seen_to_fail_dev
+TEST_DATABASE_URL=postgresql://localhost:5432/seen_to_fail_test
+```
 
 **Docker, provided but unproven.** `docker compose up -d` starts the compose
 file's PostgreSQL 16 with both databases and the credentials `.env.example`
