@@ -1,23 +1,30 @@
-/* A button, drawn as a link because it sits at the end of a line of text. */
-.record-observation__toggle {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--primary);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.record-observation__toggle:hover {
-  color: var(--primary-hover);
-}
-
-/* Its own line under the arming line, at the page's size rather than the line's. */
+/*
+ * The form opens below the two kinds of evidence, across the page. Its edge is
+ * drawn in ink, not in the border token, because a border that pale all but
+ * vanishes against the page (#50).
+ */
 .record-observation__form {
-  flex-basis: 100%;
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  font-size: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ink);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.record-observation__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.record-observation__heading h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.record-observation__heading p {
+  margin: 0;
+  font-size: 0.875rem;
 }

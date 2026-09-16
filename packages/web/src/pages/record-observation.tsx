@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation } from 'urql';
 
 import { ErrorNotice } from '../components/error-notice';
@@ -14,6 +14,12 @@ import { today } from '../today';
 import './record-observation.css';
 
 type ObservationField = Exclude<keyof RecordArmingObservationInput, 'checkId'>;
+
+/** What an observation said once it is saved: the day and on or off. */
+export type SavedObservation = Pick<
+  RecordArmingObservationInput,
+  'observedOn' | 'armed'
+>;
 
 /**
  * The fields in the order the form lays them out. The check is not one of
@@ -76,22 +82,27 @@ function checkDraft(draft: Draft, day: string): Checked {
 }
 
 interface ObservationFormProps {
-  /** The id prefix every control in this form is named from. */
-  readonly idPrefix: string;
+  /** The form's own id, which the control that opens it points at. */
+  readonly id: string;
   readonly checkId: string;
-  readonly onSaved: () => void;
+  readonly onSaved: (saved: SavedObservation) => void;
 }
 
-function ObservationForm({
-  idPrefix,
+/**
+ * "Record an observation": what somebody found when they looked at a check,
+ * without planting anything. The page that holds it decides when it is open
+ * and says what was saved; the form only fills in, checks and sends.
+ */
+export function ObservationForm({
+  id,
   checkId,
   onSaved,
 }: ObservationFormProps): ReactElement {
   const [observedOn, setObservedOn] = useState(today);
   const [seen, setSeen] = useState<Seen | null>(null);
   const [note, setNote] = useState('');
-  const idOf = (field: ObservationField): string => `${idPrefix}-${field}`;
-  const summaryId = `${idPrefix}-errors`;
+  const idOf = (field: ObservationField): string => `${id}-${field}`;
+  const summaryId = `${id}-errors`;
   const errors = useFormErrors(observationFields, idOf, summaryId);
   const [{ fetching, error: sendError }, record] = useMutation(
     RecordArmingObservationDocument,
@@ -100,8 +111,8 @@ function ObservationForm({
 
   // Opening the form is asking to fill it in, so the first field takes focus.
   useEffect(() => {
-    document.getElementById(`${idPrefix}-observedOn`)?.focus();
-  }, [idPrefix]);
+    document.getElementById(`${id}-observedOn`)?.focus();
+  }, [id]);
 
   async function send(): Promise<void> {
     const checked = checkDraft({ observedOn, seen, note }, today());
@@ -121,13 +132,16 @@ function ObservationForm({
       errors.showFromApi(answer.errors);
       return;
     }
-    onSaved();
+    onSaved({
+      observedOn: checked.input.observedOn,
+      armed: checked.input.armed,
+    });
   }
 
   return (
     <form
       ref={form}
-      id={idPrefix}
+      id={id}
       className="form record-observation__form"
       aria-label="Record an observation"
       noValidate
@@ -138,6 +152,10 @@ function ObservationForm({
         }
       }}
     >
+      <div className="record-observation__heading">
+        <h3>Record an observation</h3>
+        <p className="muted">Nothing planted. Just what you found.</p>
+      </div>
       <ErrorSummary
         id={summaryId}
         count={errors.count}
@@ -178,58 +196,10 @@ function ObservationForm({
       />
       <div className="form__actions">
         {/* Not brick: the page's one brick action is its "Log a test run". */}
-        <button type="submit" className="button">
+        <button type="submit" className="button button--outlined">
           Save observation
         </button>
       </div>
     </form>
-  );
-}
-
-interface RecordObservationProps {
-  readonly checkId: string;
-}
-
-/**
- * "Record an observation" and the small form it opens, on a check's page.
- *
- * The control is a button that shows and hides the form, drawn as a link
- * because it sits in a line of text. Saving closes the form and puts focus
- * back on the control. The page's status and arming line then change by
- * themselves: the save returns the check, which is what tells the client's
- * cache that the page's own reading of that check is out of date.
- */
-export function RecordObservation({
-  checkId,
-}: RecordObservationProps): ReactElement {
-  const idPrefix = useId();
-  const [open, setOpen] = useState(false);
-  const toggle = useRef<HTMLButtonElement>(null);
-
-  return (
-    <>
-      <button
-        ref={toggle}
-        type="button"
-        className="record-observation__toggle"
-        aria-expanded={open}
-        aria-controls={open ? idPrefix : undefined}
-        onClick={() => {
-          setOpen(!open);
-        }}
-      >
-        Record an observation
-      </button>
-      {open ? (
-        <ObservationForm
-          idPrefix={idPrefix}
-          checkId={checkId}
-          onSaved={() => {
-            setOpen(false);
-            toggle.current?.focus();
-          }}
-        />
-      ) : null}
-    </>
   );
 }

@@ -22,6 +22,7 @@ query CheckDetail($id: ID!) {
       id
       observedOn
       armed
+      note
     }
   }
 }
