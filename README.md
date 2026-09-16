@@ -137,6 +137,10 @@ link must parse back into the same filter.
 The server is built for local use only. There is no per-request cost limit and
 no limit on the size of a request body, so it is not hardened for deployment.
 
+The list, the filter bar and the three forms carry keyboard tests. A check's own
+page does not, and no dedicated keyboard and screen reader pass has been run
+over any of them.
+
 ## Run it locally
 
 Requires Node 24 or newer, the version in `.nvmrc`, pnpm, and a PostgreSQL 16.
