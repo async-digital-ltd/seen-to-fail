@@ -13,6 +13,10 @@ check catch it, and write down what happened. Seen to Fail is that record.
 
 ![The list of checks in the sample workspace, under a tile counting each of the five statuses, with the filter bar between them.](docs/checks.png)
 
+Those counts are not a snapshot: the sample workspace dates every run and
+observation from the day it is loaded, so `pnpm db:seed` reaches the same five
+counts whenever it is run.
+
 ## How it works
 
 Each check has a log of **test runs**. A test run is one planted defect, and
@@ -124,7 +128,8 @@ link must parse back into the same filter.
 - **TypeScript** throughout, in strict mode.
 - **GraphQL** API on Node, with frontend types generated from the schema.
 - **PostgreSQL**, with four tables: checks, test runs, arming observations and
-  saved filters.
+  saved filters. The schema carries `saved_filters` for saving a filter under a
+  name, and nothing reads it yet.
 - **React** with Vite, React Router and urql.
 - **Vitest** for tests, and GitHub Actions for type checking, linting, format
   checking, tests and a build of the client.
@@ -210,7 +215,8 @@ bundle to `packages/web/dist`.
 The home page lists the checks under their status tiles, and a tile narrows the
 list to its status. The filter bar between the two builds a filter condition by
 condition. Each check has its own page, which is where an arming observation is
-recorded. Runs are logged through a form, and checks are added through another.
+recorded. Runs are logged through a form.
+A check is added through a form of its own.
 
 ## Tests
 
