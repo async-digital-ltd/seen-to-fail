@@ -28,6 +28,11 @@ import { createGraphQLServer } from './server.ts';
  *
  * The control: pass `maskedErrors: false` to the server and this test fails,
  * with the database's message in the response. It has been seen to do so.
+ *
+ * The verdict does not depend on the shell. The server pins masking off
+ * development mode, so these tests pass the same with NODE_ENV unset,
+ * `production` or `development`. Remove the pin and every test here fails under
+ * `development`, which has been seen too.
  */
 
 /** A message of the kind PostgreSQL sends, which must not reach a client. */

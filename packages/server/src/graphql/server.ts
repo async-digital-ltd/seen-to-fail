@@ -63,6 +63,12 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
     graphqlEndpoint: graphqlRoute,
     healthCheckEndpoint: healthRoute,
     context: () => createRequestContext(options),
+    // Masking is pinned rather than left to NODE_ENV. Left alone, the server
+    // reads NODE_ENV on every masked error, and `development` adds the original
+    // message and a stack trace naming files on this machine to what the client
+    // receives. A shell that exports it would leak that detail, and would fail
+    // the masking tests for a reason that is not in the code.
+    maskedErrors: { isDev: false },
     plugins: [
       useReadinessCheck({
         endpoint: readinessRoute,
