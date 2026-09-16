@@ -148,6 +148,17 @@ export function ChecksPage(): ReactElement {
             setFilter(emptyFilter);
           }}
         />
+        {/*
+          The way to the form once the workspace has anything in it. The empty
+          state's button is the other one, and it is gone by the time this
+          shows, so between them the form is reachable whatever the list holds.
+          A link rather than a button: the screen's one filled action is spent
+          on the empty state's, and adding a check is not what a reader came to
+          this page to do.
+        */}
+        <p className="checks-page__add">
+          <Link to={paths.newCheck()}>Add a check</Link>
+        </p>
       </>
     );
   }

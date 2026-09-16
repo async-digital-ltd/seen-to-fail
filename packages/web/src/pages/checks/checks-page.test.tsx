@@ -889,6 +889,72 @@ describe('a filter that matches nothing', () => {
   });
 });
 
+/**
+ * The form at /checks/new is reachable by clicking, whatever the list holds.
+ *
+ * Both ways to it used to be gated on the workspace being empty: this page's
+ * own button, which is inside the empty state, and the run form's "Add a check
+ * first", which shows only when there is nothing to log a run against. So the
+ * screen became unreachable the moment a workspace had one check in it, which
+ * is every workspace after the first minute, and the seeded one.
+ *
+ * Nothing caught that, because an absence has no line to review and no
+ * assertion to break. It was found by a screenshot that came back byte for
+ * byte identical to the one before the story landed.
+ */
+describe('the way to the add-check form', () => {
+  it('is on the list once the workspace has checks in it', async () => {
+    const { router, user } = renderApp({ answers: answersFor(workspace) });
+
+    await screen.findByText('5 of 5 checks');
+    await user.click(screen.getByRole('link', { name: 'Add a check' }));
+
+    expect(router.state.location.pathname).toBe(paths.newCheck());
+  });
+
+  /**
+   * The brand rule is one filled action per screen, and the populated list has
+   * no filled action to spare. A link is brick text by default, so this asks
+   * that nothing has made it a button.
+   */
+  it('is a link, not a second filled action on the same screen', async () => {
+    const { container } = renderApp({ answers: answersFor(workspace) });
+
+    await screen.findByText('5 of 5 checks');
+    const add = screen.getByRole('link', { name: 'Add a check' });
+    expect(add).toHaveAttribute('href', paths.newCheck());
+    expect(add).not.toHaveClass('button');
+    expect(add).not.toHaveClass('button--primary');
+    expect(container.querySelectorAll('.button--primary')).toHaveLength(0);
+  });
+
+  /**
+   * A filter can hide every check without emptying the workspace, and the way
+   * to the form is not the filter's to take away.
+   */
+  it('is still there when a filter matches nothing', async () => {
+    renderApp({
+      route: paths.checks({ filter: onlyStatus('Unarmed') }),
+      answers: [
+        ...answersFor(workspace),
+        answer(ChecksDocument, {
+          checks: { checks: [], matching: 0, hidden: workspace.length },
+        }),
+      ],
+    });
+
+    expect(
+      await screen.findByText(
+        'No checks match this filter. Remove a condition, or widen it with OR.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add a check' })).toHaveAttribute(
+      'href',
+      paths.newCheck(),
+    );
+  });
+});
+
 describe('an empty workspace', () => {
   it('says there are no checks and offers to add one', async () => {
     renderApp({ answers: answersFor([]) });

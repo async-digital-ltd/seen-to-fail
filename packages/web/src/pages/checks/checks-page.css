@@ -56,6 +56,14 @@
   margin: 0;
 }
 
+/* Under the list, and quieter than it: the reader came here to read the
+   checks, not to add one. Brick text, which is what an anchor already is, and
+   not a fill: the screen's one filled action belongs to the empty state. */
+.checks-page__add {
+  margin: 0.875rem 0 0;
+  font-size: 0.875rem;
+}
+
 .checks-page__empty {
   margin-top: 1.5rem;
   padding: 1.5rem 1.25rem;
