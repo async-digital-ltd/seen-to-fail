@@ -191,7 +191,7 @@ const callouts: readonly {
   },
 ];
 
-describe('the callout', () => {
+describe('the next step', () => {
   it('covers every status but Proven, each once', () => {
     expect(
       [
@@ -221,16 +221,16 @@ describe('the callout', () => {
     },
   );
 
-  it('is not shown for a Proven check', async () => {
+  it('is not shown for a Proven check, which can still log a run', async () => {
     await renderRecordedCheck({ status: 'PROVEN', lastCaughtOn: '2026-09-06' });
 
     expect(screen.getByText('Proven')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: 'Log a test run' }),
-    ).not.toBeInTheDocument();
     for (const { sentence } of callouts) {
       expect(screen.queryByText(sentence)).not.toBeInTheDocument();
     }
+    expect(
+      screen.getByRole('link', { name: 'Log a test run' }),
+    ).toHaveAttribute('href', paths.newRun({ check: id }));
   });
 
   it('is the only brick fill on the screen, shell included', async () => {
@@ -280,36 +280,176 @@ describe('what the check is for', () => {
   );
 });
 
-describe('the arming line', () => {
-  const armingCard = () =>
-    screen.getByRole('region', { name: 'How you can tell it is switched on' });
+/** The value beside a term in the page's summary of its latest evidence. */
+function latest(term: 'Latest observation' | 'Latest test run') {
+  // A term is found by its text: testing-library gives a dt no accessible name.
+  const found = screen.getByText(term, { selector: 'dt' }).nextElementSibling;
+  if (found === null) {
+    throw new Error(`Nothing is given for ${term}.`);
+  }
+  return found;
+}
 
-  it('says nobody has checked when there are no observations', async () => {
+describe('the latest evidence', () => {
+  it('says nobody has checked and nothing has run when there is no evidence', async () => {
     await renderRecordedCheck();
 
-    expect(armingCard()).toHaveTextContent('Never checked');
+    expect(latest('Latest observation')).toHaveTextContent('Never checked');
+    expect(latest('Latest test run')).toHaveTextContent('None yet');
   });
 
-  it('reads the latest observation when it saw the check on', async () => {
+  it('reads the latest observation when it found the check on', async () => {
     await renderRecordedCheck({
       armingObservations: [
-        { id: 'o2', observedOn: '2026-09-13', armed: true },
-        { id: 'o1', observedOn: '2026-09-05', armed: false },
+        { id: 'o2', observedOn: '2026-09-13', armed: true, note: null },
+        { id: 'o1', observedOn: '2026-09-05', armed: false, note: null },
       ],
     });
 
-    expect(armingCard()).toHaveTextContent('Seen on, 2 days ago');
+    expect(latest('Latest observation')).toHaveTextContent(
+      'Found switched on, 2 days ago',
+    );
   });
 
-  it('reads the latest observation when it saw the check off', async () => {
+  it('reads the latest observation when it found the check off', async () => {
     await renderRecordedCheck({
       armingObservations: [
-        { id: 'o2', observedOn: '2026-09-05', armed: false },
-        { id: 'o1', observedOn: '2026-09-01', armed: true },
+        { id: 'o2', observedOn: '2026-09-05', armed: false, note: null },
+        { id: 'o1', observedOn: '2026-09-01', armed: true, note: null },
       ],
     });
 
-    expect(armingCard()).toHaveTextContent('Seen off, 10 days ago');
+    expect(latest('Latest observation')).toHaveTextContent(
+      'Found switched off, 10 days ago',
+    );
+  });
+
+  it('reads the latest run, caught or missed', async () => {
+    await renderRecordedCheck({
+      status: 'BROKEN',
+      runs: [
+        aRun({ id: 'r2', runOn: '2026-09-14', outcome: 'MISSED' }),
+        aRun({ id: 'r1', runOn: '2026-09-01' }),
+      ],
+    });
+
+    expect(latest('Latest test run')).toHaveTextContent('Missed it, yesterday');
+  });
+});
+
+describe('the two kinds of evidence', () => {
+  const evidence = () => screen.getByRole('region', { name: 'Evidence' });
+
+  it('names the question each kind answers, and offers its action there', async () => {
+    await renderRecordedCheck();
+
+    const switchedOn = within(evidence()).getByRole('region', {
+      name: 'Is it switched on?',
+    });
+    expect(switchedOn).toHaveTextContent(
+      'An observation. Somebody looked at the check, without planting anything, and recorded what they found.',
+    );
+    expect(
+      within(switchedOn).getByRole('button', { name: 'Record an observation' }),
+    ).not.toHaveClass('button--primary');
+
+    const works = within(evidence()).getByRole('region', {
+      name: 'Does it work?',
+    });
+    expect(works).toHaveTextContent(
+      'A test run. Somebody planted the defect this check exists to catch and saw what happened.',
+    );
+    expect(
+      within(works).getByRole('link', { name: 'Log a test run' }),
+    ).toHaveClass('button--primary');
+  });
+
+  it('counts what each kind holds', async () => {
+    await renderRecordedCheck({
+      status: 'BROKEN',
+      lastCaughtOn: '2026-08-01',
+      runCount: 3,
+      caughtCount: 2,
+      missedCount: 1,
+      armingObservations: [
+        { id: 'o2', observedOn: '2026-09-13', armed: true, note: null },
+        { id: 'o1', observedOn: '2026-09-05', armed: true, note: null },
+      ],
+    });
+
+    expect(
+      within(evidence()).getByRole('region', { name: 'Is it switched on?' }),
+    ).toHaveTextContent('2 observations, the latest 2 days ago');
+    expect(
+      within(evidence()).getByRole('region', { name: 'Does it work?' }),
+    ).toHaveTextContent('3 runs, 2 caught and 1 missed');
+  });
+
+  it('says when nothing of a kind is recorded', async () => {
+    await renderRecordedCheck();
+
+    for (const name of ['Is it switched on?', 'Does it work?']) {
+      expect(
+        within(evidence()).getByRole('region', { name }),
+      ).toHaveTextContent('Nothing recorded yet');
+    }
+  });
+});
+
+describe('the observations', () => {
+  const observationsSection = () =>
+    screen.getByRole('region', { name: 'Observations' });
+
+  it('lists every observation newest first, with what was found and its note', async () => {
+    await renderRecordedCheck({
+      status: 'UNARMED',
+      armingObservations: [
+        {
+          id: 'o2',
+          observedOn: '2026-09-13',
+          armed: false,
+          note: 'Hook removed while the repository moved.',
+        },
+        { id: 'o1', observedOn: '2026-09-05', armed: true, note: null },
+      ],
+    });
+
+    const entries = within(observationsSection()).getAllByRole('listitem');
+    expect(entries).toHaveLength(2);
+    const [newest, older] = entries;
+    if (newest === undefined || older === undefined) {
+      throw new Error('Two observations were not rendered.');
+    }
+    expect(newest).toHaveTextContent('2 days ago13 Sep 2026');
+    expect(newest).toHaveTextContent('✕Found switched off');
+    expect(newest).toHaveTextContent(
+      'Hook removed while the repository moved.',
+    );
+    expect(older).toHaveTextContent('10 days ago5 Sep 2026');
+    expect(older).toHaveTextContent('✓Found switched on');
+    // Its age, its day and what was found: no empty paragraph for a note.
+    expect(within(older).getAllByRole('paragraph')).toHaveLength(3);
+    expect(observationsSection()).toHaveTextContent('Newest first.');
+  });
+
+  it('says nobody has checked, with the hint to look, when there are none', async () => {
+    await renderRecordedCheck();
+
+    expect(observationsSection()).toHaveTextContent('Never checked');
+    expect(observationsSection()).toHaveTextContent(
+      'Look at the check where it runs, then record whether you found it on or off.',
+    );
+    expect(
+      within(observationsSection()).queryByRole('list'),
+    ).not.toBeInTheDocument();
+    expect(observationsSection()).not.toHaveTextContent('Newest first.');
+  });
+
+  it('holds an empty status line, ready to say when one is saved', async () => {
+    await renderRecordedCheck();
+
+    const line = within(observationsSection()).getByRole('status');
+    expect(line).toBeEmptyDOMElement();
   });
 });
 

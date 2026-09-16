@@ -66,6 +66,7 @@ const proven: RecordedCheck = {
       id: 'f0e1d2c3-b4a5-4968-8776-655443322110',
       observedOn: '2026-09-01',
       armed: true,
+      note: null,
     },
   ],
 };
@@ -100,6 +101,7 @@ function api(initial: RecordedCheck): { answers: Answer[]; sent: unknown[] } {
             id: `observation-${String(sent.length)}`,
             observedOn: input.observedOn,
             armed: input.armed,
+            note: input.note ?? null,
           },
           ...check.armingObservations,
         ],
@@ -116,8 +118,19 @@ function api(initial: RecordedCheck): { answers: Answer[]; sent: unknown[] } {
   return { answers: [detail, record], sent };
 }
 
-const armingCard = () =>
-  screen.getByRole('region', { name: 'How you can tell it is switched on' });
+/** What the page's summary says the latest observation found. */
+const latestObservation = () => {
+  // A term is found by its text: testing-library gives a dt no accessible name.
+  const found = screen.getByText('Latest observation', {
+    selector: 'dt',
+  }).nextElementSibling;
+  if (found === null) {
+    throw new Error('Nothing is given for the latest observation.');
+  }
+  return found;
+};
+
+const observations = () => screen.getByRole('region', { name: 'Observations' });
 
 async function openForm(user: ReturnType<typeof renderApp>['user']) {
   await user.click(
@@ -156,7 +169,8 @@ describe('the observation form', () => {
       answers,
     });
     expect(await screen.findByText('Unarmed')).toBeInTheDocument();
-    expect(armingCard()).toHaveTextContent('Never checked');
+    expect(latestObservation()).toHaveTextContent('Never checked');
+    expect(within(observations()).getByRole('status')).toBeEmptyDOMElement();
     const form = await openForm(user);
 
     await user.click(within(form).getByRole('button', { name: 'It is on' }));
@@ -166,7 +180,12 @@ describe('the observation form', () => {
 
     expect(await screen.findByText('Unproven')).toBeInTheDocument();
     expect(screen.queryByText('Unarmed')).not.toBeInTheDocument();
-    expect(armingCard()).toHaveTextContent('Seen on, today');
+    expect(latestObservation()).toHaveTextContent('Found switched on, today');
+    // Said where a screen reader hears it, not only shown in the page (#51).
+    expect(within(observations()).getByRole('status')).toHaveTextContent(
+      'Observation saved: found switched on, today.',
+    );
+    expect(within(observations()).getAllByRole('listitem')).toHaveLength(1);
     expect(sent).toEqual([
       { checkId: id, observedOn: testDay, armed: true, note: null },
     ]);
@@ -201,7 +220,17 @@ describe('the observation form', () => {
 
     expect(await screen.findByText('Unarmed')).toBeInTheDocument();
     expect(screen.queryByText('Proven')).not.toBeInTheDocument();
-    expect(armingCard()).toHaveTextContent('Seen off, today');
+    expect(latestObservation()).toHaveTextContent('Found switched off, today');
+    expect(within(observations()).getByRole('status')).toHaveTextContent(
+      'Observation saved: found switched off, today.',
+    );
+    // The note typed into the form is shown with the observation it belongs
+    // to. Before #51 it was stored and never read back.
+    const [newest] = within(observations()).getAllByRole('listitem');
+    expect(newest).toHaveTextContent('✕Found switched off');
+    expect(newest).toHaveTextContent(
+      'Switched off while the pipeline is rebuilt.',
+    );
     expect(sent).toEqual([
       {
         checkId: id,

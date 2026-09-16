@@ -108,6 +108,7 @@ export type CheckDetailQuery = {
       id: string;
       observedOn: string;
       armed: boolean;
+      note: string | null;
     }>;
   } | null;
 };
@@ -305,6 +306,7 @@ export const CheckDetailDocument = {
                         name: { kind: 'Name', value: 'observedOn' },
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'armed' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'note' } },
                     ],
                   },
                 },
