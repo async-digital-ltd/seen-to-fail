@@ -13,9 +13,10 @@ import { Shell } from './shell/shell';
  * `checks/:id` is `/checks/:id`. A static segment outranks a parameter, which
  * is why `checks/new` never reads as a check called "new".
  *
- * Every address here answers with its own screen. A screen whose story has not
- * landed takes the Placeholder in ./pages/placeholder until it does; none does
- * today, which is why that component appears in no route below.
+ * Every address here answers with the screen its story built. There is no
+ * stand-in for one still to come, and the heading test below is not enough to
+ * say a screen has landed, so each address is asked for something only its
+ * own screen has.
  */
 export const screens: RouteObject[] = [
   { index: true, element: <ChecksPage /> },

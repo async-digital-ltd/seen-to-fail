@@ -43,10 +43,11 @@ describe.each(screens)('at $route', ({ route, heading }) => {
 });
 
 /**
- * The heading alone does not say a screen has landed: a placeholder carries
- * the heading its finished screen will carry, which is what kept this address
+ * The heading alone does not say a screen has landed. A stand-in carries the
+ * heading its finished screen will carry, which is what kept this address
  * passing the block above while nothing was built. So this asks the address
- * for something only the screen itself has.
+ * for something only the screen itself has: a field, and the button that
+ * writes it.
  */
 describe('at the add-check address', () => {
   it('answers with the form, not a screen still to come', async () => {
@@ -59,9 +60,6 @@ describe('at the add-check address', () => {
     expect(
       screen.getByRole('button', { name: 'Save check' }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText("This screen hasn't been built yet."),
-    ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(calls.map((call) => call.name)).toContain('Areas');
     });
