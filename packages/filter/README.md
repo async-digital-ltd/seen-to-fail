@@ -69,12 +69,15 @@ case hexadecimal digits of its UTF-16 code unit. A space is `~0020`.
 Upper case is the only accepted spelling of an escape, and an escape always
 carries four digits, so a value has one encoding rather than several.
 
+A value is compared exactly as it is written, so `area.is.ci` and `area.is.CI`
+are different conditions and only the second one matches an area spelled `CI`.
+
 ### Examples
 
 1. `(status is Unproven OR status is Stale) AND area is CI`
 
    ```
-   and!or*status.is.Unproven*status.is.Stale!and*area.is.ci
+   and!or*status.is.Unproven*status.is.Stale!and*area.is.CI
    ```
 
    The leading `and` joins the groups. The first group joins its two conditions
