@@ -16,6 +16,7 @@ import {
 import { paths } from '../paths';
 import type { Answer, Call } from '../testing/client';
 import { answer, networkFailure } from '../testing/client';
+import type { Rendered } from '../testing/render';
 import { renderApp } from '../testing/render';
 import type { ListedCheck } from './checks/check-row';
 
@@ -112,9 +113,6 @@ describe('the form', () => {
     expect(screen.getByLabelText(labels.protects)).toBeInTheDocument();
     expect(screen.getByLabelText(labels.howToTellArmed)).toBeInTheDocument();
     expect(save()).toBeInTheDocument();
-    expect(
-      screen.queryByText("This screen hasn't been built yet."),
-    ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(names(calls)).toContain('Areas');
     });
@@ -441,39 +439,41 @@ describe('the list, once a check has been added', () => {
     };
   }
 
-  it('holds the new check, reading Unarmed', async () => {
-    const workspace: ListedCheck[] = [existing];
-    const { router, user } = renderApp({
-      route: paths.checks(),
-      answers: [
-        areas,
-        answer(ChecksDocument, (): ChecksQuery => ({
-          checks: {
-            checks: [...workspace],
-            matching: workspace.length,
-            hidden: 0,
+  /**
+   * A workspace the API writes to, so the answers a screen gets after the
+   * check is written are the ones the API would then be giving.
+   */
+  function answersFor(workspace: ListedCheck[]): Answer[] {
+    return [
+      areas,
+      answer(ChecksDocument, (): ChecksQuery => ({
+        checks: {
+          checks: [...workspace],
+          matching: workspace.length,
+          hidden: 0,
+        },
+      })),
+      answer(StatusCountsDocument, () => countsOf(workspace)),
+      answer(CreateCheckDocument, () => {
+        workspace.push(addition);
+        return {
+          createCheck: {
+            __typename: 'Check' as const,
+            id: addition.id,
+            name: addition.name,
+            status: addition.status,
           },
-        })),
-        answer(StatusCountsDocument, () => countsOf(workspace)),
-        answer(CreateCheckDocument, () => {
-          workspace.push(addition);
-          return {
-            createCheck: {
-              __typename: 'Check' as const,
-              id: addition.id,
-              name: addition.name,
-              status: addition.status,
-            },
-          };
-        }),
-        answer(CheckDetailDocument, { check: null }),
-      ],
-    });
+        };
+      }),
+      answer(CheckDetailDocument, { check: null }),
+    ];
+  }
 
-    // The list is read, and cached, before the check is added.
-    expect(await screen.findByText(existing.name)).toBeInTheDocument();
-    expect(screen.queryByText(addition.name)).toBeNull();
-
+  /** Adds the check through the form, from wherever the reader is now. */
+  async function addTheCheck(
+    router: Rendered['router'],
+    user: UserEvent,
+  ): Promise<void> {
     await act(async () => {
       await router.navigate(paths.newCheck());
     });
@@ -482,13 +482,56 @@ describe('the list, once a check has been added', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(paths.check(addition.id));
     });
-
     await act(async () => {
       await router.navigate(paths.checks());
     });
+  }
+
+  it('holds the new check, reading Unarmed', async () => {
+    const workspace: ListedCheck[] = [existing];
+    const { router, user } = renderApp({
+      route: paths.checks(),
+      answers: answersFor(workspace),
+    });
+
+    // The list is read, and cached, before the check is added.
+    expect(await screen.findByText(existing.name)).toBeInTheDocument();
+    expect(screen.queryByText(addition.name)).toBeNull();
+
+    await addTheCheck(router, user);
 
     const row = (await screen.findByText(addition.name)).closest('li');
     expect(row).toHaveTextContent('Unarmed');
+  });
+
+  /**
+   * The first check anybody adds, which is the journey the README walks.
+   *
+   * An empty workspace is told apart from a full one by the counts, not by the
+   * list, and the counts gate the whole screen: at a total of nothing the list
+   * is not rendered at all. So a stale count does not leave the page one short
+   * here, it leaves the reader looking at "No checks yet" and the button they
+   * have just come back from, with their check nowhere on the page until they
+   * reload.
+   */
+  it('replaces the empty workspace with the first check added to it', async () => {
+    const workspace: ListedCheck[] = [];
+    const { router, user } = renderApp({
+      route: paths.checks(),
+      answers: answersFor(workspace),
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'No checks yet' }),
+    ).toBeInTheDocument();
+
+    await addTheCheck(router, user);
+
+    const row = (await screen.findByText(addition.name)).closest('li');
+    expect(row).toHaveTextContent('Unarmed');
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'No checks yet' }),
+    ).toBeNull();
   });
 });
 

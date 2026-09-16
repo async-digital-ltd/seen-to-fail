@@ -89,8 +89,11 @@ function checkDraft(draft: Draft): Checked {
  *
  * The list does not have to be told about the new check. The mutation answers
  * with a Check, and the client's document cache re-reads every query holding
- * one, which the list is. The areas are the exception, and the query below
- * says why.
+ * one, which the list is.
+ *
+ * A query that holds no Check is not re-read, and there are two of them: the
+ * areas below, and the status counts beside the list. Each says at its own
+ * call why it reads cache-and-network instead.
  */
 export function AddCheck(): ReactElement {
   const navigate = useNavigate();

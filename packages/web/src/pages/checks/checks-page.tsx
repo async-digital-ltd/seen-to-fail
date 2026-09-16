@@ -73,10 +73,26 @@ function onlyStatus(status: Status): Filter {
  */
 export function ChecksPage(): ReactElement {
   const { filter, setFilter, unreadable } = useFilter();
-  const [counts, reexecuteCounts] = useQuery({ query: StatusCountsDocument });
+  // Read from the network on every visit, not only when the cache is cold.
+  // The answer is a StatusCounts, which is a type no mutation returns, so the
+  // document cache has nothing to invalidate it on: a check written a moment
+  // ago is in the list, which does hold Checks and is re-read, while the
+  // counts beside it still describe the workspace as it was. At a total of
+  // nothing that is not a tile one short, it is the empty state below,
+  // standing in front of a list that already has the check in it.
+  const [counts, reexecuteCounts] = useQuery({
+    query: StatusCountsDocument,
+    requestPolicy: 'cache-and-network',
+  });
+  // Read from the network on every visit, for a reason of its own. A list
+  // holding Checks is re-read when a mutation answers with one, but an empty
+  // list holds none, so there is no Check in the cached answer for the write
+  // to match and the first check added to a workspace does not appear in it.
+  // The case that cannot invalidate itself is exactly the first-run one.
   const [list, reexecuteList] = useQuery({
     query: ChecksDocument,
     variables: { filter },
+    requestPolicy: 'cache-and-network',
   });
 
   const retryList = (): void => {
