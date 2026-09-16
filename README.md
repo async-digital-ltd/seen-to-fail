@@ -272,4 +272,43 @@ MIT, in `LICENSE` at the root of the repository.
 
 ## How it is built
 
-This project is built by AI coding agents. The sample data is invented.
+The code in this repository was written by Claude, an AI coding agent, under
+the owner's direction. The owner set the scope, the status model and the rulings
+recorded in the issues, and checked the work, but did not write the TypeScript.
+The sample data is invented.
+
+Code written that way is only as trustworthy as the checking behind it, so here
+is what was checked, what was not, and where the evidence for each is.
+
+- **Planted defects, watched being denied.** Tests were trusted once the defect
+  they exist for had been planted and seen to fail them. On the story that built
+  the add-check form, 12 defects were planted and all 12 were caught ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
+- **The fault none of them could see.** That same branch built only one of the
+  two entry points its ticket named. The planted defects, a code review and the
+  acceptance check all passed it, because each examined what the branch
+  contained and the fault was something missing. It was caught when the README
+  screenshot, retaken from the branch and expected to show the new link, came
+  back byte-identical to the one before
+  ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
+- **A scanner trusted only after it fired.** The whole history was scanned for
+  secrets with gitleaks before the repository was made public, and the clean
+  result counted only once the same scan had reported a planted key
+  ([#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29)).
+- **A walkthrough by hand.** The run instructions above were followed from a
+  fresh clone. Every command worked, and one sentence led a Homebrew reader into
+  database URLs the server refuses, which CI had no way to notice
+  ([#27](https://github.com/async-digital-ltd/seen-to-fail/issues/27),
+  [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)).
+- **A test that depended on the shell.** The error masking tests passed or
+  failed with the value of `NODE_ENV`. They were run under each value, seen
+  failing under one, and the server was pinned so they no longer depend on it
+  ([#39](https://github.com/async-digital-ltd/seen-to-fail/issues/39),
+  [#56](https://github.com/async-digital-ltd/seen-to-fail/pull/56)).
+
+Not checked:
+
+- No keyboard and screen reader pass has been run
+  ([#28](https://github.com/async-digital-ltd/seen-to-fail/issues/28)).
+- Nothing automated exercises the client and the server together. That path
+  was walked by hand once, over HTTP, on 16 September 2026
+  ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
