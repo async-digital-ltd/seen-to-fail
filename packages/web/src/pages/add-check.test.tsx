@@ -2,14 +2,22 @@ import { act, screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import type {
+  ChecksQuery,
+  StatusCountsQuery,
+} from '../graphql/generated/graphql';
 import {
   AreasDocument,
+  CheckDetailDocument,
+  ChecksDocument,
   CreateCheckDocument,
+  StatusCountsDocument,
 } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import type { Answer, Call } from '../testing/client';
 import { answer, networkFailure } from '../testing/client';
 import { renderApp } from '../testing/render';
+import type { ListedCheck } from './checks/check-row';
 
 /**
  * The form for adding a check, at /checks/new.
@@ -373,6 +381,114 @@ describe('the area suggestions', () => {
       expect(suggestions()).toContain('Release');
     });
     expect(calls.filter((call) => call.name === 'Areas')).toHaveLength(2);
+  });
+});
+
+/**
+ * The acceptance the story was written against: a check just added is in the
+ * list, and reads Unarmed, because nothing has been run against it and nobody
+ * has yet said whether it is switched on.
+ *
+ * Checked from the list rather than from the form, because the form does
+ * nothing to arrange it. The list is read cache-first, so a reader who had it
+ * open before adding the check would otherwise be served the answer from
+ * before. What brings it up to date is the mutation answering with a Check:
+ * the document cache re-reads every query holding one, and the list holds
+ * them. That is the sentence the page's own comment makes, and nothing else
+ * here would notice if it stopped being true.
+ */
+describe('the list, once a check has been added', () => {
+  const existing: ListedCheck = {
+    id: 'build-types',
+    name: 'Build fails on a type error',
+    area: 'CI',
+    status: 'PROVEN',
+    lastCaughtOn: '2026-09-12',
+    runCount: 1,
+    runs: [
+      {
+        id: 'run-1',
+        runOn: '2026-09-12',
+        outcome: 'CAUGHT',
+        planted: 'A string passed where a number belongs.',
+      },
+    ],
+  };
+
+  const addition: ListedCheck = {
+    id: 'lint-on-push',
+    name: 'Lint on push',
+    area: 'CI',
+    status: 'UNARMED',
+    lastCaughtOn: null,
+    runCount: 0,
+    runs: [],
+  };
+
+  /** The counts the workspace really has, so no test states one of its own. */
+  function countsOf(checks: readonly ListedCheck[]): StatusCountsQuery {
+    const holding = (status: ListedCheck['status']): number =>
+      checks.filter((check) => check.status === status).length;
+    return {
+      statusCounts: {
+        proven: holding('PROVEN'),
+        unproven: holding('UNPROVEN'),
+        stale: holding('STALE'),
+        unarmed: holding('UNARMED'),
+        broken: holding('BROKEN'),
+        total: checks.length,
+      },
+    };
+  }
+
+  it('holds the new check, reading Unarmed', async () => {
+    const workspace: ListedCheck[] = [existing];
+    const { router, user } = renderApp({
+      route: paths.checks(),
+      answers: [
+        areas,
+        answer(ChecksDocument, (): ChecksQuery => ({
+          checks: {
+            checks: [...workspace],
+            matching: workspace.length,
+            hidden: 0,
+          },
+        })),
+        answer(StatusCountsDocument, () => countsOf(workspace)),
+        answer(CreateCheckDocument, () => {
+          workspace.push(addition);
+          return {
+            createCheck: {
+              __typename: 'Check' as const,
+              id: addition.id,
+              name: addition.name,
+              status: addition.status,
+            },
+          };
+        }),
+        answer(CheckDetailDocument, { check: null }),
+      ],
+    });
+
+    // The list is read, and cached, before the check is added.
+    expect(await screen.findByText(existing.name)).toBeInTheDocument();
+    expect(screen.queryByText(addition.name)).toBeNull();
+
+    await act(async () => {
+      await router.navigate(paths.newCheck());
+    });
+    await fillRequired(user, { name: addition.name, area: addition.area });
+    await user.click(save());
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(paths.check(addition.id));
+    });
+
+    await act(async () => {
+      await router.navigate(paths.checks());
+    });
+
+    const row = (await screen.findByText(addition.name)).closest('li');
+    expect(row).toHaveTextContent('Unarmed');
   });
 });
 
