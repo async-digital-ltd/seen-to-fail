@@ -312,3 +312,36 @@ Not checked:
 - Nothing automated exercises the client and the server together. That path
   was walked by hand once, over HTTP, on 16 September 2026
   ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
+
+## Where it could go
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
+  <img alt="A timeline with two points. A filled circle, version 1, now, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a hollow circle, a future version, automatic: replayed for you, where you write the breaking change once and CI applies it, runs the check, removes it and records the result whenever something the check depends on changes." src="docs/roadmap-light.svg">
+</picture>
+
+Nothing past version 1 is decided. This is a direction, not a plan.
+
+**Version 1 is manual, all of it.** Proving one check means making a throwaway
+branch, breaking the code in the way that check exists to catch, running the
+check, confirming it failed for that reason and not another, deleting the
+branch, and then writing down what happened. The app holds the record. Every
+step that produces the record is yours.
+
+That is the weakness, and it is the one the app exists to show in checks: a
+record made that way goes stale as soon as people stop doing all of it. Thirty
+days is only a stand-in for what actually voids a proof, which is a change to
+something the check depends on: its workflow, its configuration, the version of
+its tool.
+
+**A future version would automate all of that except deciding what to break.**
+You write the breaking change once and keep it beside the code, with the list of
+things its check depends on. When a change touches any of them, CI applies the
+change, runs the check, confirms it failed for that reason, removes it again and
+records the result. Nobody opens the app. The work left to a person is the
+judgment: what counts as a defect for this check, which is different every time.
+
+Some checks cannot be broken on purpose this way, a review bot or branch
+protection among them. Those stay manual. Thirty days stays too, as a backstop
+for changes nobody thought to list, so if the automatic runs stop arriving,
+Proven checks still drift to Stale.

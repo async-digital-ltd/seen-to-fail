@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="210" viewBox="0 0 760 210" role="img" aria-labelledby="t">
+  <title id="t">Version 1, manual: every step by hand, joined by a line to a future version, automatic: replayed for you</title>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+    .label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; fill: #9da7b3; }
+    .title { font-size: 18px; font-weight: 600; fill: #e6edf3; }
+    .body { font-size: 14px; fill: #9da7b3; }
+  </style>
+  <line x1="30" y1="28" x2="388" y2="28" stroke="#e6edf3" stroke-width="4"/>
+  <circle cx="30" cy="28" r="14" fill="#e6edf3"/>
+  <circle cx="400" cy="28" r="12" fill="none" stroke="#e6edf3" stroke-width="4"/>
+  <text class="label" x="16" y="76">VERSION 1 · NOW</text>
+  <text class="title" x="16" y="102">Manual: every step by hand</text>
+  <text class="body" x="16" y="128">You make a throwaway branch, break the code,</text>
+  <text class="body" x="16" y="148">run the check, confirm it failed, delete the</text>
+  <text class="body" x="16" y="168">branch, then record the result in the app.</text>
+  <text class="label" x="386" y="76">FUTURE VERSION</text>
+  <text class="title" x="386" y="102">Automatic: replayed for you</text>
+  <text class="body" x="386" y="128">You write the breaking change once. When</text>
+  <text class="body" x="386" y="148">something the check depends on changes, CI</text>
+  <text class="body" x="386" y="168">applies it, runs the check, removes it and</text>
+  <text class="body" x="386" y="188">records the result for you.</text>
+</svg>
