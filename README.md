@@ -312,3 +312,27 @@ Not checked:
 - Nothing automated exercises the client and the server together. That path
   was walked by hand once, over HTTP, on 16 September 2026
   ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
+
+## Where it could go
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
+  <img alt="A timeline with two points. A filled circle, Version 1, now: a record kept by hand, where you plant the defect, watch the check, and write down what happened in a form. A line joins it to a hollow circle, Later: plants that replay themselves, where each check keeps its planted defect as a file, replayed whenever something the check depends on changes, with the result posted without anyone typing it in." src="docs/roadmap-light.svg">
+</picture>
+
+Nothing past version 1 is decided. This is a direction, not a plan.
+
+Version 1 has one weakness, and it is the one the app exists to catch: a record
+kept by hand goes stale when people stop keeping it. Thirty days is also only a
+stand-in for what actually voids a proof, which is a change to something the
+check depends on: its workflow, its configuration, the version of its tool.
+
+The later step keys on that instead. Each check names what it depends on, and a
+change to any of those replays its planted defect and records the result. The
+defect is still written by a person, once, because what counts as a defect is
+different for every check. What gets automated is replaying it. Checks that
+cannot be replayed, such as a review bot or branch protection, stay on the form.
+
+Thirty days stays as a backstop for changes nobody thought to list, so if
+replays stop arriving, Proven checks still drift to Stale. The API already has
+the `logTestRun` mutation a replay would call.
