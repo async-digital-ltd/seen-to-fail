@@ -317,22 +317,31 @@ Not checked:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
-  <img alt="A timeline with two points. A filled circle, Version 1, now: a record kept by hand, where you plant the defect, watch the check, and write down what happened in a form. A line joins it to a hollow circle, Later: plants that replay themselves, where each check keeps its planted defect as a file, replayed whenever something the check depends on changes, with the result posted without anyone typing it in." src="docs/roadmap-light.svg">
+  <img alt="A timeline with two points. A filled circle, version 1, now, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a hollow circle, a future version, automatic: replayed for you, where you write the breaking change once and CI applies it, runs the check, removes it and records the result whenever something the check depends on changes." src="docs/roadmap-light.svg">
 </picture>
 
 Nothing past version 1 is decided. This is a direction, not a plan.
 
-Version 1 has one weakness, and it is the one the app exists to catch: a record
-kept by hand goes stale when people stop keeping it. Thirty days is also only a
-stand-in for what actually voids a proof, which is a change to something the
-check depends on: its workflow, its configuration, the version of its tool.
+**Version 1 is manual, all of it.** Proving one check means making a throwaway
+branch, breaking the code in the way that check exists to catch, running the
+check, confirming it failed for that reason and not another, deleting the
+branch, and then writing down what happened. The app holds the record. Every
+step that produces the record is yours.
 
-The later step keys on that instead. Each check names what it depends on, and a
-change to any of those replays its planted defect and records the result. The
-defect is still written by a person, once, because what counts as a defect is
-different for every check. What gets automated is replaying it. Checks that
-cannot be replayed, such as a review bot or branch protection, stay on the form.
+That is the weakness, and it is the one the app exists to show in checks: a
+record made that way goes stale as soon as people stop doing all of it. Thirty
+days is only a stand-in for what actually voids a proof, which is a change to
+something the check depends on: its workflow, its configuration, the version of
+its tool.
 
-Thirty days stays as a backstop for changes nobody thought to list, so if
-replays stop arriving, Proven checks still drift to Stale. The API already has
-the `logTestRun` mutation a replay would call.
+**A future version would automate all of that except deciding what to break.**
+You write the breaking change once and keep it beside the code, with the list of
+things its check depends on. When a change touches any of them, CI applies the
+change, runs the check, confirms it failed for that reason, removes it again and
+records the result. Nobody opens the app. The work left to a person is the
+judgment: what counts as a defect for this check, which is different every time.
+
+Some checks cannot be broken on purpose this way, a review bot or branch
+protection among them. Those stay manual. Thirty days stays too, as a backstop
+for changes nobody thought to list, so if the automatic runs stop arriving,
+Proven checks still drift to Stale.
