@@ -1,0 +1,7 @@
+{
+  "id": "ci-format-check",
+  "name": "Format check",
+  "area": "CI",
+  "protects": "A file reaching main formatted differently from every other one.",
+  "howToTellArmed": "The \"Check formatting\" step appears in every run of the CI workflow."
+}

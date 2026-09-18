@@ -1,0 +1,8 @@
+{
+  "checkId": "ledger-record-validation",
+  "runOn": "2026-09-18",
+  "planted": "A run file whose outcome was neither caught nor missed, and a second file naming a check that does not exist, dated in the future.",
+  "expected": "The validator refuses the ledger and exits non-zero, and nothing is recorded.",
+  "outcome": "caught",
+  "note": "Seen on 2026-09-18 while building #63. The validator exited 0 before the plant, 1 with each plant in place, and 0 again once both were removed."
+}

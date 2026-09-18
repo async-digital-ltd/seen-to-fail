@@ -23,7 +23,10 @@
     "db:down": "bash scripts/db-down.sh",
     "db:migrate": "node packages/server/src/scripts/migrate.ts",
     "db:reset": "node packages/server/src/scripts/reset.ts",
-    "db:seed": "node packages/server/src/scripts/seed.ts"
+    "db:seed": "node packages/server/src/scripts/seed.ts",
+    "ledger:validate": "node packages/server/src/scripts/validate-ledger.ts",
+    "ledger:record": "node packages/server/src/scripts/record-run.ts",
+    "ledger:build": "node packages/server/src/scripts/build-ledger.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

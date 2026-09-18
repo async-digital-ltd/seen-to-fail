@@ -17,3 +17,42 @@ import type { IsoDate } from './database/rows.ts';
 export function todayInUtc(): IsoDate {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** The shape of a day, which is necessary and not sufficient. */
+const dayShape = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The first day there is, as far as this product is concerned.
+ *
+ * ISO 8601 has a year 0000, which is the year before 0001, and JavaScript parses
+ * it happily. PostgreSQL counts years with no year zero, as the calendar did,
+ * and refuses the day outright, so a date column cannot hold one. It is refused
+ * before it is sent, and nothing a check has ever caught happened then. Text in
+ * this shape sorts as the days it names, so comparing the text is enough.
+ */
+const firstDay = '0001-01-01';
+
+/**
+ * Whether the text is a day that exists.
+ *
+ * The shape alone accepts 2026-02-30 and 2026-13-01, which are not days. The
+ * round trip is what rejects them: parsing places the text at midnight UTC, and
+ * a day that does not exist lands on a different one, so formatting the result
+ * back gives different text. A month out of range does not parse at all.
+ *
+ * It lives here rather than beside the Date scalar because the scalar is no
+ * longer the only way a day enters this system. A day written into a file in
+ * the ledger reaches PostgreSQL without passing a GraphQL request, and a second
+ * copy of this rule for that route is a second answer to the same question. The
+ * ledger must not depend on the server, so the shared rule sits under neither.
+ */
+export function isRealDay(value: string): boolean {
+  if (!dayShape.test(value) || value < firstDay) {
+    return false;
+  }
+  const parsed = Date.parse(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  return new Date(parsed).toISOString().slice(0, 10) === value;
+}
