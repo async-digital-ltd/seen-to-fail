@@ -66,6 +66,23 @@ function finding(armed: boolean): string {
 }
 
 /**
+ * The mark beside what was found: a green tick for on, a red cross for off.
+ * Every place that says what an observation found draws its mark from here, so
+ * the mark cannot say the opposite of the words beside it (#58).
+ */
+function FindingMark({ armed }: { readonly armed: boolean }): ReactElement {
+  const modifier = armed ? 'on' : 'off';
+  return (
+    <span
+      className={`finding__glyph finding__glyph--${modifier}`}
+      aria-hidden="true"
+    >
+      {armed ? '✓' : '✕'}
+    </span>
+  );
+}
+
+/**
  * What the latest observation found, and when. The observations come newest
  * first, so the latest is the first, and it is the same one the status was
  * worked out from.
@@ -133,12 +150,7 @@ function ObservationEntry({
       <When day={entry.observedOn} today={day} />
       <div className="evidence-entry__what">
         <p className={`finding finding--${modifier}`}>
-          <span
-            className={`finding__glyph finding__glyph--${modifier}`}
-            aria-hidden="true"
-          >
-            {entry.armed ? '✓' : '✕'}
-          </span>
+          <FindingMark armed={entry.armed} />
           {finding(entry.armed)}
         </p>
         {entry.note === null ? null : (
@@ -345,12 +357,7 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
         <p className="check-detail__saved" role="status">
           {saved === null ? null : (
             <>
-              <span
-                className="finding__glyph finding__glyph--on"
-                aria-hidden="true"
-              >
-                ✓
-              </span>
+              <FindingMark armed={saved.armed} />
               Observation saved: {finding(saved.armed).toLowerCase()},{' '}
               {ago(saved.observedOn, day)}.
             </>
