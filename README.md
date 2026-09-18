@@ -248,8 +248,8 @@ pnpm ledger:build      # build dist/ledger from the records
 `ledger/README.md` sets the record's shape out in full.
 
 The write path is a commit, so a run that is wrong has an author, a diff and a
-revert. A short lived workflow token scoped to this repository does write it,
-and what it writes is a commit. What nothing holds is a long lived token against
+revert. A short-lived workflow token scoped to this repository does write it,
+and what it writes is a commit. What nothing holds is a long-lived token against
 a running instance, because there is no instance to write to. The `Record a run`
 workflow is the job's half of it: it takes a result, refuses a malformed one
 before anything is written, commits the record and pushes a branch. It cannot
