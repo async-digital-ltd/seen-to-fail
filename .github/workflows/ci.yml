@@ -63,8 +63,16 @@ jobs:
           --health-retries 10
 
     steps:
+      # With the whole history, because the published ledger says which commit
+      # recorded each run and that is read back out of the log. A shallow clone
+      # holds one commit, so every run would say it was never recorded, and
+      # nothing about that page would look wrong. The build refuses a shallow
+      # clone outright rather than publishing it, so this is what keeps the
+      # step passing as well as what keeps it truthful.
       - name: Check out the repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Ahead of Node, because the Node step's dependency cache is a pnpm store
       # and it needs pnpm on the PATH to find where that store lives. The
@@ -127,3 +135,54 @@ jobs:
       # rather than only for the type checker.
       - name: Build the client
         run: pnpm build:web
+
+      # The same command the recording workflow runs before it commits, so CI
+      # cannot pass a ledger that workflow would have refused.
+      - name: Check the ledger reads
+        run: pnpm ledger:validate
+
+      # The published output, built here and not published anywhere. GitHub
+      # Pages is deliberately switched off on this repository: a Pages site
+      # cannot be private on this plan, and the ledger would become
+      # world-readable before the owner's decision to make the repository
+      # public. Building it as an artefact is what keeps the publishing route
+      # proved and running every day; turning Pages on belongs at the
+      # visibility change, which is #76 and the owner's call. Nothing else in
+      # this file has to change when it happens.
+      #
+      # It loads the records into the development database, which is emptied
+      # and rebuilt from them. In CI that database is a service container with
+      # nothing else in it.
+      - name: Build the published ledger
+        run: pnpm ledger:build
+
+      # What the build produced, read back off disk rather than trusted. The
+      # build has already refused to publish anything that disagrees with the
+      # record; these are the properties a reader of this file can check
+      # without reading the build: two files exist, the page names the commit
+      # it was built from, and it carries no script, so nothing on it is worked
+      # out anywhere but here.
+      #
+      # The script check is written as an `if` and not as `! grep -qi ...`,
+      # which is what it said first. `set -e` does not apply to a command whose
+      # status is inverted with `!`, so that line went green whatever grep
+      # found: a guard that could not fail, in the one repository where that is
+      # the whole subject. It was caught by running it against a page with a
+      # script added on purpose, before it ever ran here.
+      - name: Check the published output
+        run: |
+          set -euo pipefail
+          test -f dist/ledger/index.html
+          test -f dist/ledger/ledger.json
+          grep -q "$(git rev-parse HEAD | cut -c1-7)" dist/ledger/index.html
+          if grep -qi '<script' dist/ledger/index.html; then
+            echo "The published page carries a script." >&2
+            exit 1
+          fi
+
+      - name: Keep the published ledger as an artefact
+        uses: actions/upload-artifact@v7
+        with:
+          name: published-ledger
+          path: dist/ledger
+          retention-days: 7

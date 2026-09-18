@@ -1,0 +1,8 @@
+{
+  "checkId": "ci-published-output",
+  "runOn": "2026-09-18",
+  "planted": "A script tag appended to the built page, which the step exists to refuse.",
+  "expected": "The step fails, so the run does not go green.",
+  "outcome": "caught",
+  "note": "Seen on 2026-09-18 while building #63, against a copy of the real built page. Worth knowing how it got here: the step was first written as a negated grep, and set -e does not apply to a command whose status is inverted, so that version went green with the script sitting in the page. The plant is what showed it up. It was rewritten as an if and seen to deny before it ran anywhere."
+}

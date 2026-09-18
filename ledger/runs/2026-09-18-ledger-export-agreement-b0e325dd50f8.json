@@ -1,0 +1,8 @@
+{
+  "checkId": "ledger-export-agreement",
+  "runOn": "2026-09-18",
+  "planted": "One record dropped from the export, inside the function that builds it, so the page held five arming observations where the ledger held six.",
+  "expected": "The build refuses to publish, exits non-zero, and writes no files at all.",
+  "outcome": "caught",
+  "note": "Seen on 2026-09-18 while building #63. The build published before the plant, refused with it in place and left no output directory behind, and published again once it was removed."
+}

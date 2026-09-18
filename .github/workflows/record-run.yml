@@ -1,0 +1,128 @@
+name: Record a run
+
+# The write path for version 2: a run is recorded by committing it, so a record
+# that is wrong has an author, a diff and a revert. Nothing is served and no
+# token can write the ledger, because the ledger is not behind a URL.
+#
+# It opens a pull request rather than pushing. main is protected here and that
+# is the point rather than an obstacle: a recorded run arrives as a diff
+# somebody can read, which is the property the publishing route was chosen for.
+#
+# Known and accepted: a pull request opened with the workflow's own token does
+# not trigger the CI workflow, because GitHub refuses to let one workflow run
+# start another. The pull request is opened and its required check has to be
+# started by hand, by closing and reopening it or by pushing to its branch, for
+# every run this workflow records. #74 holds that, and the routes out of it.
+on:
+  workflow_dispatch:
+    inputs:
+      check-id:
+        description: The check's id in the ledger, such as ci-lint.
+        required: true
+        type: string
+      run-on:
+        description: The day the defect was planted, as YYYY-MM-DD.
+        required: true
+        type: string
+      planted:
+        description: What was planted.
+        required: true
+        type: string
+      expected:
+        description: What the check was expected to do about it.
+        required: true
+        type: string
+      outcome:
+        description: What it actually did.
+        required: true
+        type: choice
+        options:
+          - caught
+          - missed
+      note:
+        description: Anything the next person should know.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  record:
+    name: Record a run in the ledger
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Every input is passed through the environment rather than interpolated
+      # into the script. A value substituted into the text of a run step is
+      # executed as shell, and these values come from whoever started the
+      # workflow.
+      #
+      # This step is the gate: a record that breaks a rule is refused here, the
+      # step exits non-zero, and no file is written for the steps below to
+      # commit.
+      - name: Write the run into the ledger
+        env:
+          INPUT_CHECK_ID: ${{ inputs.check-id }}
+          INPUT_RUN_ON: ${{ inputs.run-on }}
+          INPUT_PLANTED: ${{ inputs.planted }}
+          INPUT_EXPECTED: ${{ inputs.expected }}
+          INPUT_OUTCOME: ${{ inputs.outcome }}
+          INPUT_NOTE: ${{ inputs.note }}
+        run: |
+          pnpm ledger:record -- \
+            --check-id "$INPUT_CHECK_ID" \
+            --run-on "$INPUT_RUN_ON" \
+            --planted "$INPUT_PLANTED" \
+            --expected "$INPUT_EXPECTED" \
+            --outcome "$INPUT_OUTCOME" \
+            --note "$INPUT_NOTE"
+
+      # The record that was just written is sound, or the step above would have
+      # refused it. This reads the whole ledger, which is the thing the build
+      # will read, so a ledger that was already wrong is found here rather than
+      # after another record has been added on top of it.
+      - name: Check the whole ledger still reads
+        run: pnpm ledger:validate
+
+      - name: Open a pull request adding it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_CHECK_ID: ${{ inputs.check-id }}
+          INPUT_RUN_ON: ${{ inputs.run-on }}
+          INPUT_OUTCOME: ${{ inputs.outcome }}
+          BRANCH: record/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$BRANCH"
+          git add ledger
+          if git diff --cached --quiet; then
+            echo "This run is already recorded. Nothing to commit."
+            exit 0
+          fi
+          git commit --message "Record a $INPUT_OUTCOME for $INPUT_CHECK_ID on $INPUT_RUN_ON"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Record a $INPUT_OUTCOME for $INPUT_CHECK_ID on $INPUT_RUN_ON" \
+            --body "Recorded by the \`Record a run\` workflow, run $GITHUB_RUN_ID. The diff is the whole record: one file, one run."

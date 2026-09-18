@@ -1,6 +1,7 @@
 import { GraphQLError, GraphQLScalarType, Kind } from 'graphql';
 import type { ConstValueNode } from 'graphql';
 
+import { isRealDay } from '../day.ts';
 import type { IsoDate } from '../database/rows.ts';
 
 /**
@@ -22,38 +23,11 @@ import type { IsoDate } from '../database/rows.ts';
  * a reader is handed something the schema promised was a day.
  */
 
-/** The shape, which is necessary and not sufficient. */
-const dayShape = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
- * The first day there is, as far as this product is concerned.
- *
- * ISO 8601 has a year 0000, which is the year before 0001, and JavaScript parses
- * it happily. PostgreSQL counts years with no year zero, as the calendar did,
- * and refuses the day outright, so a date column cannot hold one. It is refused
- * here rather than sent, and nothing a check has ever caught happened then.
- * Text in this shape sorts as the days it names, so comparing the text is enough.
+ * Whether the text is a day that exists is `isRealDay` in `day.ts`, which the
+ * ledger's own reader applies to a day written into a file. One rule, so a day
+ * this scalar refuses is a day no other route can write either.
  */
-const firstDay = '0001-01-01';
-
-/**
- * Whether the text is a day that exists.
- *
- * The shape alone accepts 2026-02-30 and 2026-13-01, which are not days. The
- * round trip is what rejects them: parsing places the text at midnight UTC, and
- * a day that does not exist lands on a different one, so formatting the result
- * back gives different text. A month out of range does not parse at all.
- */
-function isRealDay(value: string): boolean {
-  if (!dayShape.test(value) || value < firstDay) {
-    return false;
-  }
-  const parsed = Date.parse(`${value}T00:00:00Z`);
-  if (Number.isNaN(parsed)) {
-    return false;
-  }
-  return new Date(parsed).toISOString().slice(0, 10) === value;
-}
 
 /** What to say about a value that is not a day, without quoting it back raw. */
 function refuse(value: unknown, direction: string): GraphQLError {

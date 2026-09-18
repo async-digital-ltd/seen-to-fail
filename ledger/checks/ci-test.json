@@ -1,0 +1,7 @@
+{
+  "id": "ci-test",
+  "name": "Tests",
+  "area": "CI",
+  "protects": "A defect the test suite covers reaching main.",
+  "howToTellArmed": "The \"Test\" step appears in every run of the CI workflow."
+}

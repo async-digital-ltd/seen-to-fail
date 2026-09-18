@@ -1,0 +1,7 @@
+{
+  "id": "ledger-record-validation",
+  "name": "The ledger refuses a malformed record",
+  "area": "Ledger",
+  "protects": "A record that breaks a rule being committed, and then published as though it were true.",
+  "howToTellArmed": "The recording workflow runs \"pnpm ledger:validate\" before it commits, and CI runs it again on every push."
+}

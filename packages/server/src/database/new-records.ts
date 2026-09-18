@@ -31,6 +31,12 @@ import type { IsoDate } from './rows.ts';
  * resolver, and by the time one runs GraphQL has already refused a missing
  * field, a value of the wrong type and a Date that is not a day. A second copy
  * of those rules here could never be seen to refuse anything.
+ *
+ * The leaf rules below are exported because the ledger reads records out of
+ * files rather than out of a request, and the text it finds there has to meet
+ * the same rules as the text a form sends. What is not exported is the object
+ * schemas: the ledger's records carry fields these do not, so sharing the
+ * wholes would mean one schema pretending to be two.
  */
 
 /**
@@ -141,7 +147,7 @@ function tooLongMessage(maxLength: number): string {
  * once, with the first it breaks. A form shows one message beside a field, and
  * counting the fields at fault should count fields rather than rules.
  */
-function requiredText(blankMessage: string, maxLength: number) {
+export function requiredText(blankMessage: string, maxLength: number) {
   return z
     .string()
     .trim()
@@ -159,7 +165,7 @@ function requiredText(blankMessage: string, maxLength: number) {
  * the columns are not null, and a check whose tell has never been written is
  * the thing this product exists to make visible, not an input to refuse.
  */
-function optionalText(maxLength: number) {
+export function optionalText(maxLength: number) {
   return z
     .string()
     .trim()
@@ -175,7 +181,7 @@ function optionalText(maxLength: number) {
  * to be told they mean the same. The note columns allow null, which is why a
  * note differs here from the check's own optional text.
  */
-const optionalNote = optionalText(MAX_TEXT_LENGTH)
+export const optionalNote = optionalText(MAX_TEXT_LENGTH)
   .nullish()
   .transform((note) =>
     note === undefined || note === null || note === '' ? null : note,
@@ -261,7 +267,7 @@ export type NewArmingObservation = z.output<
  * Every issue zod found, in the order the fields are declared above, which is
  * the order a form lays them out in.
  */
-function issuesFrom(error: z.ZodError): RecordIssue[] {
+export function issuesFrom(error: z.ZodError): RecordIssue[] {
   return error.issues.map((issue) => ({
     path: issue.path.map(String).join('.'),
     message: issue.message,

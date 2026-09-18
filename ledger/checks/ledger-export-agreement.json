@@ -1,0 +1,7 @@
+{
+  "id": "ledger-export-agreement",
+  "name": "The build refuses to publish a disagreement",
+  "area": "Ledger",
+  "protects": "A published page that quietly holds fewer runs, or different counts, than the record it was built from.",
+  "howToTellArmed": "The \"Build the published ledger\" step appears in every run of the CI workflow, and it writes nothing when the two disagree."
+}

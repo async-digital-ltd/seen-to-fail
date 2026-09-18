@@ -1,0 +1,7 @@
+{
+  "id": "ci-published-output",
+  "name": "The published page is checked after it is built",
+  "area": "CI",
+  "protects": "A published page that names no commit it was built from, or that works something out in the reader's browser rather than at build time.",
+  "howToTellArmed": "The \"Check the published output\" step appears in every run of the CI workflow."
+}
