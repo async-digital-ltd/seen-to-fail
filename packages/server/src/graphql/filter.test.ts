@@ -1,4 +1,6 @@
-import { parseFilter } from '@seen-to-fail/filter';
+import { readFileSync } from 'node:fs';
+
+import { parseFilter, parseFilterString } from '@seen-to-fail/filter';
 import { expect, it, vi } from 'vitest';
 
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
@@ -63,8 +65,12 @@ function namesOf(list: FilteredList): string[] {
 
 const everyCheck = seedChecks.map((check) => check.name).sort();
 
-/** The README's filter: (status is Unproven OR status is Stale) AND area is CI. */
-const readmeExample = {
+/**
+ * Unproven or Stale, and in CI. Nothing seeded is both, so this selects
+ * nothing, which is what a server that ignored every filter but returned
+ * nothing would give too; the Git filter below is what tells those apart.
+ */
+const unprovenOrStaleInCI = {
   kind: 'groups',
   joiner: 'and',
   groups: [
@@ -83,9 +89,9 @@ const readmeExample = {
 };
 
 /**
- * The same shape asking for Git rather than CI, which does select something.
- * The README example selects nothing in this workspace, and an empty list is
- * what a server that ignored every filter but returned nothing would give too.
+ * The same shape asking for Git rather than CI, which does select something. It
+ * is also the root README's worked example, and the test that reads the README
+ * checks that what its link parses to is this filter.
  */
 const unprovenOrStaleInGit = {
   kind: 'groups',
@@ -135,10 +141,10 @@ it('treats a null filter and the empty filter the same as no filter', async () =
  * right answer is an empty list with all eight hidden. The test after this one
  * is what stops an empty list being satisfied by a server that finds nothing.
  */
-it('answers the README example with no checks, and all eight hidden', async () => {
+it('answers a filter nothing matches with no checks, and all eight hidden', async () => {
   const server = await seededServer();
 
-  const list = await listUnder(server, readmeExample);
+  const list = await listUnder(server, unprovenOrStaleInCI);
 
   expect(namesOf(list)).toStrictEqual([]);
   expect(list.checks.matching).toBe(0);
@@ -156,6 +162,44 @@ it('selects the checks a filter matches, and counts the rest as hidden', async (
   ]);
   expect(list.checks.matching).toBe(2);
   expect(list.checks.hidden).toBe(seedChecks.length - 2);
+});
+
+/**
+ * The root README's worked example, read off the README rather than restated
+ * here, so an edit to the example fails this test instead of leaving a test
+ * named for it pinning something else (#59). The README gives the example as
+ * the link the list opens at, and says it picks two of the eight checks in the
+ * sample workspace. Both are checked against the seed as it stands.
+ */
+const readme = readFileSync(
+  new URL('../../../../README.md', import.meta.url),
+  'utf8',
+);
+
+/** The text after `f=` in the `/?f=` link the README shows for its example. */
+function readmeExampleLink(): string {
+  const found = /^\/\?f=(\S+)$/m.exec(readme);
+  if (found?.[1] === undefined) {
+    throw new Error('README.md shows no /?f= link for its filter example.');
+  }
+  return found[1];
+}
+
+it("reads the README's example link as the Git filter, and finds the two checks it says it picks", async () => {
+  const parsed = parseFilterString(readmeExampleLink());
+  if (!parsed.ok) {
+    throw new Error(
+      `The README's example link was refused: ${JSON.stringify(parsed.errors)}`,
+    );
+  }
+  expect(parsed.filter).toStrictEqual(unprovenOrStaleInGit);
+
+  const server = await seededServer();
+  const list = await listUnder(server, parsed.filter);
+
+  expect(seedChecks).toHaveLength(8);
+  expect(list.checks.matching).toBe(2);
+  expect(list.checks.hidden).toBe(6);
 });
 
 it('reads a filter written into the query text the same as one sent as a variable', async () => {
@@ -193,7 +237,7 @@ it('hides exactly the workspace total less what matches, whatever the filter', a
 
   const filters: unknown[] = [
     null,
-    readmeExample,
+    unprovenOrStaleInCI,
     unprovenOrStaleInGit,
     {
       kind: 'groups',
@@ -349,7 +393,7 @@ it('never reaches the database with a filter it refuses', async () => {
 
   const watched = vi.spyOn(client, 'query');
   try {
-    await query(server, listOnly, { filter: readmeExample });
+    await query(server, listOnly, { filter: unprovenOrStaleInCI });
     expect(watched.mock.calls.length).toBe(1);
 
     for (const filter of refused) {
