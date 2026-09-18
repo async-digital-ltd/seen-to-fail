@@ -228,6 +228,65 @@ condition. Each check has its own page, which is where an arming observation is
 recorded. Runs are logged through a form.
 A check is added through a form of its own.
 
+## The published ledger
+
+Nothing is hosted. The app above is for running locally; what gets published is
+a record rather than a service.
+
+A run reaches that record by being committed. `ledger/` holds one JSON file per
+check, run and arming observation, and a build turns those files into a static
+page. The database and the status rules do not go away: the records are loaded
+into PostgreSQL, every status comes back out of the same `check_summaries`
+function the running app reads, and the page is rendered from what that
+produced. They run inside the build instead of behind a URL.
+
+```sh
+pnpm ledger:validate   # refuse a record that breaks a rule
+pnpm ledger:build      # build dist/ledger from the records
+```
+
+`ledger/README.md` sets the record's shape out in full.
+
+The write path is a commit, so a run that is wrong has an author, a diff and a
+revert. Nothing holds a token that can write the record, because there is
+nothing to write to. The `Record a run` workflow is the job's half of it: it
+takes a result, refuses a malformed one before anything is written, and opens a
+pull request adding the file. The page names the commit that recorded each run,
+read back out of the history rather than stored, so a run cannot claim a commit
+that did not add it.
+
+The build refuses to publish when the records and the output disagree: it
+compares the files on disk with the rows the database ended up holding, with the
+export, and with the rendered page, and writes nothing if any of those disagree.
+A page listing nine runs where the ledger holds ten looks exactly like a page
+listing ten, which is the kind of quiet wrongness this project is about.
+
+The published page is read-only and has no filter bar. The filter language
+compiles a filter to SQL, and there is no database behind a published page to
+compile it against, so it is what you get when you run the app locally. That was
+the cheapest of the three ways and it is the one that hides the best part; the
+cost is bought back by
+[#73](https://github.com/async-digital-ltd/seen-to-fail/issues/73) rather than
+absorbed.
+
+**The forms have not gone anywhere.** They and the GraphQL mutations are still
+how a run is recorded against a workspace you are running locally, and they are
+still where a check is added and an arming observation recorded. What has
+changed is that they are no longer the only way a run is recorded, and they do
+not write the published ledger. Nothing yet carries a run from a local database
+into `ledger/`
+([#75](https://github.com/async-digital-ltd/seen-to-fail/issues/75)).
+
+**Nothing is published yet, on purpose.** CI builds the page on every push and
+keeps it as a build artefact, and GitHub Pages is switched off on this
+repository. A Pages site cannot be private on this plan: enabling one and asking
+for `public=false` is refused with `422 Current plan does not support private
+GitHub Pages`, measured on 18 September 2026. Turning it on would make the ledger
+readable by anyone with the URL before the decision to make the repository
+public has been taken, which is the wrong way round. Serving it is
+[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76), and the
+build needs no change when it happens.
+
 ## Tests
 
 ```sh
@@ -262,9 +321,11 @@ than a quiet skip. The status rules above are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
 CI runs `pnpm codegen:check`, applies the migrations, runs the four commands
-above, and finishes with `pnpm build:web`, which is what proves the page reaches
-the code: the tests import modules, and only the bundler starts from
-`index.html`.
+above, and then `pnpm build:web`, which is what proves the page reaches the
+code: the tests import modules, and only the bundler starts from `index.html`.
+It finishes by reading the ledger and building the published page from it, and
+checking what came out: two files, naming the commit CI is running against, with
+no script in them.
 
 ## Licence
 
@@ -299,6 +360,21 @@ is what was checked, what was not, and where the evidence for each is.
   database URLs the server refuses, which CI had no way to notice
   ([#27](https://github.com/async-digital-ltd/seen-to-fail/issues/27),
   [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)).
+- **The ledger's own guards, watched refusing.** The two checks the publishing
+  route rests on were each given the defect they exist for and seen to deny it:
+  a record whose outcome was neither caught nor missed, which the validator
+  refused with a non-zero exit, and a record dropped from the export inside the
+  build, which the build refused to publish, leaving no output directory behind.
+  Both were watched passing before and after. They are the first runs in
+  `ledger/`, which is the first thing this project has recorded about itself
+  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)).
+- **A guard that could not fail, in a repository about guards that cannot
+  fail.** The CI step that refuses a published page carrying a script was first
+  written as `! grep -qi '<script' ...` under `set -e`. A shell does not apply
+  `set -e` to a command whose status is inverted, so that step went green with
+  the script sitting in the page. It was found by planting the script and
+  watching the step pass, before it had run anywhere, and rewritten as an `if`
+  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)).
 - **A test that depended on the shell.** The error masking tests passed or
   failed with the value of `NODE_ENV`. They were run under each value, seen
   failing under one, and the server was pinned so they no longer depend on it
