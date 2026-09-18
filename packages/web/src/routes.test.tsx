@@ -2,45 +2,235 @@ import { screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import type { CheckDetailQuery } from './graphql/generated/graphql';
 import {
   AreasDocument,
   CheckDetailDocument,
+  CheckOptionsDocument,
+  ChecksDocument,
+  StatusCountsDocument,
 } from './graphql/generated/graphql';
+import type { ListedCheck } from './pages/checks/check-row';
 import { paths } from './paths';
 import { createRoutes } from './routes';
+import type { Answer } from './testing/client';
 import { answer } from './testing/client';
 import { renderApp } from './testing/render';
 
 const footerSentence =
   'Async Digital is a one-person studio testing, in the open, what really changes when AI can write the code.';
 
-/** Every address the app answers, and the heading its screen carries. */
-const screens = [
-  { route: paths.checks(), heading: 'Checks' },
-  { route: paths.newCheck(), heading: 'Add a check' },
-  { route: paths.newRun(), heading: 'Log a test run' },
-  { route: paths.newRun({ check: 'ci-lint' }), heading: 'Log a test run' },
+/**
+ * A workspace of two checks: enough for the list to have rows, the run form a
+ * choice, and a check's page a record to show. Every screen below is rendered
+ * with the answers it asks for, so what is counted on it is the screen and not
+ * the notice a missing answer would put in its place (#47).
+ */
+const lint = {
+  id: 'ci-lint',
+  name: 'Lint on every push',
+  area: 'CI',
+};
+
+const listed: readonly ListedCheck[] = [
+  {
+    ...lint,
+    status: 'PROVEN',
+    lastCaughtOn: '2026-09-12',
+    runCount: 1,
+    runs: [
+      {
+        id: 'run-1',
+        runOn: '2026-09-12',
+        outcome: 'CAUGHT',
+        planted: 'An unused import.',
+      },
+    ],
+  },
+  {
+    id: 'git-secrets',
+    name: 'Secrets never committed',
+    area: 'Git',
+    status: 'UNARMED',
+    lastCaughtOn: null,
+    runCount: 0,
+    runs: [],
+  },
 ];
 
-describe.each(screens)('at $route', ({ route, heading }) => {
-  it('renders the screen inside the shell', () => {
-    renderApp({ route });
+const recorded: NonNullable<CheckDetailQuery['check']> = {
+  ...lint,
+  protects: 'A file that no longer lints reaching the main branch.',
+  howToTellArmed: 'The lint job is listed on every push.',
+  status: 'PROVEN',
+  lastCaughtOn: '2026-09-12',
+  runCount: 1,
+  caughtCount: 1,
+  missedCount: 0,
+  runs: [
+    {
+      id: 'run-1',
+      runOn: '2026-09-12',
+      planted: 'An unused import.',
+      expected: 'The push is refused.',
+      outcome: 'CAUGHT',
+      note: null,
+    },
+  ],
+  armingObservations: [],
+};
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: heading }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('banner')).toBeInTheDocument();
-    expect(screen.getByRole('contentinfo')).toHaveTextContent(footerSentence);
-  });
+const areas = answer(AreasDocument, { areas: ['CI', 'Git'] });
 
-  it('fills no more than one action with brick', () => {
-    const { container } = renderApp({ route });
+const populated: readonly Answer[] = [
+  answer(StatusCountsDocument, {
+    statusCounts: {
+      proven: 1,
+      broken: 0,
+      stale: 0,
+      unproven: 0,
+      unarmed: 1,
+      total: 2,
+    },
+  }),
+  answer(ChecksDocument, {
+    checks: { checks: listed, matching: 2, hidden: 0 },
+  }),
+  areas,
+];
 
-    expect(
-      container.querySelectorAll('.button--primary').length,
-    ).toBeLessThanOrEqual(1);
-  });
+const empty: readonly Answer[] = [
+  answer(StatusCountsDocument, {
+    statusCounts: {
+      proven: 0,
+      broken: 0,
+      stale: 0,
+      unproven: 0,
+      unarmed: 0,
+      total: 0,
+    },
+  }),
+  answer(ChecksDocument, { checks: { checks: [], matching: 0, hidden: 0 } }),
+  areas,
+];
+
+const options = answer(CheckOptionsDocument, {
+  checks: { checks: listed.map(({ id, name }) => ({ id, name })) },
 });
+
+const detail = answer(CheckDetailDocument, { check: recorded });
+
+const saveRun = () => screen.findByRole('button', { name: 'Save run' });
+
+/**
+ * Every address the app answers, what its screen shows once its answers have
+ * arrived, and how many actions that screen fills with brick.
+ *
+ * `landed` finds something only the screen's own content has. Until it is on
+ * screen the address shows a loading line or, with no answer, an error notice,
+ * and neither has a brick fill: a count taken then says nothing about the
+ * screen. That is how this table passed for two screens it never rendered.
+ *
+ * `fills` is the count the design gives each screen, not a ceiling. The brand
+ * rule is one filled brick action per screen at most, and which screens spend
+ * theirs is decided: the populated list spends none, because its one fill is
+ * the empty state's, so a fill added to it is refused here as surely as a
+ * second fill anywhere else.
+ */
+const screens: readonly {
+  readonly route: string;
+  readonly showing: string;
+  readonly heading: string;
+  readonly answers: readonly Answer[];
+  readonly landed: () => Promise<HTMLElement>;
+  readonly fills: number;
+}[] = [
+  {
+    route: paths.checks(),
+    showing: 'a list of checks',
+    heading: 'Checks',
+    answers: populated,
+    landed: () => screen.findByText('Secrets never committed'),
+    fills: 0,
+  },
+  {
+    route: paths.checks(),
+    showing: 'an empty workspace',
+    heading: 'Checks',
+    answers: empty,
+    landed: () =>
+      screen.findByRole('heading', { level: 2, name: 'No checks yet' }),
+    fills: 1,
+  },
+  {
+    route: paths.newCheck(),
+    showing: 'the form',
+    heading: 'Add a check',
+    answers: [areas],
+    landed: () => screen.findByRole('button', { name: 'Save check' }),
+    fills: 1,
+  },
+  {
+    route: paths.check(lint.id),
+    showing: 'the check',
+    heading: lint.name,
+    answers: [detail],
+    landed: () => screen.findByRole('heading', { level: 1, name: lint.name }),
+    fills: 1,
+  },
+  {
+    route: paths.newRun(),
+    showing: 'the form',
+    heading: 'Log a test run',
+    answers: [options],
+    landed: saveRun,
+    fills: 1,
+  },
+  {
+    route: paths.newRun({ check: lint.id }),
+    showing: 'the form with the check chosen',
+    heading: 'Log a test run',
+    answers: [options],
+    landed: saveRun,
+    fills: 1,
+  },
+];
+
+describe.each(screens)(
+  'at $route, showing $showing',
+  ({ route, heading, answers, landed, fills }) => {
+    it('renders the screen inside the shell', async () => {
+      renderApp({ route, answers });
+      await landed();
+
+      expect(
+        screen.getByRole('heading', { level: 1, name: heading }),
+      ).toBeInTheDocument();
+      // The shell, by its home link: a check's page has a header of its own,
+      // so the banner role alone would find two.
+      expect(
+        screen.getByRole('link', { name: 'Seen to Fail Async Digital' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('contentinfo')).toHaveTextContent(footerSentence);
+    });
+
+    it(
+      fills === 0
+        ? 'fills no action with brick'
+        : 'fills one action with brick, and only one',
+      async () => {
+        const { container } = renderApp({ route, answers });
+        await landed();
+        // The screen itself, with nothing on it standing in for an answer.
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+        expect(container.querySelectorAll('.button--primary')).toHaveLength(
+          fills,
+        );
+      },
+    );
+  },
+);
 
 /**
  * The heading alone does not say a screen has landed. A stand-in carries the
