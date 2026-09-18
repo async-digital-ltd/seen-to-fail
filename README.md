@@ -340,8 +340,8 @@ things its check depends on. When a change touches any of them, CI applies the
 change, runs the check, confirms it failed for that reason, removes it again and
 records the result. Nobody opens the app. The work left to a person is the
 judgment: what counts as a defect for this check, which is different every time.
-What that breaking change looks like on disk is not settled either. It may be a
-format this project defines, or one an existing replay tool already reads.
+You write it in the format of whatever tool replays it, rather than in one this
+project invents. What this project adds is the record.
 
 Some checks cannot be broken on purpose this way, a review bot or branch
 protection among them. Those stay manual. Thirty days stays too, as a backstop
