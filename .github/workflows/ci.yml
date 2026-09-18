@@ -147,8 +147,8 @@ jobs:
       # world-readable before the owner's decision to make the repository
       # public. Building it as an artefact is what keeps the publishing route
       # proved and running every day; turning Pages on belongs at the
-      # visibility change, which is #63's first acceptance criterion and the
-      # owner's call. Nothing else in this file has to change when it happens.
+      # visibility change, which is #76 and the owner's call. Nothing else in
+      # this file has to change when it happens.
       #
       # It loads the records into the development database, which is emptied
       # and rebuilt from them. In CI that database is a service container with

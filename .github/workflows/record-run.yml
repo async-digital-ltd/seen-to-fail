@@ -11,8 +11,8 @@ name: Record a run
 # Known and accepted: a pull request opened with the workflow's own token does
 # not trigger the CI workflow, because GitHub refuses to let one workflow run
 # start another. The pull request is opened and its required check has to be
-# started by hand, by closing and reopening it or by pushing to its branch. See
-# the issue linked from the ledger section of the README.
+# started by hand, by closing and reopening it or by pushing to its branch, for
+# every run this workflow records. #74 holds that, and the routes out of it.
 on:
   workflow_dispatch:
     inputs:
