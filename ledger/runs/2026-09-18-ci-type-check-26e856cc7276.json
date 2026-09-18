@@ -1,0 +1,8 @@
+{
+  "checkId": "ci-type-check",
+  "runOn": "2026-09-18",
+  "planted": "STALE_AFTER_DAYS was changed from the number 30 to the string 30 in quotes, on a ci-control branch pushed to this repository.",
+  "expected": "The Type check step fails, so the CI run does not go green.",
+  "outcome": "caught",
+  "note": "Planted on the ci-control lane the README documents. Run 35405796729 on branch ci-control/63-type-check-plant at d6c0575 concluded failure, with Type check the only step that failed and every other step green or skipped. The branch was deleted and the constant put back afterwards."
+}
