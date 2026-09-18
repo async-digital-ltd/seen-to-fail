@@ -250,15 +250,17 @@ pnpm ledger:build      # build dist/ledger from the records
 The write path is a commit, so a run that is wrong has an author, a diff and a
 revert. Nothing holds a token that can write the record, because there is
 nothing to write to. The `Record a run` workflow is the job's half of it: it
-takes a result, refuses a malformed one before anything is written, and opens a
-pull request adding the file. That pull request does not start its own required
-check, because GitHub will not let one workflow run start another, so somebody
-has to start it by hand for every run recorded this way
-([#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74)). The
-automatic half is not automatic end to end until that is settled. The page names
-the commit that recorded each run,
-read back out of the history rather than stored, so a run cannot claim a commit
-that did not add it.
+takes a result, refuses a malformed one before anything is written, commits the
+record and pushes a branch. It cannot open the pull request itself: GitHub
+Actions is not permitted to create pull requests on this repository, so the run
+ends red at that last step with the record already committed and pushed, and a
+person opens the pull request from the branch it left behind. The required check
+then runs on its own. Measured on 18 September 2026, and tracked at
+[#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74), which is
+also where the cost of a red run that has already recorded something is written
+down. The automatic half is not automatic end to end until that is settled. The
+page names the commit that recorded each run, read back out of the history
+rather than stored, so a run cannot claim a commit that did not add it.
 
 The build refuses to publish when the records and the output disagree: it
 compares the files on disk with the rows the database ended up holding, with the
