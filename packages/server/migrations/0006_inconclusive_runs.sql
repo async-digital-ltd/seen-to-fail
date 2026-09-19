@@ -168,25 +168,47 @@ AS $$
     WHERE test_runs.check_id = checks.id
   ) AS run_totals
   -- The latest run that settled something, which is the only run any status
-  -- rule reads. Latest is by the day it happened, then by the order it was
-  -- written down, because two runs can share a day. The id is a last resort
-  -- under both: rows inserted by one statement share a created_at to the
-  -- microsecond, and without a third key the planner would be free to return
-  -- either of them, so the same rows could read differently from one call to
-  -- the next.
+  -- rule reads. Latest is by the day it happened, and then by what the run
+  -- says: a miss outranks a catch on the same day.
   --
-  -- The outcomes are listed rather than excluded by name. "Everything except
-  -- inconclusive" would quietly hand a sixth outcome to a CASE with no branch
-  -- for it; this way a sixth outcome is simply not a settled one until somebody
-  -- says it is. Which of the two it should be is a decision, and the test that
-  -- compares this enum's labels with the ones the server knows about is what
-  -- makes somebody take it.
+  -- A run is dated to a day and nothing finer, so two runs on one day have no
+  -- recorded order to read. Ordering them by when the row was written down
+  -- picks by clerical order rather than by anything that happened, and on the
+  -- ledger build it does not even do that: the build writes every record in one
+  -- transaction, so now() is the same instant for all of them and created_at
+  -- ties to the microsecond. What decided the published status was then the id,
+  -- which is an MD5 of the record's filename. A check that missed one plant and
+  -- caught another on one day published Proven or Broken according to which of
+  -- two digests happened to be larger, and both the page and the record were
+  -- silent about it.
+  --
+  -- So the outcome is the key, above both. A check seen to let a planted defect
+  -- through that day is broken whether or not something else it was asked about
+  -- that day went well, and a rule that could hide the miss behind the catch
+  -- would be this product failing at its own subject. The same rank is in
+  -- outcomePrecedence in rows.ts, which is what the run lists are sorted by, and
+  -- a test reads this order back out of the database and compares the two.
+  --
+  -- Only the two settled outcomes can reach the key, because the filter below
+  -- is a positive list, so a comparison against one label is total here. The
+  -- outcomes are listed rather than excluded by name for the reason they always
+  -- were: "everything except inconclusive" would quietly hand a sixth outcome
+  -- to a CASE with no branch for it; this way a sixth outcome is simply not a
+  -- settled one until somebody says it is, and ranking it is part of saying so.
+  --
+  -- The other two keys stay, below the outcome and in that order, as the last
+  -- resorts they always were: within one day and one outcome there is still
+  -- nothing meaningful to order by, and without a deterministic key the planner
+  -- would be free to return either row.
   LEFT JOIN LATERAL (
     SELECT test_runs.run_on, test_runs.outcome
     FROM test_runs
     WHERE test_runs.check_id = checks.id
       AND test_runs.outcome IN ('caught', 'missed')
-    ORDER BY test_runs.run_on DESC, test_runs.created_at DESC, test_runs.id DESC
+    ORDER BY test_runs.run_on DESC,
+             (test_runs.outcome = 'missed') DESC,
+             test_runs.created_at DESC,
+             test_runs.id DESC
     LIMIT 1
   ) AS latest_settled_run ON true
   CROSS JOIN LATERAL (

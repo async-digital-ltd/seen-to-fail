@@ -81,6 +81,39 @@ export const outcomeSettlesSomething = {
   inconclusive: false,
 } as const satisfies Record<TestRunOutcome, boolean>;
 
+/**
+ * Which of two runs on one day is read as the later one.
+ *
+ * A run is dated to a day and nothing finer, so two runs on one day have no
+ * recorded order at all. Something still has to decide which of them a status
+ * is read from, and until this map existed that something was a comparison of
+ * two uuids: the ledger build writes every record in one transaction, so every
+ * row it loads shares a created_at to the microsecond, and the ordering fell
+ * through to ids derived from the records' filenames. A check that missed one
+ * plant and caught another on the same day published Proven or Broken
+ * according to a digest.
+ *
+ * So the order is by what the run says instead. A miss outranks a catch: a
+ * check seen to let a planted defect through that day is broken whether or not
+ * something else it was asked about that day went well, and a rule that could
+ * hide the miss behind the catch would be this product failing at its own
+ * subject. A run that settled nothing outranks neither, because it is not
+ * evidence about the check at all; it sorts last so that the first run in a
+ * check's log is the run the status was read from.
+ *
+ * Lower sorts earlier, which is newest-first order. A map rather than a list,
+ * so that adding an outcome above and not ranking it here is a type error: the
+ * rank cannot be guessed from the label, so somebody has to give it. The SQL in
+ * the migrations spells the same order out for its own ORDER BY clauses, and a
+ * test reads the order back out of the database and compares it with this map,
+ * so the two cannot drift apart unnoticed.
+ */
+export const outcomePrecedence = {
+  missed: 0,
+  caught: 1,
+  inconclusive: 2,
+} as const satisfies Record<TestRunOutcome, number>;
+
 /** The outcomes the status rules read. */
 export const settledOutcomes: readonly TestRunOutcome[] =
   testRunOutcomes.filter((outcome) => outcomeSettlesSomething[outcome]);
