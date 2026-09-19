@@ -16,10 +16,10 @@ import { parseArgs } from 'node:util';
 
 import { describeIssues, loadLedger } from '../ledger/load.ts';
 import { ledgerDirectory, ledgerPath } from '../ledger/location.ts';
+import { forwardedArguments } from './arguments.ts';
 
-const argv = process.argv.slice(2);
 const { values } = parseArgs({
-  args: argv[0] === '--' ? argv.slice(1) : argv,
+  args: forwardedArguments(),
   options: {
     directory: { type: 'string' },
   },

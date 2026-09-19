@@ -30,8 +30,10 @@ import {
   ledgerPath,
   repositoryRoot,
 } from '../ledger/location.ts';
+import { forwardedArguments } from './arguments.ts';
 
 const { values } = parseArgs({
+  args: forwardedArguments(),
   options: {
     out: { type: 'string' },
   },

@@ -26,21 +26,10 @@ import { parseArgs } from 'node:util';
 
 import { ledgerDirectory } from '../ledger/location.ts';
 import { recordRun } from '../ledger/record.ts';
-
-/**
- * The arguments, with the separator pnpm forwards taken off the front.
- *
- * `pnpm ledger:record -- --check-id ci-lint` is how pnpm is told that the flags
- * belong to the script rather than to pnpm, and it passes the `--` along as an
- * argument. parseArgs reads that as "everything after this is positional", and
- * a script with no positionals then refuses every flag it was given. Taking it
- * off here is what makes the documented command work.
- */
-const argv = process.argv.slice(2);
-const args = argv[0] === '--' ? argv.slice(1) : argv;
+import { forwardedArguments } from './arguments.ts';
 
 const { values } = parseArgs({
-  args,
+  args: forwardedArguments(),
   options: {
     'check-id': { type: 'string' },
     'run-on': { type: 'string' },
