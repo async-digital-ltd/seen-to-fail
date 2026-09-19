@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { TextField, ToggleField } from './fields';
+import { SubmitButton, TextField, ToggleField } from './fields';
 
 describe('a text field', () => {
   it('ties the control to its label and is required unless optional', () => {
@@ -89,5 +89,26 @@ describe('a toggle field', () => {
     await user.click(off);
     expect(on).toHaveAttribute('aria-pressed', 'false');
     expect(off).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('a submit button', () => {
+  it('can be pressed, and says what for, while the form is idle', () => {
+    render(<SubmitButton label="Save check" busy={false} />);
+
+    const button = screen.getByRole('button', { name: 'Save check' });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('type', 'submit');
+    expect(button).toHaveClass('button--primary');
+  });
+
+  it('is disabled and says it is saving while the form is busy', () => {
+    render(<SubmitButton label="Save check" busy variant="outlined" />);
+
+    const button = screen.getByRole('button', { name: 'Saving…' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toHaveClass('button--outlined');
+    expect(screen.queryByRole('button', { name: 'Save check' })).toBeNull();
   });
 });
