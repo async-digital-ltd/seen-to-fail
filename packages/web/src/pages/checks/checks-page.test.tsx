@@ -420,8 +420,12 @@ describe('the filter in the address', () => {
  * show. The bar's own controls are tested in filter-bar.test.tsx.
  */
 describe('the filter bar', () => {
-  /** The README's example: (status is Unproven OR status is Stale) AND area is CI. */
-  const readmeExample: Filter = {
+  /**
+   * Two groups joined with AND, the first ORing two statuses: the widest shape
+   * the picker builds, with every kind of step in it. Not the README's
+   * example, which the server's tests read off the README itself (#59).
+   */
+  const twoGroups: Filter = {
     kind: 'groups',
     joiner: 'and',
     groups: [
@@ -438,7 +442,7 @@ describe('the filter bar', () => {
       },
     ],
   };
-  const readmeAddress =
+  const twoGroupsAddress =
     '?f=and!or*status.is.Unproven*status.is.Stale!and*area.is.CI';
 
   const never: Condition = { field: 'lastCaught', op: 'never' };
@@ -490,7 +494,7 @@ describe('the filter bar', () => {
       .map((button) => button.getAttribute('aria-label') ?? '');
   }
 
-  it("builds the README's example through the picker, and writes it into the address", async () => {
+  it('builds a filter of two groups through the picker, and writes it into the address', async () => {
     const { user, router, calls } = renderApp({
       answers: answersFor(workspace),
     });
@@ -523,12 +527,15 @@ describe('the filter bar', () => {
     await user.click(screen.getByRole('button', { name: 'Add' }));
 
     expect(router.state.location.pathname).toBe('/');
-    expect(router.state.location.search).toBe(readmeAddress);
-    expect(lastChecksCall(calls)?.variables).toEqual({ filter: readmeExample });
+    expect(router.state.location.search).toBe(twoGroupsAddress);
+    expect(lastChecksCall(calls)?.variables).toEqual({ filter: twoGroups });
   });
 
   it('reads the same chips back from that address', async () => {
-    renderApp({ route: `/${readmeAddress}`, answers: answersFor(workspace) });
+    renderApp({
+      route: `/${twoGroupsAddress}`,
+      answers: answersFor(workspace),
+    });
     await screen.findByRole('region', { name: 'Filter' });
 
     expect(chips()).toEqual([
@@ -547,7 +554,7 @@ describe('the filter bar', () => {
 
   it('writes a switched joiner into the address, and reads the list with it', async () => {
     const { user, router, calls } = renderApp({
-      route: `/${readmeAddress}`,
+      route: `/${twoGroupsAddress}`,
       answers: answersFor(workspace),
     });
     await screen.findByRole('region', { name: 'Filter' });
@@ -561,7 +568,7 @@ describe('the filter bar', () => {
     );
     await waitFor(() => {
       expect(lastChecksCall(calls)?.variables).toEqual({
-        filter: { ...readmeExample, joiner: 'or' },
+        filter: { ...twoGroups, joiner: 'or' },
       });
     });
     // The pill between the groups now reads OR, as the one inside the first
@@ -741,7 +748,7 @@ describe('the filter bar', () => {
 
   it('lands on the group when a chip is removed, and on the start when the last is', async () => {
     const { user } = renderApp({
-      route: `/${readmeAddress}`,
+      route: `/${twoGroupsAddress}`,
       answers: answersFor(workspace),
     });
     await screen.findByRole('region', { name: 'Filter' });
