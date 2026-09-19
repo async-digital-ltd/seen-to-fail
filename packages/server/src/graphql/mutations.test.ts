@@ -165,6 +165,9 @@ interface LoggedRun {
     readonly expected: string;
     readonly outcome: string;
     readonly note: string | null;
+    readonly source: string;
+    readonly sourceCommit: string | null;
+    readonly sourceRunUrl: string | null;
   };
   readonly check: CheckFields;
 }
@@ -174,7 +177,10 @@ const logTestRunDocument = `
     logTestRun(input: $input) {
       ... on TestRunLogged {
         __typename
-        testRun { id runOn planted expected outcome note }
+        testRun {
+          id runOn planted expected outcome note
+          source sourceCommit sourceRunUrl
+        }
         check { ${checkFields} }
       }
       ${refusalFields}
@@ -361,6 +367,7 @@ function validInput(
         planted: 'A value of the wrong type.',
         expected: 'The type check fails.',
         outcome: 'CAUGHT',
+        source: 'HAND',
       };
     case 'recordArmingObservation':
       return { checkId, observedOn: today, armed: true };
@@ -626,6 +633,7 @@ it('logs a run, and returns it with the check it now counts toward', async () =>
       expected: 'The commit is refused.',
       outcome: 'CAUGHT',
       note: ' Refused with the format it wanted. ',
+      source: 'HAND',
     }),
     'TestRunLogged',
   );
@@ -661,6 +669,7 @@ it('returns a Proven check that misses reading Broken', async () => {
       expected: 'The merge is refused.',
       outcome: 'MISSED',
       note: '   ',
+      source: 'HAND',
     }),
     'TestRunLogged',
   );
@@ -685,6 +694,7 @@ it('refuses a blank planted or expected on that field, and writes nothing', asyn
     planted: 'A value of the wrong type.',
     expected: 'The type check fails.',
     outcome: 'CAUGHT',
+    source: 'HAND',
   };
 
   for (const field of ['planted', 'expected']) {
@@ -714,6 +724,7 @@ it('refuses a run dated after today on runOn, and writes nothing', async () => {
     planted: 'A value of the wrong type.',
     expected: 'The type check fails.',
     outcome: 'CAUGHT',
+    source: 'HAND',
   });
 
   expect(pathsOf(result)).toStrictEqual(['runOn']);
@@ -736,6 +747,7 @@ it('refuses a run against a check that does not exist on checkId', async () => {
       planted: 'A value of the wrong type.',
       expected: 'The type check fails.',
       outcome: 'CAUGHT',
+      source: 'HAND',
     });
 
     expect(refusalOf(result)).toStrictEqual([noSuchCheck]);
@@ -752,6 +764,7 @@ it('reports every rule a run breaks at once, in the order of the form', async ()
     planted: ' ',
     expected: '',
     outcome: 'MISSED',
+    source: 'HAND',
   });
 
   expect(pathsOf(result)).toStrictEqual([
@@ -1068,4 +1081,150 @@ it('never reaches the database with an input a rule refuses', async () => {
   } finally {
     watched.mockRestore();
   }
+});
+
+/** The two fields a replay carries, as a caller sends them. */
+const replayEvidence = {
+  sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+  sourceRunUrl: 'https://ci.example.com/runs/91',
+};
+
+it('logs a run typed in by hand with nothing beside it', async () => {
+  const { server, asOf, idOf } = await seeded();
+
+  const logged = writtenAs(
+    await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+    }),
+    'TestRunLogged',
+  );
+
+  expect(logged.testRun.source).toBe('HAND');
+  expect(logged.testRun.sourceCommit).toBeNull();
+  expect(logged.testRun.sourceRunUrl).toBeNull();
+});
+
+it('logs a replay and reads back the commit and the run it named', async () => {
+  const { server, asOf, idOf } = await seeded();
+
+  const logged = writtenAs(
+    await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+      source: 'REPLAY',
+      ...replayEvidence,
+    }),
+    'TestRunLogged',
+  );
+
+  expect(logged.testRun.source).toBe('REPLAY');
+  expect(logged.testRun.sourceCommit).toBe(replayEvidence.sourceCommit);
+  expect(logged.testRun.sourceRunUrl).toBe(replayEvidence.sourceRunUrl);
+  // The run counts toward the check exactly as a typed-in one would.
+  expect(logged.check).toMatchObject({ status: 'PROVEN', runCount: 1 });
+});
+
+/**
+ * Half a replay is refused on the half that is missing, and nothing is
+ * written. A replay whose commit went astray is a caught nobody can check,
+ * which is the shape of record this product exists to refuse.
+ */
+it.each(['sourceCommit', 'sourceRunUrl'])(
+  'refuses a replay with no %s, and writes nothing',
+  async (field) => {
+    const { server, asOf, idOf, before } = await seeded();
+
+    const result = await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+      source: 'REPLAY',
+      ...replayEvidence,
+      [field]: null,
+    });
+
+    expect(pathsOf(result)).toStrictEqual([field]);
+    expect(await workspace(server)).toStrictEqual(before);
+  },
+);
+
+/**
+ * The rule in the other direction, which is the one worth writing down: a run
+ * somebody typed in carrying a commit is refused rather than quietly stored
+ * with a field nobody wrote.
+ */
+it.each(['sourceCommit', 'sourceRunUrl'])(
+  'refuses a run typed in by hand carrying %s, and writes nothing',
+  async (field) => {
+    const { server, asOf, idOf, before } = await seeded();
+
+    const result = await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+      [field]: replayEvidence[field as keyof typeof replayEvidence],
+    });
+
+    expect(pathsOf(result)).toStrictEqual([field]);
+    expect(await workspace(server)).toStrictEqual(before);
+  },
+);
+
+/**
+ * A run link goes into an href on the published page, where escaping the text
+ * does nothing about the scheme. The API refuses anything but https, so a
+ * record that could decide what a click does never reaches a page.
+ */
+it('refuses a run link that is not an https address, and writes nothing', async () => {
+  const { server, asOf, idOf, before } = await seeded();
+
+  const result = await logTestRun(server, {
+    ...validInput(
+      'logTestRun',
+      idOf('Commit message format', 'UNPROVEN'),
+      asOf,
+    ),
+    source: 'REPLAY',
+    ...replayEvidence,
+    sourceRunUrl: 'javascript:alert(1)',
+  });
+
+  expect(pathsOf(result)).toStrictEqual(['sourceRunUrl']);
+  expect(await workspace(server)).toStrictEqual(before);
+});
+
+/**
+ * Not a rule this server applies but one GraphQL applies for it, and it is
+ * here so that the property is checked rather than assumed: the input's source
+ * is non-null and has no default, so a write that does not say where it came
+ * from is refused before a resolver runs.
+ */
+it('refuses a run that does not say where it came from', async () => {
+  const { server, asOf, idOf, before } = await seeded();
+  const { source, ...withoutSource } = validInput(
+    'logTestRun',
+    idOf('Commit message format', 'UNPROVEN'),
+    asOf,
+  );
+  // The field really is in the input a valid write sends, so the test below is
+  // about leaving it out rather than about a name nothing uses.
+  expect(source).toBe('HAND');
+
+  const { body } = await post(server, logTestRunDocument, {
+    input: withoutSource,
+  });
+
+  expect(body.errors?.[0]?.message ?? '').toContain('source');
+  expect(await workspace(server)).toStrictEqual(before);
 });

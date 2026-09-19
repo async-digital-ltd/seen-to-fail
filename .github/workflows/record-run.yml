@@ -78,6 +78,11 @@ jobs:
       # This step is the gate: a record that breaks a rule is refused here, the
       # step exits non-zero, and no file is written for the steps below to
       # commit.
+      #
+      # The source is hand and is written here rather than offered as an input.
+      # Somebody starting this workflow and typing what they saw is the hand
+      # route however it is started, and a replay posting its own result is a
+      # different path with a commit and a run link to carry: that is #67.
       - name: Write the run into the ledger
         env:
           INPUT_CHECK_ID: ${{ inputs.check-id }}
@@ -93,6 +98,7 @@ jobs:
             --planted "$INPUT_PLANTED" \
             --expected "$INPUT_EXPECTED" \
             --outcome "$INPUT_OUTCOME" \
+            --source hand \
             --note "$INPUT_NOTE"
 
       # The record that was just written is sound, or the step above would have

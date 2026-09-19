@@ -1,5 +1,12 @@
 // pnpm ledger:record -- --check-id ci-lint --run-on 2026-09-18 \
-//   --planted "..." --expected "..." --outcome caught [--note "..."]
+//   --planted "..." --expected "..." --outcome caught --source hand \
+//   [--note "..."]
+//
+// A replay says where it came from and brings its evidence with it:
+//
+// pnpm ledger:record -- ... --source replay \
+//   --source-commit <the forty-character commit it ran against> \
+//   --source-run-url https://github.com/<owner>/<repo>/actions/runs/<id>
 //
 // Writes one run into the ledger, or refuses it and writes nothing. This is the
 // step the recording workflow runs before it commits, which is what "refuses a
@@ -36,6 +43,9 @@ const { values } = parseArgs({
     expected: { type: 'string' },
     outcome: { type: 'string' },
     note: { type: 'string' },
+    source: { type: 'string' },
+    'source-commit': { type: 'string' },
+    'source-run-url': { type: 'string' },
     // A ledger other than this repository's own, which is how the tests run
     // this over a temporary one without touching the real record.
     directory: { type: 'string' },
@@ -50,6 +60,11 @@ const { values } = parseArgs({
  * reader in records.ts says "a run needs an outcome" rather than "caught or
  * missed, and got ''". The one field with a default is the note, because a run
  * with nothing written about it is the ordinary case.
+ *
+ * `--source` is passed on absent as well, rather than being filled in here as
+ * hand. The default belongs to the reader, where it is there to keep the
+ * records written before sources existed valid, and a second copy of it in the
+ * writer would be a place for the two to drift.
  */
 const result = await recordRun({
   directory: values.directory ?? ledgerDirectory,
@@ -60,6 +75,9 @@ const result = await recordRun({
     expected: values.expected,
     outcome: values.outcome,
     note: values.note ?? null,
+    source: values.source,
+    sourceCommit: values['source-commit'] ?? null,
+    sourceRunUrl: values['source-run-url'] ?? null,
   },
 });
 

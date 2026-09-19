@@ -66,13 +66,46 @@ function shortCommit(commit: string): string {
   return commit.slice(0, 7);
 }
 
-/** A link to a commit on GitHub, or a plain statement that there is none. */
-function commitCell(ledger: PublishedLedger, commit: string | null): string {
-  if (commit === null) {
-    return '<span class="muted">not committed yet</span>';
-  }
+/** A link to a commit on GitHub. */
+function commitLink(ledger: PublishedLedger, commit: string): string {
   const href = `https://github.com/${encodeURI(ledger.repository)}/commit/${encodeURIComponent(commit)}`;
   return `<a href="${escapeHtml(href)}"><code>${escapeHtml(shortCommit(commit))}</code></a>`;
+}
+
+/** A link to a commit on GitHub, or a plain statement that there is none. */
+function commitCell(ledger: PublishedLedger, commit: string | null): string {
+  return commit === null
+    ? '<span class="muted">not committed yet</span>'
+    : commitLink(ledger, commit);
+}
+
+/**
+ * Where a run came from, and for a replay the two things a reader needs to go
+ * and check it for themselves.
+ *
+ * The commit named here is not the commit in the column beside it. That one is
+ * the commit that added this record, which nothing knew until the record had
+ * been committed; this one is the tree the plant was applied to, which the
+ * replay knew and wrote down. Both are on the page and each says which it is,
+ * because two abbreviated shas in one row are otherwise told apart by position
+ * alone.
+ *
+ * A replay missing either is refused by the reader, by the database and by the
+ * check the build runs before it publishes. Reaching here without them means
+ * all three have stopped working, so this says so rather than rendering a row
+ * that quietly drops the evidence.
+ */
+function sourceCell(ledger: PublishedLedger, run: PublishedRun): string {
+  if (run.source === 'hand') {
+    return 'By hand';
+  }
+  if (run.sourceCommit === null || run.sourceRunUrl === null) {
+    throw new Error(
+      `The replay recorded in ${run.sourceFile} is published without the ` +
+        'commit it ran against or the run that produced it.',
+    );
+  }
+  return `By replay<p class="note">against ${commitLink(ledger, run.sourceCommit)}, <a href="${escapeHtml(run.sourceRunUrl)}">the run</a></p>`;
 }
 
 /** A day, or a plain statement that there is none to show. */
@@ -97,6 +130,7 @@ function runRow(ledger: PublishedLedger, run: PublishedRun): string {
   <td><span class="outcome outcome-${escapeHtml(run.outcome)}">${escapeHtml(run.outcome)}</span></td>
   <td>${escapeHtml(run.planted)}${note}</td>
   <td>${escapeHtml(run.expected)}</td>
+  <td>${sourceCell(ledger, run)}</td>
   <td>${commitCell(ledger, run.recordedIn)}</td>
 </tr>`;
 }
@@ -122,7 +156,7 @@ function runsTable(ledger: PublishedLedger, check: PublishedCheck): string {
   }
   return `<table>
 <caption>Planted defects, newest first</caption>
-<thead><tr><th scope="col">Run on</th><th scope="col">Outcome</th><th scope="col">Planted</th><th scope="col">Expected</th><th scope="col">Recorded in</th></tr></thead>
+<thead><tr><th scope="col">Run on</th><th scope="col">Outcome</th><th scope="col">Planted</th><th scope="col">Expected</th><th scope="col">Came from</th><th scope="col">Recorded in</th></tr></thead>
 <tbody>
 ${check.runs.map((run) => runRow(ledger, run)).join('\n')}
 </tbody>
@@ -298,7 +332,8 @@ ${
 }
 <footer>
 <p>Built from commit <a href="${escapeHtml(commitHref)}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, read as of ${escapeHtml(ledger.builtOn)}, with a catch counted stale after ${String(ledger.staleAfterDays)} days. ${String(checkCount)} ${checkCount === 1 ? 'check' : 'checks'}, ${String(runCount)} recorded ${runCount === 1 ? 'run' : 'runs'}.</p>
-<p>Every run above is a file in the repository, and the commit beside it is the commit that added that file. A run gets there by being committed, so a record that is wrong has an author, a diff and a revert.</p>
+<p>Every run above is a file in the repository, and the commit under "Recorded in" is the commit that added that file. A run gets there by being committed, so a record that is wrong has an author, a diff and a revert.</p>
+<p>"Came from" is a different fact, and it is the one that says whether a proof keeps itself. A run by hand is one somebody planted, watched and typed in. A run by replay was planted and scored by a job, and names the commit it ran against, which is the state of the code it was applied to rather than the commit that recorded it afterwards.</p>
 <p>This page is the record and nothing else: it is read-only, it has no filter bar, and there is no server behind it. The filter language, which compiles a filter to SQL, needs a database to compile against, so it is what you get when you run the app locally rather than something this page can offer.</p>
 <p>The same ledger is published beside this page as <a href="ledger.json"><code>ledger.json</code></a>.</p>
 </footer>

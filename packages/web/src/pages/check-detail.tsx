@@ -66,6 +66,23 @@ function finding(armed: boolean): string {
 }
 
 /**
+ * The mark beside what was found: a green tick for on, a red cross for off.
+ * Every place that says what an observation found draws its mark from here, so
+ * the mark cannot say the opposite of the words beside it (#58).
+ */
+function FindingMark({ armed }: { readonly armed: boolean }): ReactElement {
+  const modifier = armed ? 'on' : 'off';
+  return (
+    <span
+      className={`finding__glyph finding__glyph--${modifier}`}
+      aria-hidden="true"
+    >
+      {armed ? '✓' : '✕'}
+    </span>
+  );
+}
+
+/**
  * What the latest observation found, and when. The observations come newest
  * first, so the latest is the first, and it is the same one the status was
  * worked out from.
@@ -133,12 +150,7 @@ function ObservationEntry({
       <When day={entry.observedOn} today={day} />
       <div className="evidence-entry__what">
         <p className={`finding finding--${modifier}`}>
-          <span
-            className={`finding__glyph finding__glyph--${modifier}`}
-            aria-hidden="true"
-          >
-            {entry.armed ? '✓' : '✕'}
-          </span>
+          <FindingMark armed={entry.armed} />
           {finding(entry.armed)}
         </p>
         {entry.note === null ? null : (
@@ -149,7 +161,48 @@ function ObservationEntry({
   );
 }
 
-/** One planted defect: when, what happened, and the three rows that say it. */
+/** The first seven characters of a commit, as git and GitHub abbreviate it. */
+function shortCommit(commit: string): string {
+  return commit.slice(0, 7);
+}
+
+/**
+ * Where a run came from, as the row that says so.
+ *
+ * Every run says this, including the ones a person typed in, because "by hand"
+ * is the answer that matters most: it is the one that says the proof does not
+ * keep itself. Leaving it off the hand runs and printing it only on replays
+ * would make the absence carry the meaning, and an absence is the one thing a
+ * reader cannot tell from a page that failed to load it.
+ *
+ * A replay names the commit it ran against and links the run that produced it,
+ * so a reader can go and look rather than take the row's word for it. The
+ * commit is shown and not linked: this screen does not know which repository
+ * the check guards, and a link built from a guess is worse than no link.
+ */
+function CameFrom({ run }: { readonly run: Run }): ReactElement {
+  if (run.source === 'HAND') {
+    return <>By hand</>;
+  }
+  if (run.sourceCommit === null || run.sourceRunUrl === null) {
+    // A replay carries both or the API refuses it, so this is the API being
+    // wrong rather than a run with less to say. Saying so beats a row that
+    // reads as a replay nobody can check.
+    throw new Error(
+      `A replay run on ${run.runOn} arrived without the commit it ran against or the run that produced it.`,
+    );
+  }
+  return (
+    <>
+      By replay, against <code>{shortCommit(run.sourceCommit)}</code>.{' '}
+      <a href={run.sourceRunUrl} rel="noreferrer">
+        The run that produced it
+      </a>
+    </>
+  );
+}
+
+/** One planted defect: when, what happened, and the four rows that say it. */
 function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
   const missed = run.outcome === 'MISSED';
   return (
@@ -169,6 +222,12 @@ function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
           <div>
             <dt>Observed</dt>
             <dd>{missed ? 'Missed it' : 'Caught it'}</dd>
+          </div>
+          <div>
+            <dt>Came from</dt>
+            <dd>
+              <CameFrom run={run} />
+            </dd>
           </div>
         </dl>
         {run.note === null ? null : (
@@ -345,12 +404,7 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
         <p className="check-detail__saved" role="status">
           {saved === null ? null : (
             <>
-              <span
-                className="finding__glyph finding__glyph--on"
-                aria-hidden="true"
-              >
-                ✓
-              </span>
+              <FindingMark armed={saved.armed} />
               Observation saved: {finding(saved.armed).toLowerCase()},{' '}
               {ago(saved.observedOn, day)}.
             </>

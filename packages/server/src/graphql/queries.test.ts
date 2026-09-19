@@ -368,3 +368,50 @@ it('says it is not ready when the database does not answer', async () => {
   // read anything would be a check that has never been seen to catch anything.
   expect(response.status).toBe(503);
 });
+
+/**
+ * Where each run came from, read back through the same path a page reads it
+ * on: the check's own query, through the loader, rather than out of the write
+ * that made it.
+ *
+ * The two answers come from two different checks in the seeded workspace, so a
+ * server that answered the same thing to both would fail here. The seed has
+ * exactly one replay in it, which is what makes the second half a real read
+ * rather than a null every column would satisfy.
+ */
+it('says where each run came from, and what a replay ran against', async () => {
+  const server = await seededServer();
+  const {
+    checks: { checks },
+  } = await query<
+    Listed<{
+      name: string;
+      runs: {
+        source: string;
+        sourceCommit: string | null;
+        sourceRunUrl: string | null;
+      }[];
+    }>
+  >(
+    server,
+    '{ checks { checks { name runs { source sourceCommit sourceRunUrl } } } }',
+  );
+
+  const replayed = checks.find(
+    (check) => check.name === 'Type check on every pull request',
+  );
+  expect(replayed?.runs).toStrictEqual([
+    {
+      source: 'REPLAY',
+      sourceCommit: '4f1d0c2a9b7e5f3a1c8d6b4e2f0a9c7d5b3e1f0a',
+      sourceRunUrl: 'https://example.com/ci/runs/8412',
+    },
+  ]);
+
+  const typedIn = checks.find(
+    (check) => check.name === 'Secrets never committed',
+  );
+  expect(typedIn?.runs).toStrictEqual([
+    { source: 'HAND', sourceCommit: null, sourceRunUrl: null },
+  ]);
+});

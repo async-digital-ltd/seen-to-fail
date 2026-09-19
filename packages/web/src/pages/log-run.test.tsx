@@ -388,6 +388,9 @@ describe('a saved run', () => {
             expected: 'The commit is refused.',
             outcome: 'CAUGHT',
             note: null,
+            // The form is the hand route and says so, rather than leaving the
+            // API to assume it. There is no control for this on the page.
+            source: 'HAND',
           },
         },
       },
@@ -528,6 +531,7 @@ it('works end to end with the keyboard alone', async () => {
           expected: 'The build fails.',
           outcome: 'MISSED',
           note: 'Nobody noticed for a week.',
+          source: 'HAND',
         },
       },
     }),

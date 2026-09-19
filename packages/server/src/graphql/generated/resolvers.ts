@@ -184,6 +184,21 @@ export type LogTestRunInput = {
   planted: Scalars['String']['input'];
   /** The day the defect was planted. Not in the future. */
   runOn: Scalars['Date']['input'];
+  /**
+   * Where the run came from. Required, and deliberately without a default: a
+   * write that does not say is refused rather than recorded as somebody's typing.
+   */
+  source: RunSource;
+  /**
+   * The commit the plant was replayed against. Required for a replay, and refused
+   * on a run typed in by hand, which has no commit to name.
+   */
+  sourceCommit?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * A link to the run that produced it, which has to be an https:// address.
+   * Required for a replay, and refused on a run typed in by hand.
+   */
+  sourceRunUrl?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Mutation = {
@@ -198,7 +213,9 @@ export type Mutation = {
   /**
    * Logs a test run. A field that is blank, too long or holds a character that
    * cannot be saved is refused on that field, an unknown check on checkId, and a
-   * day after today on runOn.
+   * day after today on runOn. A replay without its commit or its run link is
+   * refused on whichever is missing, and a run typed in by hand carrying either
+   * is refused on the one it carries.
    */
   logTestRun: TestRunResult;
   /**
@@ -281,6 +298,19 @@ export type RecordArmingObservationInput = {
 };
 
 /**
+ * Where a run came from.
+ *
+ * The difference between a proof that keeps itself and one somebody remembered to
+ * write down. Nothing in the status rules reads it: a replay and a hand run with
+ * the same outcome leave a check reading the same thing.
+ */
+export type RunSource =
+  /** Somebody planted the defect, watched the check, and typed in what happened. */
+  | 'HAND'
+  /** A replay planted it and posted the result, naming the commit and the run. */
+  | 'REPLAY';
+
+/**
  * The five statuses a check can hold.
  *
  * A status is worked out from the record as of a day, and no table stores one, so
@@ -332,6 +362,18 @@ export type TestRun = {
   planted: Scalars['String']['output'];
   /** The day the defect was planted, which may be before it was written down. */
   runOn: Scalars['Date']['output'];
+  /** Whether a person typed this run in or a replay posted it. */
+  source: RunSource;
+  /**
+   * The commit the plant was replayed against. Null for a run typed in.
+   *
+   * Not the commit that recorded the run, which is a different commit and does
+   * not exist until the record has been committed. The published ledger reads
+   * that one back out of the history and shows it separately.
+   */
+  sourceCommit?: Maybe<Scalars['String']['output']>;
+  /** The run that produced it, as a link. Null for a run typed in. */
+  sourceRunUrl?: Maybe<Scalars['String']['output']>;
 };
 
 /** A run that was logged, with the check it was logged against. */
@@ -525,6 +567,7 @@ export type ResolversTypes = {
   Outcome: Outcome;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RecordArmingObservationInput: RecordArmingObservationInput;
+  RunSource: RunSource;
   Status: Status;
   StatusCounts: ResolverTypeWrapper<StatusCounts>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
@@ -774,6 +817,17 @@ export type TestRunResolvers<
   outcome: Resolver<ResolversTypes['Outcome'], ParentType, ContextType>;
   planted: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   runOn: Resolver<ResolversTypes['Date'], ParentType, ContextType>;
+  source: Resolver<ResolversTypes['RunSource'], ParentType, ContextType>;
+  sourceCommit: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  sourceRunUrl: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
 };
 
 export type TestRunLoggedResolvers<

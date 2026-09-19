@@ -59,6 +59,18 @@ export const fixtureAsOf = '2026-09-18';
 /** The commit the fixture build pretends to have run against. */
 export const fixtureCommit = 'ffffffffffffffffffffffffffffffffffffffff';
 
+/**
+ * What a replay would have recorded about itself, for the tests that need a
+ * run nobody typed in.
+ *
+ * Deliberately not a github.com address. The page links to a commit on GitHub
+ * because that is where this repository is; the run a replay came from is
+ * wherever that replay ran, and a fixture that only ever used one host would
+ * let a page that can only render that host pass.
+ */
+export const fixtureReplayCommit = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';
+export const fixtureReplayRunUrl = 'https://ci.example.com/runs/91';
+
 export function fixtureContents(): LedgerContents {
   return {
     checks: [
@@ -93,6 +105,9 @@ export function fixtureContents(): LedgerContents {
           expected: 'The type check fails.',
           outcome: 'caught',
           note: null,
+          source: 'hand',
+          sourceCommit: null,
+          sourceRunUrl: null,
         },
       },
     ],
@@ -106,6 +121,37 @@ export function fixtureContents(): LedgerContents {
           note: null,
         },
       },
+    ],
+  };
+}
+
+/**
+ * The same ledger, with its one run recorded by a replay rather than typed in.
+ *
+ * Every count is untouched, so the summaries, the totals and the status tallies
+ * below describe this ledger exactly as well as they describe the other one.
+ * Where a run came from changes nothing a status is worked out from, and a
+ * fixture that had to be recounted for it would be saying otherwise.
+ */
+export function fixtureContentsFromAReplay(): LedgerContents {
+  const contents = fixtureContents();
+  const [run, ...rest] = contents.runs;
+  if (run === undefined) {
+    throw new Error('The fixture has no runs.');
+  }
+  return {
+    ...contents,
+    runs: [
+      {
+        ...run,
+        record: {
+          ...run.record,
+          source: 'replay',
+          sourceCommit: fixtureReplayCommit,
+          sourceRunUrl: fixtureReplayRunUrl,
+        },
+      },
+      ...rest,
     ],
   };
 }
@@ -148,10 +194,17 @@ export function fixtureStatusTotals(): StatusTotals {
   return { Proven: 1, Unproven: 1, Broken: 0, Stale: 0, Unarmed: 0 };
 }
 
-/** The export those records and summaries produce. */
-export function fixtureSnapshot(): PublishedLedger {
+/**
+ * The export those records and summaries produce.
+ *
+ * The records are an argument so that a test can hand it a variant, such as
+ * the replay above, without a second copy of everything else the build needs.
+ */
+export function fixtureSnapshot(
+  contents: LedgerContents = fixtureContents(),
+): PublishedLedger {
   return buildSnapshot({
-    contents: fixtureContents(),
+    contents,
     summaries: fixtureSummaries(),
     ledgerPath: fixtureLedgerPath,
     repository: 'async-digital-ltd/seen-to-fail',
