@@ -3,6 +3,16 @@
     {
       "name": "Type check",
       "checkId": "ci-type-check",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
       "expected": "The type check fails.",
       "run": "pnpm typecheck",
       "evidence": {
