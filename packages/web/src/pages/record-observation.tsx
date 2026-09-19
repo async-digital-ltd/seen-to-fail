@@ -6,7 +6,12 @@ import { ErrorNotice } from '../components/error-notice';
 import { ErrorSummary } from '../components/form/error-summary';
 import type { FieldErrors } from '../components/form/field-errors';
 import type { Choice } from '../components/form/fields';
-import { DateField, TextField, ToggleField } from '../components/form/fields';
+import {
+  DateField,
+  SubmitButton,
+  TextField,
+  ToggleField,
+} from '../components/form/fields';
 import { useFormErrors } from '../components/form/use-form-errors';
 import type { RecordArmingObservationInput } from '../graphql/generated/graphql';
 import { RecordArmingObservationDocument } from '../graphql/generated/graphql';
@@ -147,9 +152,7 @@ export function ObservationForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        if (!fetching) {
-          void send();
-        }
+        void send();
       }}
     >
       <div className="record-observation__heading">
@@ -196,9 +199,11 @@ export function ObservationForm({
       />
       <div className="form__actions">
         {/* Not brick: the page's one brick action is its "Log a test run". */}
-        <button type="submit" className="button button--outlined">
-          Save observation
-        </button>
+        <SubmitButton
+          label="Save observation"
+          busy={fetching}
+          variant="outlined"
+        />
       </div>
     </form>
   );

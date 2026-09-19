@@ -12,7 +12,7 @@ import {
 } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import type { Answer } from '../testing/client';
-import { answer, networkFailure } from '../testing/client';
+import { answer, networkFailure, pending } from '../testing/client';
 import { renderApp } from '../testing/render';
 
 type RecordedCheck = NonNullable<CheckDetailQuery['check']>;
@@ -390,6 +390,45 @@ describe('the observation form', () => {
  * for on, beside words saying off. The list under the line draws its mark from
  * what was found, and the line has to draw the same one.
  */
+/**
+ * A save under way: the button is disabled and says so, and neither a second
+ * press nor Enter in a field sends a second observation. Exactly one send is
+ * asserted, not at most one, since the count is what a second send would
+ * change: with the disabled attribute taken off the button this test was
+ * watched count three.
+ */
+describe('a save in flight', () => {
+  it('disables the button, says it is saving, and takes no second submit', async () => {
+    const { user, calls } = renderApp({
+      route: paths.check(id),
+      answers: [
+        ...api(unarmedWithNoRuns).answers,
+        pending(RecordArmingObservationDocument),
+      ],
+    });
+    const form = await openForm(user);
+    await user.click(within(form).getByRole('button', { name: 'It is off' }));
+
+    await user.click(
+      within(form).getByRole('button', { name: 'Save observation' }),
+    );
+
+    const busy = await within(form).findByRole('button', { name: 'Saving…' });
+    expect(busy).toBeDisabled();
+    expect(
+      within(form).queryByRole('button', { name: 'Save observation' }),
+    ).toBeNull();
+
+    await user.click(busy);
+    await user.click(within(form).getByLabelText('Date'));
+    await user.keyboard('{Enter}');
+
+    expect(
+      calls.filter((call) => call.name === 'RecordArmingObservation'),
+    ).toHaveLength(1);
+  });
+});
+
 describe('the mark beside a saved observation', () => {
   it.each([
     { choice: 'It is on', check: unarmedWithNoRuns, glyph: '✓', found: 'on' },

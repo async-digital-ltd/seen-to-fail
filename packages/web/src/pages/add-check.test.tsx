@@ -15,7 +15,7 @@ import {
 } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import type { Answer, Call } from '../testing/client';
-import { answer, networkFailure } from '../testing/client';
+import { answer, networkFailure, pending } from '../testing/client';
 import type { Rendered } from '../testing/render';
 import { renderApp } from '../testing/render';
 import type { ListedCheck } from './checks/check-row';
@@ -268,6 +268,51 @@ describe('the form', () => {
 
     expect(router.state.location.pathname).toBe('/');
     expect(names(calls)).not.toContain('CreateCheck');
+  });
+});
+
+/**
+ * A save under way. The button is disabled and says so, so a slow save looks
+ * like a save rather than a press that did nothing, and neither a second press
+ * nor Enter in a field sends anything while it is in flight. Exactly one
+ * CreateCheck is asserted, not at most one: the count is what a second send
+ * would change, and with the disabled attribute taken off the button this
+ * test was watched count three.
+ */
+describe('a save in flight', () => {
+  it('disables the button, says it is saving, and takes no second submit', async () => {
+    const { calls, user } = open([areas, pending(CreateCheckDocument)]);
+
+    await fillRequired(user, { name: 'Lint on push', area: 'CI' });
+    await user.click(save());
+
+    const busy = await screen.findByRole('button', { name: 'Saving…' });
+    expect(busy).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save check' })).toBeNull();
+
+    await user.click(busy);
+    await user.click(screen.getByLabelText(labels.name));
+    await user.keyboard('{Enter}');
+
+    expect(calls.filter((call) => call.name === 'CreateCheck')).toHaveLength(1);
+  });
+
+  it('offers the save again once the API has answered', async () => {
+    const { user } = open([
+      areas,
+      refused('name', 'There is already a check with this name.'),
+    ]);
+
+    await fillRequired(user, { name: 'Lint on push', area: 'CI' });
+    await user.click(save());
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(labels.name)).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
+    });
+    expect(save()).toBeEnabled();
   });
 });
 

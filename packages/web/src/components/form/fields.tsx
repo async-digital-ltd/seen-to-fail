@@ -254,3 +254,57 @@ export function ToggleField<Value extends string>({
     </fieldset>
   );
 }
+
+interface SubmitButtonProps {
+  /** What the button says, and what pressing it asks for. */
+  readonly label: string;
+  /** What it says instead while the form is waiting on the API. */
+  readonly busyLabel?: string;
+  /** True from the moment the form sends until the API answers. */
+  readonly busy: boolean;
+  /**
+   * primary is the brick fill, for the screen's one primary action. outlined
+   * is brick text and a brick border, for a form on a screen whose fill is
+   * already spent.
+   */
+  readonly variant?: 'primary' | 'outlined';
+}
+
+/**
+ * The button that sends a form, and the one guard against sending it twice.
+ *
+ * While the form is busy the button is disabled, and the browser enforces
+ * that: a disabled submit button takes no click, and Enter in a field, which
+ * submits through the form's default button, submits nothing while that
+ * button is disabled. The form's submit handler makes no check of its own. A
+ * second guard there would still send nothing when this one was taken away,
+ * and the test that presses twice would go on passing with nothing left
+ * holding the door.
+ *
+ * The label changes with it, so a slow save looks like a save under way rather
+ * than a press that did nothing, which is the moment a reader presses again.
+ * The button is not dimmed: the label is the sign the reader is waiting for,
+ * and it has to stay readable.
+ *
+ * Disabling a focused button drops focus to the page. Every way a send can end
+ * then puts it somewhere: a written record moves on or takes focus itself, a
+ * refusal focuses the field at fault, and a failed request shows an alert,
+ * which is announced wherever focus is.
+ */
+export function SubmitButton({
+  label,
+  busyLabel = 'Saving…',
+  busy,
+  variant = 'primary',
+}: SubmitButtonProps): ReactElement {
+  return (
+    <button
+      type="submit"
+      className={`button button--${variant}`}
+      disabled={busy}
+      aria-busy={busy}
+    >
+      {busy ? busyLabel : label}
+    </button>
+  );
+}
