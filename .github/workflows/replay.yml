@@ -1,0 +1,181 @@
+name: Replay a plant
+
+# The automatic half: a job plants a declared defect, watches what the check
+# does, and records one run per break through the same recorder a person's run
+# goes through. Nothing is typed in and no verdict is guessed at.
+#
+# Dispatch only, deliberately. Two reasons, and the second is the stronger one.
+# Each dispatch runs the check once on a clean tree and once per declared break,
+# which is three runs of `pnpm typecheck` today, and Actions minutes on a
+# private repository are a finite allowance this project has no budget for. The
+# larger cost is to the record: a replay is a dated observation, and running one
+# on every merge would file a near identical proof several times a day, each
+# against a different commit and so each a separate row, burying the runs that
+# say something under runs that say the same thing again. A cadence belongs on a
+# schedule rather than on every push, and choosing one is not this story's work.
+#
+# The replay is NOT added to the CI workflow that runs on every pull request.
+# canfail edits real source files on disk and restores them afterwards, which is
+# fine on a runner nobody else is using and is not something to put in the path
+# of every contributor's change.
+on:
+  workflow_dispatch:
+
+# Only what it needs. The job pushes a branch and never opens a pull request, so
+# `pull-requests: write` would be a permission nothing here uses. See the last
+# step for why opening one is not attempted.
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    name: Replay the declared plants and record what happened
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # The commit the plants are applied to, which is what a replay records as
+      # the tree it ran against. On workflow_dispatch this is the head of the
+      # ref that was dispatched. It is deliberately not taken from a
+      # pull_request event, where the sha is a synthetic merge commit that
+      # exists only for the run and is not the tree anybody planted anything in.
+      SOURCE_COMMIT: ${{ github.sha }}
+      SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      BRANCH: replay/${{ github.run_id }}
+      # Outside the working tree, so the tree is either clean after canfail has
+      # run or canfail failed to restore something.
+      REPORT: ${{ runner.temp }}/canfail-report.json
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Pinned to the version #66 adopted and measured. An unpinned install
+      # would let the scoring change under a ledger that cannot yet see which
+      # version produced a verdict, which is the staleness condition epic #62
+      # names and the reason the tool field is worth having.
+      - name: Install the replay tool
+        run: pip install canfail==0.2.1
+
+      # canfail exits 1 when any guard was blind or failed the wrong way, and 0
+      # when every declared break was caught OR every one of them settled
+      # nothing. Both of those are results to record rather than reasons to
+      # fail, and neither can be told from the other by the status: the two
+      # halves this story exists to observe were measured on this branch and
+      # both exited 0. Only exit 2, which is canfail saying it could not run at
+      # all, fails this job.
+      #
+      # Nothing downstream reads this number. The per-break verdicts come from
+      # the JSON document, which is the rule #66 pinned.
+      - name: Replay the declared plants
+        run: |
+          set -euo pipefail
+          status=0
+          canfail --cwd "$GITHUB_WORKSPACE" --json canfail.json > "$REPORT" || status=$?
+          echo "canfail exited $status."
+          if [ "$status" -ge 2 ]; then
+            echo "canfail could not run. Nothing was replayed." >&2
+            exit 1
+          fi
+
+      # canfail breaks real files and puts them back, and a restore that ran is
+      # not a restore that worked. A tree that did not come back has an unknown
+      # baseline for every break after the one that failed, so its later
+      # verdicts are about a tree nobody declared. Written as an `if` rather
+      # than as a negated command, because `set -e` does not apply to a command
+      # whose status is inverted with `!`.
+      - name: Check the tree came back
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "The working tree did not come back after the replay:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+
+      # The gate. A verdict this mapping does not recognise, a check the
+      # declaration does not declare, or a record that breaks a ledger rule
+      # stops here with nothing written, so the steps below have nothing to
+      # commit. Every value it reads comes through the environment rather than
+      # being substituted into the text of this script.
+      - name: Record what the replay found
+        env:
+          LEDGER_REPORT: ${{ env.REPORT }}
+        run: |
+          pnpm ledger:replay -- \
+            --report "$LEDGER_REPORT" \
+            --config canfail.json \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-run-url "$SOURCE_RUN_URL"
+
+      # The same command CI runs and the recording workflow runs, so this job
+      # cannot commit a ledger either of them would have refused.
+      - name: Check the whole ledger still reads
+        run: pnpm ledger:validate
+
+      # Push the branch, exit 0, and tell a person what is waiting.
+      #
+      # This job does not open the pull request, and that is the route ruled on
+      # #74 rather than a limitation worked around. "Allow GitHub Actions to
+      # create and approve pull requests" is off on this repository, and GitHub
+      # couples create and approve behind that one switch: turning it on to let
+      # a job open a pull request also lets automation approve one, in a
+      # repository whose whole subject is whether automated checks can be
+      # trusted. Measured on 2026-09-18, a job that tried it went red with the
+      # record already committed and pushed, and a red run here is designed to
+      # mean nothing landed, so a person reading the red correctly would have
+      # lost a real recorded run.
+      #
+      # So the handoff is the designed behaviour and it is stated in the run
+      # summary rather than buried in a failed step's log. The green means
+      # recorded and waiting for a person. It does not mean done.
+      - name: Push the record and say what is waiting
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$BRANCH"
+          git add ledger
+          if git diff --cached --quiet; then
+            echo "Every run in this replay was already recorded. Nothing to commit."
+            {
+              echo "## Nothing new to record"
+              echo
+              echo "Every run this replay produced was already in the ledger, byte for byte."
+              echo "No branch was pushed."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git commit --message "Record a replay of the declared plants, from run $GITHUB_RUN_ID"
+          git push origin "$BRANCH"
+          {
+            echo "## Recorded, and waiting for a person"
+            echo
+            echo "The replay ran and its runs are committed on \`$BRANCH\`."
+            echo "They are NOT in the ledger yet. Nothing reaches the published record until this branch is merged."
+            echo
+            echo "Open the pull request with:"
+            echo
+            echo '```sh'
+            echo "gh pr create --base main --head $BRANCH \\"
+            echo "  --title 'Record a replay from run $GITHUB_RUN_ID' \\"
+            echo "  --body 'Recorded by the Replay a plant workflow, run $GITHUB_RUN_ID.'"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

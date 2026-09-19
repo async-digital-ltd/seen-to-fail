@@ -1,0 +1,29 @@
+{
+  "checks": [
+    {
+      "name": "Type check",
+      "checkId": "ci-type-check",
+      "expected": "The type check fails.",
+      "run": "pnpm typecheck",
+      "evidence": {
+        "expect": "typecheck\\$ tsc --noEmit"
+      },
+      "breaks": [
+        {
+          "name": "STATUSES loses its as const, so Status widens to string.",
+          "file": "packages/filter/src/types.ts",
+          "replace": "  'Unproven',\n] as const;",
+          "with": "  'Unproven',\n];",
+          "expect": "error TS[0-9]+"
+        },
+        {
+          "name": "STALE_AFTER_DAYS is written as a string rather than a number.",
+          "file": "packages/server/src/staleness.ts",
+          "replace": "export const STALE_AFTER_DAYS = 30;",
+          "with": "export const STALE_AFTER_DAYS = '30';",
+          "expect": "error TS[0-9]+"
+        }
+      ]
+    }
+  ]
+}

@@ -20,9 +20,13 @@ is the same file written twice rather than two runs. A job that retries records
 one run. Two runs that are identical in every field, including the day, are one
 record; a note is what separates them when they are genuinely two.
 
-Nothing here is edited by the app. `pnpm ledger:record` writes a run, the
-`Record a run` workflow runs it, and everything else is written by hand in a
-pull request.
+Nothing here is edited by the app. Two commands write a run, and everything else
+is written by hand in a pull request. `pnpm ledger:record` writes one a person
+watched and typed in, and the `Record a run` workflow runs it.
+`pnpm ledger:replay` writes the runs a replay tool scored, one per declared
+break, and the `Replay a plant` workflow runs it. Both go through the same
+recorder and are refused by the same rules; they differ in who saw the check go
+red, which is what a run's `source` records.
 
 ## What a record has to be
 
