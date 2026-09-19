@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -378,4 +378,46 @@ describe('the observation form', () => {
     expect(sent).toHaveLength(1);
     expect(toggle).toHaveFocus();
   });
+});
+
+/**
+ * The mark beside "Observation saved". #58 found it hard-coded to the green
+ * tick, so an observation that found the check off was confirmed with the mark
+ * for on, beside words saying off. The list under the line draws its mark from
+ * what was found, and the line has to draw the same one.
+ */
+describe('the mark beside a saved observation', () => {
+  it.each([
+    { choice: 'It is on', check: unarmedWithNoRuns, glyph: '✓', found: 'on' },
+    { choice: 'It is off', check: proven, glyph: '✕', found: 'off' },
+  ])(
+    'is the $found mark the observation list uses, after "$choice"',
+    async ({ choice, check, glyph, found }) => {
+      const { user } = renderApp({
+        route: paths.check(id),
+        answers: api(check).answers,
+      });
+      const form = await openForm(user);
+      await user.click(within(form).getByRole('button', { name: choice }));
+
+      await user.click(
+        within(form).getByRole('button', { name: 'Save observation' }),
+      );
+
+      const line = within(observations()).getByRole('status');
+      await waitFor(() => {
+        expect(line).toHaveTextContent(`found switched ${found}`);
+      });
+      const mark = line.querySelector('.finding__glyph');
+      expect(mark).toHaveTextContent(glyph);
+      expect(mark).toHaveClass(`finding__glyph--${found}`);
+      // The same mark, class for class, as the entry the save added to the
+      // list, so the two cannot say different things about one observation.
+      const [newest] = within(observations()).getAllByRole('listitem');
+      const listed = newest?.querySelector('.finding__glyph') ?? null;
+      expect(listed).not.toBeNull();
+      expect(mark?.className).toBe(listed?.className);
+      expect(mark?.textContent).toBe(listed?.textContent);
+    },
+  );
 });
