@@ -237,12 +237,36 @@ export async function loadLedger(options: LoadOptions): Promise<LoadResult> {
     knownIds.add(entry.record.id);
   }
 
+  // The name is a label and nothing here resolves a check by it, but the app
+  // keeps names unique and the build writes into the app's own table. Two
+  // checks sharing a name would be refused there by checks_name_unique, after
+  // both files had been committed. Refused here instead, so a rename onto a
+  // name already in use is a validation failure rather than a broken build.
+  const holderOfName = new Map<string, string>();
+  for (const entry of checks) {
+    const holder = holderOfName.get(entry.record.name);
+    if (holder !== undefined) {
+      issues.push({
+        file: entry.file,
+        path: 'name',
+        message: `Another check in the ledger, ${holder}, already has this name.`,
+      });
+      continue;
+    }
+    holderOfName.set(entry.record.name, entry.record.id);
+  }
+
+  // The refusal names the address that matched nothing. It is the one thing a
+  // job in another repository wrote about the check, so it is the one thing
+  // in the message that tells its author which file to look at. It is safe to
+  // echo: an id reaches this loop only after the schema has held it to lower
+  // case letters, digits and hyphens.
   for (const entry of [...runs, ...observations]) {
     if (!knownIds.has(entry.record.checkId)) {
       issues.push({
         file: entry.file,
         path: 'checkId',
-        message: 'There is no check in the ledger with this id.',
+        message: `There is no check in the ledger with the id ${entry.record.checkId}.`,
       });
     }
   }

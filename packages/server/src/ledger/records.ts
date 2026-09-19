@@ -39,13 +39,21 @@ import type { IsoDate } from '../database/rows.ts';
  */
 
 /**
- * A check's id in the ledger.
+ * A check's id in the ledger, which is its address.
  *
  * A slug rather than the uuid the database keeps, because this id is written by
  * hand into a check's file and quoted by a job in another repository that wants
  * to record a run against it. Nobody types a uuid into a workflow input
  * correctly twice. The uuid the database sees is derived from this, in
  * identity.ts, so the two never have to be kept in step by anybody.
+ *
+ * It is the address rather than the name beside it, and the two have
+ * different jobs. The name is a label a reader sees, written with spaces and
+ * capitals and free to change; the id is what a file in another repository
+ * quotes, and changing it is not a rename but a new check, which every run
+ * naming the old id is then refused against. A run resolves to its check by
+ * this and by nothing else, so renaming a check leaves its runs where they
+ * are. Ruled on #71.
  */
 export const ledgerIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
