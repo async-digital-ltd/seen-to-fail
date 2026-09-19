@@ -1,4 +1,4 @@
-import { emptyFilter } from '@seen-to-fail/filter';
+import { emptyFilter, serializeFilter } from '@seen-to-fail/filter';
 import type { Filter, Status } from '@seen-to-fail/filter';
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
@@ -116,6 +116,13 @@ export function ChecksPage(): ReactElement {
     body = <EmptyWorkspace />;
   } else {
     const statusCounts = counts.data.statusCounts;
+    // The address is the only copy of the filter, so the tile that reads as
+    // pressed is the one whose own filter the address holds, and nothing
+    // remembers a press. Compared as the language writes them, which is how
+    // useFilter decides whether a press is a step, so the spelling the address
+    // arrived in makes no difference. A filter that holds a status and more
+    // presses no tile: a tile stands for its status alone.
+    const shown = serializeFilter(filter);
     body = (
       <>
         <p className="checks-page__lede">{describeWorkspace(statusCounts)}</p>
@@ -129,6 +136,7 @@ export function ChecksPage(): ReactElement {
               key={status}
               status={status}
               count={countOf(statusCounts, status)}
+              selected={serializeFilter(onlyStatus(status)) === shown}
               onSelect={(selected) => {
                 setFilter(onlyStatus(selected));
               }}
