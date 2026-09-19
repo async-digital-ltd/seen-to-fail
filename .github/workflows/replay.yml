@@ -42,9 +42,6 @@ jobs:
       SOURCE_COMMIT: ${{ github.sha }}
       SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       BRANCH: replay/${{ github.run_id }}
-      # Outside the working tree, so the tree is either clean after canfail has
-      # run or canfail failed to restore something.
-      REPORT: ${{ runner.temp }}/canfail-report.json
 
     steps:
       - name: Check out the repository
@@ -84,11 +81,18 @@ jobs:
       #
       # Nothing downstream reads this number. The per-break verdicts come from
       # the JSON document, which is the rule #66 pinned.
+      #
+      # The report is written under RUNNER_TEMP rather than into the checkout,
+      # so that the tree is either clean after canfail has run or canfail failed
+      # to put something back, which is what the step below reads. RUNNER_TEMP
+      # is an ordinary environment variable on the runner; the `runner` context
+      # it mirrors is not available in a job level `env` block, so spelling it
+      # here is what makes the path resolve rather than expanding to nothing.
       - name: Replay the declared plants
         run: |
           set -euo pipefail
           status=0
-          canfail --cwd "$GITHUB_WORKSPACE" --json canfail.json > "$REPORT" || status=$?
+          canfail --cwd "$GITHUB_WORKSPACE" --json canfail.json > "$RUNNER_TEMP/canfail-report.json" || status=$?
           echo "canfail exited $status."
           if [ "$status" -ge 2 ]; then
             echo "canfail could not run. Nothing was replayed." >&2
@@ -116,11 +120,9 @@ jobs:
       # commit. Every value it reads comes through the environment rather than
       # being substituted into the text of this script.
       - name: Record what the replay found
-        env:
-          LEDGER_REPORT: ${{ env.REPORT }}
         run: |
           pnpm ledger:replay -- \
-            --report "$LEDGER_REPORT" \
+            --report "$RUNNER_TEMP/canfail-report.json" \
             --config canfail.json \
             --source-commit "$SOURCE_COMMIT" \
             --source-run-url "$SOURCE_RUN_URL"
