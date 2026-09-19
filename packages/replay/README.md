@@ -134,14 +134,18 @@ whole of what the selection reads checks from, so a check the ledger holds and
 the declaration does not is not selectable by either route, however old its
 proof is. Writing it a plant is the only thing that changes that.
 
-**Which checks this covers: one of the four that carry a proof.** `canfail.json`
-declares `ci-type-check` and nothing else, so that is the only check either
-route can select. `ci-published-output`, `ledger-export-agreement` and
-`ledger-record-validation` have no declared break, so no replay can produce a
-run for them at all and the floor does nothing whatever for them. Read as a
-general answer to a page ageing to Stale, this would be wrong three times out of
-four; #110 has the dates and names bringing those three into `canfail.json` as
-one of its alternatives.
+**Which checks this covers: one of the four checks that carry runs.** The ledger
+holds nine checks. Four of them carry runs, and so have a status the backstop
+can age; the other five carry an arming observation and no run at all, so they
+read Unproven and there is no proof for a floor to keep alive.
+
+Of those four, `canfail.json` declares `ci-type-check` and nothing else, so that
+is the only check either route can select. `ci-published-output`,
+`ledger-export-agreement` and `ledger-record-validation` have no declared break,
+so no replay can produce a run for them at all and the floor does nothing
+whatever for them. Read as a general answer to a page ageing to Stale, this
+covers one of those four and misses three; #110 has the dates and names bringing
+those three into `canfail.json` as one of its alternatives.
 
 ## The statuses it exits with
 

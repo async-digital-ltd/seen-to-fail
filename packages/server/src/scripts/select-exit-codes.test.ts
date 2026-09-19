@@ -775,11 +775,11 @@ describe('a proof that has aged past the floor', () => {
    * proof is.
    *
    * This is the limit of what the floor fixes, and it is worth an assertion
-   * rather than a sentence in a pull request. Three of the four checks carrying
-   * a proof in this repository's real ledger have no plant in `canfail.json` at
-   * all, so nothing on this path can reach them and the floor does not rescue
-   * them. The second check is taken out of the declaration below and left in
-   * the ledger with a proof well past the floor.
+   * rather than a sentence in a pull request. Of the four checks that carry
+   * runs in this repository's real ledger, three have no plant in
+   * `canfail.json` at all, so nothing on this path can reach them and the floor
+   * does not rescue them. The second check is taken out of the declaration
+   * below and left in the ledger with a proof well past the floor.
    */
   it('cannot select a check the declaration does not declare', async () => {
     const { directory, first } = await aRepository();

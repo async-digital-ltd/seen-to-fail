@@ -58,10 +58,11 @@ name: Replay a plant
 # The five billed minutes a month measured above is still the ceiling.
 #
 # The floor cannot rescue a check with no plant in `canfail.json`, because that
-# file is the whole of what the selection reads checks from. Three of the four
-# checks carrying a proof here are in that position today. They are replayed by
+# file is the whole of what the selection reads checks from. Of the four checks
+# that carry runs here, three are in that position today. They are replayed by
 # hand from the dispatch below, and they go Stale on the backstop until somebody
-# writes them a plant.
+# writes them a plant. The ledger's other five checks carry an observation and
+# no run, so they read Unproven and have no proof for a floor to keep alive.
 #
 # The replay is NOT added to the CI workflow that runs on every pull request.
 # canfail edits real source files on disk and restores them afterwards, which is
