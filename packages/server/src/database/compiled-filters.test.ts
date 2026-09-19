@@ -312,7 +312,8 @@ it('selects every check for the empty filter', async () => {
 });
 
 /**
- * The README's example filter, against the workspace as seeded.
+ * Unproven or Stale, in CI, against the workspace as seeded: the filter
+ * nothing seeded matches.
  *
  * It selects nothing, and that is the right answer rather than a broken query:
  * the Unproven and Stale checks are in Git and Release, and none of them is in
@@ -320,10 +321,10 @@ it('selects every check for the empty filter', async () => {
  * compiler that selected nothing at all would satisfy it, so the two tests
  * below take the same filter apart and show each half selecting real rows.
  */
-it('selects nothing for the README example, because no Unproven or Stale check is in CI', async () => {
+it('selects nothing for Unproven or Stale in CI, because no seeded check is both', async () => {
   const { namesMatching } = await seedAndQuery();
 
-  const readmeExample = filterOf(
+  const unprovenOrStaleInCI = filterOf(
     'and',
     groupOf(
       'or',
@@ -333,7 +334,7 @@ it('selects nothing for the README example, because no Unproven or Stale check i
     groupOf('and', { field: 'area', op: 'is', value: 'CI' }),
   );
 
-  expect(await namesMatching(readmeExample)).toEqual([]);
+  expect(await namesMatching(unprovenOrStaleInCI)).toEqual([]);
 });
 
 it('selects the three Unproven or Stale checks once the area group is dropped', async () => {
