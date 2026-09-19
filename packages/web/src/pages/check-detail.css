@@ -57,6 +57,19 @@
   font-size: 1.125rem;
 }
 
+/*
+ * The amber is on the edge and not in the words. Amber against this dark
+ * surface is a boundary a reader can see, and the sentence itself keeps the
+ * hero's own light text, which is what it needs to be read (#65).
+ */
+.check-detail__unsettled {
+  max-width: 52ch;
+  margin: 1rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--warning);
+  font-size: 0.9375rem;
+}
+
 .check-detail__latest {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));

@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
 import { uuidPattern } from './checks.ts';
-import { testRunOutcomes, testRunSources } from './rows.ts';
-import type { IsoDate, TestRunSource } from './rows.ts';
+import {
+  outcomeSettlesSomething,
+  testRunOutcomes,
+  testRunSources,
+} from './rows.ts';
+import type { IsoDate, TestRunOutcome, TestRunSource } from './rows.ts';
 
 /**
  * What a new check, run or observation has to be before it is written, and the
@@ -111,6 +115,22 @@ export const handRunHasNoRunUrl: RecordIssue = {
 };
 
 /**
+ * The two things a run's outcome and its reason can disagree about.
+ *
+ * Constants for the same reason the four above are: a test asserts the issue a
+ * record produced rather than a substring of a message somebody may reword.
+ */
+export const inconclusiveNeedsItsReason: RecordIssue = {
+  path: 'inconclusiveReason',
+  message: 'Say why the run settled nothing.',
+};
+
+export const settledRunHasNoReason: RecordIssue = {
+  path: 'inconclusiveReason',
+  message: 'Only a run that settled nothing records why it settled nothing.',
+};
+
+/**
  * The longest a name or an area may be, in characters.
  *
  * A name and an area are labels, read in a row of a list, and two hundred is
@@ -201,18 +221,35 @@ export function optionalText(maxLength: number) {
 }
 
 /**
- * A note nobody has to write.
+ * Text nobody has to write, stored as nothing at all when it is blank.
  *
- * A blank one is stored as no note. An empty string and a null would otherwise
- * be two ways of recording that nobody wrote anything, and a reader would have
- * to be told they mean the same. The note columns allow null, which is why a
- * note differs here from the check's own optional text.
+ * An empty string and a null would otherwise be two ways of recording that
+ * nobody wrote anything, and a reader would have to be told they mean the same.
+ * The columns this is used for allow null, which is why it differs here from
+ * the check's own optional text.
  */
-export const optionalNote = optionalText(MAX_TEXT_LENGTH)
-  .nullish()
-  .transform((note) =>
-    note === undefined || note === null || note === '' ? null : note,
-  );
+function optionalLongText() {
+  return optionalText(MAX_TEXT_LENGTH)
+    .nullish()
+    .transform((text) =>
+      text === undefined || text === null || text === '' ? null : text,
+    );
+}
+
+/** A note nobody has to write. A blank one is stored as no note. */
+export const optionalNote = optionalLongText();
+
+/**
+ * Why a run settled nothing, or null when nothing was given.
+ *
+ * Free text, and deliberately not one of a set of reasons. The four situations
+ * that settle nothing are told apart by a scoring tool only inside an English
+ * sentence, so a category here could only be recovered by matching prose, and
+ * a wrong match would tell a reader to rewrite a plant that is fine. Whether a
+ * run is allowed to leave this out at all is the outcome's business rather than
+ * the field's, and is decided by the rule below.
+ */
+export const optionalInconclusiveReason = optionalLongText();
 
 /**
  * The longest a link to a run may be.
@@ -337,7 +374,53 @@ export function checkRunProvenance(
   run: RunProvenance,
   context: z.RefinementCtx,
 ): void {
-  for (const issue of runProvenanceIssues(run)) {
+  addIssues(context, runProvenanceIssues(run));
+}
+
+/** A run's outcome and the reason an unsettled one has to travel with. */
+export interface RunSettlement {
+  readonly outcome: TestRunOutcome;
+  readonly inconclusiveReason: string | null;
+}
+
+/**
+ * What a run's outcome and its reason disagree about, if anything.
+ *
+ * Both directions again, and the second is again the one worth saying out
+ * loud: a run that caught or missed and carries a reason anyway is refused
+ * rather than having the reason dropped. A dropped field is a record that lost
+ * something nobody can see it lost.
+ *
+ * Which outcomes need a reason is read from the one place that says so, rather
+ * than by naming inconclusive here. A fourth outcome that settles nothing is
+ * then covered by this rule the moment it is classified, and one that settles
+ * something is covered by the other branch, with neither needing this function
+ * edited.
+ *
+ * A plain function rather than only a schema refinement, so the database's own
+ * constraint, the API and the ledger are all judged by the same reading of the
+ * same rule, and a test can put a record in front of it directly.
+ */
+export function runSettlementIssues(run: RunSettlement): RecordIssue[] {
+  if (outcomeSettlesSomething[run.outcome]) {
+    return run.inconclusiveReason === null ? [] : [settledRunHasNoReason];
+  }
+  return run.inconclusiveReason === null ? [inconclusiveNeedsItsReason] : [];
+}
+
+/** Adds the issues above to a schema's own, against the field they name. */
+export function checkRunSettlement(
+  run: RunSettlement,
+  context: z.RefinementCtx,
+): void {
+  addIssues(context, runSettlementIssues(run));
+}
+
+function addIssues(
+  context: z.RefinementCtx,
+  issues: readonly RecordIssue[],
+): void {
+  for (const issue of issues) {
     context.addIssue({
       code: 'custom',
       path: [issue.path],
@@ -395,12 +478,14 @@ function newTestRunSchema(today: IsoDate) {
         MAX_TEXT_LENGTH,
       ),
       outcome: z.enum(testRunOutcomes),
+      inconclusiveReason: optionalInconclusiveReason,
       note: optionalNote,
       source: runSource,
       sourceCommit: optionalSourceCommit,
       sourceRunUrl: optionalSourceRunUrl,
     })
     .superRefine(checkRunProvenance)
+    .superRefine(checkRunSettlement)
     .brand<'NewTestRun'>();
 }
 

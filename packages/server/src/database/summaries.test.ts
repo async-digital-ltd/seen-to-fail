@@ -6,7 +6,12 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { listCheckSummaries } from './summaries.ts';
 import type { CheckSummary } from './summaries.ts';
-import { testRunOutcomes } from './rows.ts';
+import {
+  outcomeSettlesSomething,
+  settledOutcomes,
+  testRunOutcomes,
+  unsettledOutcomes,
+} from './rows.ts';
 import type { IsoDate, TestRunOutcome } from './rows.ts';
 
 /**
@@ -51,6 +56,16 @@ function daysBefore(days: number): IsoDate {
 
 /** The day the two same day fixtures put both of their runs on. */
 const sharedDay = daysBefore(3);
+
+/**
+ * What a run that settled nothing says about why, on every fixture that has
+ * one.
+ *
+ * The same sentence throughout, because none of these tests is about what the
+ * reason says. The database insists there is one, and these tests are about
+ * what the derivation does with the row it is on.
+ */
+const settledNothingBecause = 'The anchor no longer matches, so nothing broke.';
 
 interface RunFixture {
   readonly runOn: IsoDate;
@@ -102,15 +117,20 @@ async function insertCheck(fixture: CheckFixture): Promise<string> {
   for (const run of fixture.runs ?? []) {
     await database.client().query(
       `INSERT INTO test_runs
-         (check_id, run_on, planted, expected, outcome, created_at,
-          source, source_commit, source_run_url)
-       VALUES ($1, $2, 'A removed semicolon', 'The job fails', $3,
-               coalesce($4::timestamptz, now()),
-               $5, $6, $7)`,
+         (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+          created_at, source, source_commit, source_run_url)
+       VALUES ($1, $2, 'A removed semicolon', 'The job fails', $3, $4,
+               coalesce($5::timestamptz, now()),
+               $6, $7, $8)`,
       [
         id,
         run.runOn,
         run.outcome,
+        // Filled in from the outcome rather than asked of each fixture. A run
+        // that settled nothing needs one and a run that settled something is
+        // refused for carrying one, so there is no fixture that could
+        // reasonably say anything else.
+        outcomeSettlesSomething[run.outcome] ? null : settledNothingBecause,
         run.createdAt ?? null,
         run.replay === undefined ? 'hand' : 'replay',
         run.replay?.commit ?? null,
@@ -310,6 +330,159 @@ it.each(statusCases)(
   },
 );
 
+/**
+ * Everything a run that settled nothing must leave exactly where it was.
+ *
+ * The status and every figure the status is read from. What it may change is
+ * the count of runs, the count of runs that settled nothing, and the day of
+ * the latest run, and those are asserted separately as the control: a test
+ * that only checked what did not move would pass just as well if the row had
+ * never been written.
+ */
+function whatMustNotMove(summary: CheckSummary) {
+  return {
+    status: summary.status,
+    lastCaughtOn: summary.lastCaughtOn,
+    lastSettledOn: summary.lastSettledOn,
+    caughtCount: summary.caughtCount,
+    missedCount: summary.missedCount,
+    lastSeenArmedOn: summary.lastSeenArmedOn,
+    lastArmed: summary.lastArmed,
+  };
+}
+
+/**
+ * The same table again, each fixture given one more run that settled nothing,
+ * dated the day the workspace is read as of.
+ *
+ * Every status, by every rule, rather than one example of one of them. The
+ * extra run is the newest row in each check's log, so a derivation that read
+ * it at all would be reading it as the latest run, which is the position from
+ * which a run decides three of the five rules. Nothing moves.
+ */
+it.each(statusCases)(
+  'leaves $name reading $status when a later run settles nothing',
+  async (fixture) => {
+    const untouched = await insertCheck({
+      ...fixture,
+      name: `${fixture.name}, untouched`,
+    });
+    const told = await insertCheck({
+      ...fixture,
+      name: `${fixture.name}, told nothing`,
+      runs: [
+        ...(fixture.runs ?? []),
+        { runOn: daysBefore(0), outcome: 'inconclusive' },
+      ],
+    });
+
+    const before = await summaryOf(untouched);
+    const after = await summaryOf(told);
+
+    expect(whatMustNotMove(after)).toStrictEqual(whatMustNotMove(before));
+    expect(after.status).toBe(fixture.status);
+    // The control: the row really is there, and really is the latest run.
+    expect(after.inconclusiveCount).toBe(before.inconclusiveCount + 1);
+    expect(after.runCount).toBe(before.runCount + 1);
+    expect(after.lastRunOn).toBe(daysBefore(0));
+  },
+);
+
+/**
+ * The acceptance criterion on #65, both halves of it.
+ *
+ * A check whose plant has stopped applying keeps being replayed, and every one
+ * of those replays settles nothing. The proof behind its status does not get
+ * any newer, so the only thing that can move the check is the calendar, and
+ * the thirty-day backstop is what eventually does. Both halves are here
+ * because either on its own is satisfied by a derivation that is wrong in the
+ * other direction: one that refreshed the status on an unsettled run would
+ * pass the first, and one that discarded the catch outright would pass the
+ * second.
+ */
+it.each([
+  {
+    half: 'stays Proven while the catch behind it is inside the threshold',
+    caughtDaysAgo: STALE_AFTER_DAYS,
+    status: 'Proven',
+  },
+  {
+    half: 'is taken Stale by the backstop once that catch is older',
+    caughtDaysAgo: STALE_AFTER_DAYS + 1,
+    status: 'Stale',
+  },
+] as const)('a check told nothing since it caught $half', async (fixture) => {
+  const checkId = await insertCheck({
+    name: `Type check, caught ${String(fixture.caughtDaysAgo)} days ago`,
+    runs: [
+      { runOn: daysBefore(fixture.caughtDaysAgo), outcome: 'caught' },
+      // Three replays since, none of which settled anything, the newest of
+      // them yesterday. Nothing here is newer evidence about the check.
+      { runOn: daysBefore(8), outcome: 'inconclusive' },
+      { runOn: daysBefore(4), outcome: 'inconclusive' },
+      { runOn: daysBefore(1), outcome: 'inconclusive' },
+    ],
+  });
+
+  const summary = await summaryOf(checkId);
+
+  expect(summary.status).toBe(fixture.status);
+  // The status is as old as the catch, and the page has the day to say so.
+  expect(summary.lastSettledOn).toBe(daysBefore(fixture.caughtDaysAgo));
+  expect(summary.lastRunOn).toBe(daysBefore(1));
+  expect(summary.caughtCount).toBe(1);
+  expect(summary.missedCount).toBe(0);
+  expect(summary.inconclusiveCount).toBe(3);
+});
+
+/**
+ * Which outcomes the derivation reads, checked against the database's own enum
+ * rather than against a list written here twice.
+ *
+ * The status rules name the outcomes they read, so an outcome added to the
+ * enum and not classified would be one the rules silently never read. This is
+ * what makes that a decision somebody takes rather than a default they get.
+ */
+it('classifies every outcome the enum has as settling or not', async () => {
+  const labels = await database
+    .client()
+    .query<{ label: string }>(
+      'SELECT unnest(enum_range(NULL::test_run_outcome))::text AS label',
+    );
+
+  expect(labels.rows.map((row) => row.label)).toEqual([...testRunOutcomes]);
+  expect([...settledOutcomes, ...unsettledOutcomes].sort()).toEqual(
+    [...testRunOutcomes].sort(),
+  );
+});
+
+/**
+ * The three counts add up, so none of them can be quietly absorbing another.
+ *
+ * Asserted on a check that has some of each, because on a check with no
+ * unsettled runs the sum holds whether or not the third count exists at all.
+ */
+it('counts every run as exactly one of the three', async () => {
+  const checkId = await insertCheck({
+    name: 'Licence check',
+    runs: [
+      { runOn: daysBefore(20), outcome: 'caught' },
+      { runOn: daysBefore(14), outcome: 'missed' },
+      { runOn: daysBefore(9), outcome: 'inconclusive' },
+      { runOn: daysBefore(5), outcome: 'caught' },
+      { runOn: daysBefore(2), outcome: 'inconclusive' },
+    ],
+  });
+
+  const summary = await summaryOf(checkId);
+
+  expect(summary.runCount).toBe(5);
+  expect(
+    summary.caughtCount + summary.missedCount + summary.inconclusiveCount,
+  ).toBe(summary.runCount);
+  expect(summary.inconclusiveCount).toBe(2);
+});
+
 it('names the same five statuses the filter language names', async () => {
   const labels = await database
     .client()
@@ -328,9 +501,11 @@ it('returns a row for a check with no runs and no observations', async () => {
     status: 'Unarmed',
     lastCaughtOn: null,
     lastRunOn: null,
+    lastSettledOn: null,
     runCount: 0,
     caughtCount: 0,
     missedCount: 0,
+    inconclusiveCount: 0,
     lastSeenArmedOn: null,
     lastArmed: null,
   });
@@ -355,9 +530,11 @@ it('counts the runs and dates the evidence behind the status', async () => {
     status: 'Proven',
     lastCaughtOn: daysBefore(6),
     lastRunOn: daysBefore(6),
+    lastSettledOn: daysBefore(6),
     runCount: 3,
     caughtCount: 2,
     missedCount: 1,
+    inconclusiveCount: 0,
     lastSeenArmedOn: daysBefore(7),
     lastArmed: true,
   });
@@ -491,9 +668,11 @@ it.each(testRunOutcomes)(
 
     expect(replayedSummary).toStrictEqual(typedInSummary);
     // Named rather than left as "the same as each other", so a derivation that
-    // started answering the same wrong thing to both would still fail.
+    // started answering the same wrong thing to both would still fail. A run
+    // that settled nothing leaves a check with nothing said about it, which
+    // reads Unarmed by the first rule, whoever recorded it.
     expect(typedInSummary.status).toBe(
-      outcome === 'caught' ? 'Proven' : 'Broken',
+      { caught: 'Proven', missed: 'Broken', inconclusive: 'Unarmed' }[outcome],
     );
     expect(replayedId).not.toBe(typedInId);
   },

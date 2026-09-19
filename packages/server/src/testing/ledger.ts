@@ -104,6 +104,7 @@ export function fixtureContents(): LedgerContents {
           planted: 'A type error.',
           expected: 'The type check fails.',
           outcome: 'caught',
+          inconclusiveReason: null,
           note: null,
           source: 'hand',
           sourceCommit: null,
@@ -156,6 +157,65 @@ export function fixtureContentsFromAReplay(): LedgerContents {
   };
 }
 
+/** The file the run that settled nothing is recorded in, for the variant below. */
+export const fixtureUnsettledRunFile =
+  'runs/2026-09-16-first-check-fedcba654321.json';
+
+/** What a replay that could not apply its plant reported, word for word. */
+export const fixtureUnsettledReason =
+  'The anchor matches 0 times in packages/filter/src/types.ts and must match exactly once, so nothing was broken.';
+
+/**
+ * The same ledger, with a newer run against the first check that settled
+ * nothing.
+ *
+ * For the tests that are about a status not moving. The catch it already has is
+ * left exactly where it was, so a page or an export that started reading the
+ * newer row as evidence would change something that this fixture says should
+ * not change.
+ */
+export function fixtureContentsWithAnUnsettledRun(): LedgerContents {
+  const contents = fixtureContents();
+  return {
+    ...contents,
+    runs: [
+      ...contents.runs,
+      {
+        file: fixtureUnsettledRunFile,
+        record: {
+          checkId: 'first-check',
+          runOn: '2026-09-16',
+          planted: 'A type error at the declared anchor.',
+          expected: 'The type check fails.',
+          outcome: 'inconclusive',
+          inconclusiveReason: fixtureUnsettledReason,
+          note: null,
+          source: 'replay',
+          sourceCommit: fixtureReplayCommit,
+          sourceRunUrl: fixtureReplayRunUrl,
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * What the database derives from that variant: one more run, counted as neither
+ * a catch nor a miss, and a status still read from the catch six days earlier.
+ */
+export function fixtureSummariesWithAnUnsettledRun(): CheckSummary[] {
+  return fixtureSummaries().map((summary) =>
+    summary.checkId === ledgerCheckUuid('first-check')
+      ? {
+          ...summary,
+          lastRunOn: '2026-09-16',
+          runCount: 2,
+          inconclusiveCount: 1,
+        }
+      : summary,
+  );
+}
+
 /** What the database would derive from those records, read as of the day above. */
 export function fixtureSummaries(): CheckSummary[] {
   return [
@@ -164,9 +224,11 @@ export function fixtureSummaries(): CheckSummary[] {
       status: 'Proven',
       lastCaughtOn: '2026-09-10',
       lastRunOn: '2026-09-10',
+      lastSettledOn: '2026-09-10',
       runCount: 1,
       caughtCount: 1,
       missedCount: 0,
+      inconclusiveCount: 0,
       lastSeenArmedOn: null,
       lastArmed: null,
     },
@@ -175,9 +237,11 @@ export function fixtureSummaries(): CheckSummary[] {
       status: 'Unproven',
       lastCaughtOn: null,
       lastRunOn: null,
+      lastSettledOn: null,
       runCount: 0,
       caughtCount: 0,
       missedCount: 0,
+      inconclusiveCount: 0,
       lastSeenArmedOn: '2026-09-01',
       lastArmed: true,
     },
@@ -197,15 +261,17 @@ export function fixtureStatusTotals(): StatusTotals {
 /**
  * The export those records and summaries produce.
  *
- * The records are an argument so that a test can hand it a variant, such as
- * the replay above, without a second copy of everything else the build needs.
+ * Both are arguments so that a test can hand it a variant, such as the replay
+ * or the run that settled nothing above, without a second copy of everything
+ * else the build needs.
  */
 export function fixtureSnapshot(
   contents: LedgerContents = fixtureContents(),
+  summaries: readonly CheckSummary[] = fixtureSummaries(),
 ): PublishedLedger {
   return buildSnapshot({
     contents,
-    summaries: fixtureSummaries(),
+    summaries,
     ledgerPath: fixtureLedgerPath,
     repository: 'async-digital-ltd/seen-to-fail',
     builtFrom: fixtureCommit,

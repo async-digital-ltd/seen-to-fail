@@ -79,6 +79,7 @@ it('writes a record the loader will read back', async () => {
   expect(written).toEqual({
     ...run,
     note: 'Seen twice.',
+    inconclusiveReason: null,
     source: 'hand',
     sourceCommit: null,
     sourceRunUrl: null,
@@ -107,6 +108,7 @@ it('writes a replay with the commit and the run it names', async () => {
   expect(written).toEqual({
     ...run,
     note: null,
+    inconclusiveReason: null,
     source: 'replay',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
@@ -172,6 +174,7 @@ it('names a file for what is in it, not for how it was built', () => {
     planted: 'A rule violation.',
     expected: 'The lint step fails.',
     outcome: 'caught',
+    inconclusiveReason: null,
     note: null,
     source: 'hand',
     sourceCommit: null,
@@ -182,6 +185,7 @@ it('names a file for what is in it, not for how it was built', () => {
     sourceCommit: null,
     source: 'hand',
     note: null,
+    inconclusiveReason: null,
     outcome: 'caught',
     expected: 'The lint step fails.',
     planted: 'A rule violation.',

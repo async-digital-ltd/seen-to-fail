@@ -7,6 +7,8 @@ import { OutcomeBadge } from './outcome-badge';
 const marks = [
   { outcome: 'CAUGHT', label: 'Caught', glyph: '✓' },
   { outcome: 'MISSED', label: 'Missed', glyph: '✕' },
+  // Neither a tick nor a cross, because the run answered neither.
+  { outcome: 'INCONCLUSIVE', label: 'Settled nothing', glyph: '?' },
 ] as const;
 
 describe.each(marks)('for $outcome', ({ outcome, label, glyph }) => {

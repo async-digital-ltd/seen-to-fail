@@ -120,6 +120,63 @@ it('records a sound run and exits 0', async () => {
 });
 
 /**
+ * The route a replay takes when its plant would not apply, which is the case
+ * the third outcome exists for and the one a job will be taking from #67. The
+ * flag has to reach the reader, so this runs the real script rather than
+ * calling the reader directly: a flag the script never forwards would leave a
+ * refusal here rather than a record with no reason in it.
+ */
+it('records a run that settled nothing, with its reason, and exits 0', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  expect(
+    await exitCodeOf('record-run.ts', [
+      '--directory',
+      directory,
+      '--check-id',
+      'ci-lint',
+      '--run-on',
+      '2026-09-18',
+      '--planted',
+      'A rule violation.',
+      '--expected',
+      'The lint step fails.',
+      '--outcome',
+      'inconclusive',
+      '--inconclusive-reason',
+      'The anchor matches 0 times and has to match exactly once.',
+    ]),
+  ).toBe(0);
+  expect(await readdir(join(directory, 'runs'))).toHaveLength(1);
+});
+
+it('refuses a run that settled nothing with no reason, exits 1, and leaves no file', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  expect(
+    await exitCodeOf('record-run.ts', [
+      '--directory',
+      directory,
+      '--check-id',
+      'ci-lint',
+      '--run-on',
+      '2026-09-18',
+      '--planted',
+      'A rule violation.',
+      '--expected',
+      'The lint step fails.',
+      '--outcome',
+      'inconclusive',
+    ]),
+  ).toBe(1);
+  await expect(readdir(join(directory, 'runs'))).rejects.toThrow();
+});
+
+/**
  * The gate the workflow relies on: the record never becomes a file, so the
  * commit step has nothing to commit and the job stops before it.
  */

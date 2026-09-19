@@ -37,6 +37,11 @@ export interface SeedRun {
   readonly outcome: TestRunOutcome;
   readonly planted: string;
   readonly expected: string;
+  /**
+   * Why the run settled nothing, on the run below that settled nothing. Absent
+   * on the rest, which the database requires of a run that caught or missed.
+   */
+  readonly inconclusiveReason?: string;
   readonly note?: string;
   /**
    * What a replay recorded about itself, on the one run below that came from
@@ -132,12 +137,29 @@ export const seedChecks: readonly SeedCheck[] = [
         outcome: 'caught',
         planted: 'A value of the wrong type passed to a function.',
         expected: 'The type check fails.',
-        // The one run in the workspace that nobody typed in, so that both
-        // sources can be seen on a page before either has a real record
-        // behind it.
+        // Nobody typed this one in, so that both sources can be seen on a page
+        // before either has a real record behind it.
         replay: {
           commit: '4f1d0c2a9b7e5f3a1c8d6b4e2f0a9c7d5b3e1f0a',
           runUrl: 'https://example.com/ci/runs/8412',
+        },
+      },
+      // The newest run against this check settled nothing, and the check still
+      // reads Proven from the catch above it. That is the whole of the third
+      // outcome in one record: a replay whose plant no longer fits the code is
+      // not a miss, so the status does not move, and the page says how old the
+      // evidence behind it really is.
+      {
+        daysAgo: 2,
+        outcome: 'inconclusive',
+        planted: 'The same value of the wrong type, at the declared anchor.',
+        expected: 'The type check fails.',
+        inconclusiveReason:
+          'The anchor matches 0 times in the file and has to match exactly ' +
+          'once, so nothing was broken and the check was never put to the test.',
+        replay: {
+          commit: '7c2b8e1d4a6f3b9e0d5c2a8f4b1e7d3c9a6f2b8e',
+          runUrl: 'https://example.com/ci/runs/9037',
         },
       },
     ],
@@ -343,15 +365,17 @@ export async function seedWorkspace(client: Client): Promise<SeedResult> {
       for (const run of check.runs ?? []) {
         await client.query(
           `INSERT INTO test_runs
-             (check_id, run_on, planted, expected, outcome, note,
+             (check_id, run_on, planted, expected, outcome,
+              inconclusive_reason, note,
               source, source_commit, source_run_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             id,
             daysBefore(asOf, run.daysAgo),
             run.planted,
             run.expected,
             run.outcome,
+            run.inconclusiveReason ?? null,
             run.note ?? null,
             run.replay === undefined ? 'hand' : 'replay',
             run.replay?.commit ?? null,

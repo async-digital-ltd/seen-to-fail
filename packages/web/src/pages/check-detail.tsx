@@ -9,7 +9,7 @@ import { Loading } from '../components/loading';
 import { OutcomeBadge } from '../components/outcome-badge';
 import { StatusBadge } from '../components/status-badge';
 import { ago, counted, daysAgo, formatDay, lastCaughtLine } from '../days';
-import type { CheckDetailQuery } from '../graphql/generated/graphql';
+import type { CheckDetailQuery, Outcome } from '../graphql/generated/graphql';
 import { CheckDetailDocument } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import { statusFromName } from '../status';
@@ -95,14 +95,58 @@ function latestObservationLine(check: RecordedCheck, day: string): string {
   return `${finding(latest.armed)}, ${ago(latest.observedOn, day)}`;
 }
 
+/**
+ * What one run did, in the words the page uses for it everywhere.
+ *
+ * Keyed by the outcome, so an outcome added to the API and not worded here
+ * fails to compile rather than reading as one of the other two.
+ */
+const didWhat = {
+  CAUGHT: 'Caught it',
+  MISSED: 'Missed it',
+  INCONCLUSIVE: 'Settled nothing',
+} as const satisfies Record<Outcome, string>;
+
 /** What the latest run did, and when. Runs also come newest first. */
 function latestRunLine(check: RecordedCheck, day: string): string {
   const [latest] = check.runs;
   if (latest === undefined) {
     return 'None yet';
   }
-  const did = latest.outcome === 'MISSED' ? 'Missed it' : 'Caught it';
-  return `${did}, ${ago(latest.runOn, day)}`;
+  return `${didWhat[latest.outcome]}, ${ago(latest.runOn, day)}`;
+}
+
+/**
+ * The line that says the latest run told the reader nothing, when it did.
+ *
+ * It sits beside the status rather than replacing it, because the status has
+ * not moved and should not: a run that settled nothing is not evidence about
+ * the check. What it changes is how old the evidence behind that status is, and
+ * without this line the newest row in the table would make it look fresher than
+ * it is.
+ *
+ * The reason is shown as it was recorded and is not sorted into a category.
+ * Only one of the situations that settle nothing means the plant needs
+ * rewriting, and they are told apart by a sentence rather than by a code, so
+ * the sentence is handed over and the reader decides.
+ */
+function unsettledLine(check: RecordedCheck, day: string): string | null {
+  const [latest] = check.runs;
+  if (latest?.outcome !== 'INCONCLUSIVE') {
+    return null;
+  }
+  if (latest.inconclusiveReason === null) {
+    // A run that settled nothing carries its reason or the API refuses it, so
+    // this is the API being wrong rather than a run with less to say.
+    throw new Error(
+      `A run on ${latest.runOn} settled nothing and arrived without a reason.`,
+    );
+  }
+  const since =
+    check.lastSettledOn === null
+      ? 'Nothing has ever settled anything for this check.'
+      : `The status above is read from ${ago(check.lastSettledOn, day)}, the last run that settled anything.`;
+  return `The latest run settled nothing: ${latest.inconclusiveReason} ${since}`;
 }
 
 /**
@@ -204,7 +248,6 @@ function CameFrom({ run }: { readonly run: Run }): ReactElement {
 
 /** One planted defect: when, what happened, and the four rows that say it. */
 function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
-  const missed = run.outcome === 'MISSED';
   return (
     <article className="evidence-entry">
       <When day={run.runOn} today={day} />
@@ -221,8 +264,14 @@ function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
           </div>
           <div>
             <dt>Observed</dt>
-            <dd>{missed ? 'Missed it' : 'Caught it'}</dd>
+            <dd>{didWhat[run.outcome]}</dd>
           </div>
+          {run.inconclusiveReason === null ? null : (
+            <div>
+              <dt>Why it settled nothing</dt>
+              <dd>{run.inconclusiveReason}</dd>
+            </div>
+          )}
           <div>
             <dt>Came from</dt>
             <dd>
@@ -260,11 +309,19 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
 
   const status = statusFromName(check.status);
   const nextStep = nextSteps[status](check, day);
+  const unsettled = unsettledLine(check, day);
+  // The runs that settled nothing are named only when there are some. They are
+  // safe to leave out at zero because the three counts add up to the run count
+  // beside them, so a reader who can see that caught and missed already account
+  // for every run can see that nothing is being held back.
   const meta = [
     check.area,
     counted(check.runCount, 'run'),
     `${String(check.caughtCount)} caught`,
     `${String(check.missedCount)} missed`,
+    ...(check.inconclusiveCount === 0
+      ? []
+      : [`${String(check.inconclusiveCount)} settled nothing`]),
   ].join(' · ');
 
   const observationCount = check.armingObservations.length;
@@ -298,6 +355,13 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
         <p className="check-detail__meta">{meta}</p>
         {nextStep === null ? null : (
           <p className="check-detail__next">{nextStep}</p>
+        )}
+        {/*
+         * Below what to do next, because it is not a next step: it says why
+         * the status did not move rather than asking for anything (#65).
+         */}
+        {unsettled === null ? null : (
+          <p className="check-detail__unsettled">{unsettled}</p>
         )}
         <dl className="check-detail__latest">
           <div>

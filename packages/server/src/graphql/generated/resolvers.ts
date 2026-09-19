@@ -101,6 +101,13 @@ export type Check = {
   howToTellArmed: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   /**
+   * How many runs settled nothing, and so proved nothing either way.
+   *
+   * With the two above it adds up to runCount, so none of the three can quietly
+   * absorb another.
+   */
+  inconclusiveCount: Scalars['Int']['output'];
+  /**
    * What the latest observation said, or null when there has never been one.
    * Null is "nobody has looked" and false is "somebody looked and it was off",
    * which are different things to show a reader.
@@ -112,6 +119,13 @@ export type Check = {
   lastRunOn?: Maybe<Scalars['Date']['output']>;
   /** The last day an observation said it was on, or null if none has. */
   lastSeenArmedOn?: Maybe<Scalars['Date']['output']>;
+  /**
+   * The day of the latest run that settled anything, or null when none has.
+   *
+   * The day the status was read from. On a check whose recent runs have all
+   * settled nothing, this is how old the status really is.
+   */
+  lastSettledOn?: Maybe<Scalars['Date']['output']>;
   missedCount: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   /** What it is there to stop. Empty when nobody has written it down. */
@@ -176,6 +190,11 @@ export type LogTestRunInput = {
   checkId: Scalars['ID']['input'];
   /** What the check was expected to do about it. Not blank. */
   expected: Scalars['String']['input'];
+  /**
+   * Why the run settled nothing. Required on a run that settled nothing, and
+   * refused on one that caught or missed, which has nothing to explain.
+   */
+  inconclusiveReason?: InputMaybe<Scalars['String']['input']>;
   /** Anything worth telling the next person. A blank note is stored as none. */
   note?: InputMaybe<Scalars['String']['input']>;
   /** What it actually did. */
@@ -215,7 +234,9 @@ export type Mutation = {
    * cannot be saved is refused on that field, an unknown check on checkId, and a
    * day after today on runOn. A replay without its commit or its run link is
    * refused on whichever is missing, and a run typed in by hand carrying either
-   * is refused on the one it carries.
+   * is refused on the one it carries. A run that settled nothing and does not say
+   * why is refused on inconclusiveReason, as is one that caught or missed and
+   * says why anyway.
    */
   logTestRun: TestRunResult;
   /**
@@ -238,10 +259,19 @@ export type MutationRecordArmingObservationArgs = {
   input: RecordArmingObservationInput;
 };
 
-/** What a check did with the defect that was planted for it. */
+/**
+ * What a check did with the defect that was planted for it.
+ *
+ * Two of these are evidence about the check and one is not. A run that settled
+ * nothing says the defect never got planted as declared, or that the check was
+ * already failing, or that it never ran, and none of those is a check missing a
+ * defect. No status rule reads one.
+ */
 export type Outcome =
   /** It reported the planted defect, which is the only thing that proves it works. */
   | 'CAUGHT'
+  /** The run settled nothing, and says why. Never counted as either of the above. */
+  | 'INCONCLUSIVE'
   /** The defect was planted and the check said nothing. */
   | 'MISSED';
 
@@ -354,6 +384,15 @@ export type TestRun = {
   /** What the check was expected to do about it. */
   expected: Scalars['String']['output'];
   id: Scalars['ID']['output'];
+  /**
+   * Why the run settled nothing. Null on a run that settled something.
+   *
+   * The words whoever recorded it wrote, not a category. The situations that
+   * settle nothing call for different things, only one of them means the plant
+   * needs rewriting, and they are told apart by a sentence rather than by a code,
+   * so this is handed over as it arrived and the reader decides.
+   */
+  inconclusiveReason?: Maybe<Scalars['String']['output']>;
   /** Anything worth telling the next person. Null when nobody wrote one. */
   note?: Maybe<Scalars['String']['output']>;
   /** What it actually did. */
@@ -673,6 +712,7 @@ export type CheckResolvers<
   caughtCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   howToTellArmed: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  inconclusiveCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   lastArmed: Resolver<
     Maybe<ResolversTypes['Boolean']>,
     ParentType,
@@ -685,6 +725,11 @@ export type CheckResolvers<
   >;
   lastRunOn: Resolver<Maybe<ResolversTypes['Date']>, ParentType, ContextType>;
   lastSeenArmedOn: Resolver<
+    Maybe<ResolversTypes['Date']>,
+    ParentType,
+    ContextType
+  >;
+  lastSettledOn: Resolver<
     Maybe<ResolversTypes['Date']>,
     ParentType,
     ContextType
@@ -813,6 +858,11 @@ export type TestRunResolvers<
 > = {
   expected: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  inconclusiveReason: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   note: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   outcome: Resolver<ResolversTypes['Outcome'], ParentType, ContextType>;
   planted: Resolver<ResolversTypes['String'], ParentType, ContextType>;

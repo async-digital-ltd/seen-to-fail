@@ -24,10 +24,26 @@ records:
 
 - what was planted,
 - what the check was expected to do,
-- what it actually did: caught it, or missed it,
+- what it actually did: caught it, missed it, or settled nothing,
+- why it settled nothing, when that is what it did,
 - where it came from: somebody typed it in, or a replay posted it, and a replay
   names the commit it ran against and links the run that produced it,
 - an optional note for the next person.
+
+A run that **settled nothing** is not evidence about the check. The plant may no
+longer apply to code that has moved on, the check may have been failing before
+anything was planted, or it may never have run at all. None of those is the
+check missing a defect, so none of them belongs in the status rules: a run that
+settled nothing is counted separately, is never a catch or a miss, and leaves
+the status exactly where it was. What it changes is how old the evidence behind
+that status is, and a check's page says so, alongside the day of the last run
+that did settle something.
+
+The reason is shown as whoever recorded it wrote it, rather than sorted into a
+category. Only one of the situations above means the plant needs rewriting, and
+the tool that scores a replay separates them inside an English sentence, so a
+category here could only be recovered by matching prose and a wrong match would
+send a reader to rewrite a plant that is fine.
 
 Where a run came from is recorded beside it and read by none of the status
 rules. A replay and a run somebody typed in, with the same outcome on the same
@@ -44,6 +60,9 @@ A check's status comes from those two logs, not from anyone's opinion of it.
 There are five, and they are read in order: the first rule that matches is the
 status.
 
+Every "run" below means a run that settled something. A run that settled
+nothing is not read by any of these rules, in any of their branches.
+
 | Status       | The rule                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Unarmed**  | There are no runs and nothing says it is on, or the latest observation says it is off and is dated on or after the latest run. |
@@ -54,7 +73,10 @@ status.
 
 Because the rules are read in that order, a check that caught a defect and was
 then seen switched off reads Unarmed rather than Proven, and a check that caught
-and then missed reads Broken rather than Stale. An observation dated the same
+and then missed reads Broken rather than Stale. A check whose plant has stopped
+applying keeps the status its last real run gave it, and the thirty-day rule
+below is then the only thing that can move it, which is the backstop doing the
+job the replays have stopped doing. An observation dated the same
 day as the latest run counts as the later of the two, because a day is the
 finest grain either fact is recorded at and there is nothing to order them by
 within one. "Latest" otherwise means by the day it happened, then by the order

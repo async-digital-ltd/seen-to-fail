@@ -99,7 +99,7 @@ it('reports what it wrote', async () => {
   const result = await seedWorkspace(database.client());
 
   expect(result.checkCount).toBe(8);
-  expect(result.runCount).toBe(9);
+  expect(result.runCount).toBe(10);
   expect(result.observationCount).toBe(8);
   // The day is the day it ran, so the shape is what there is to assert.
   expect(result.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -155,6 +155,38 @@ it('reaches Unarmed by both of the routes the rule has', async () => {
   expect(switchedOff.lastRunOn).not.toBeNull();
   expect(switchedOff.lastArmed).toBe(false);
   expect(switchedOff.lastSeenArmedOn).not.toBeNull();
+});
+
+/**
+ * The workspace's one run that settled nothing, read through the derivation.
+ *
+ * It is the newest run against a Proven check, and the check is still Proven
+ * from the catch a week before it. A seed that could not show this would be a
+ * workspace in which the third outcome never appears, and the one thing worth
+ * seeing about it is that it changes nothing about the status above it.
+ */
+it('shows a run that settled nothing leaving a status where it was', async () => {
+  const workspace = await seedAndRead();
+  const typeCheck = summaryFor(workspace, 'Type check on every pull request');
+
+  expect(typeCheck.status).toBe('Proven');
+  expect(typeCheck.inconclusiveCount).toBe(1);
+  expect(typeCheck.runCount).toBe(2);
+  // Not counted as either of the two that settle something.
+  expect(typeCheck.caughtCount).toBe(1);
+  expect(typeCheck.missedCount).toBe(0);
+  // The newest run is the one that settled nothing, and the status is read
+  // from the older one. Two different days, which is the whole point.
+  expect(
+    daysBetween(workspace.asOf, dayOf(typeCheck.lastRunOn, 'latest run')),
+  ).toBe(2);
+  expect(
+    daysBetween(
+      workspace.asOf,
+      dayOf(typeCheck.lastSettledOn, 'latest settled run'),
+    ),
+  ).toBe(9);
+  expect(typeCheck.lastCaughtOn).toBe(typeCheck.lastSettledOn);
 });
 
 it('dates no run on the staleness boundary', () => {

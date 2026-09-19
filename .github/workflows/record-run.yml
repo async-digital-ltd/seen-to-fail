@@ -39,6 +39,13 @@ on:
         options:
           - caught
           - missed
+          - inconclusive
+      inconclusive-reason:
+        description: >-
+          Why it settled nothing. Required when the outcome is inconclusive,
+          and refused otherwise.
+        required: false
+        type: string
       note:
         description: Anything the next person should know.
         required: false
@@ -90,7 +97,13 @@ jobs:
           INPUT_PLANTED: ${{ inputs.planted }}
           INPUT_EXPECTED: ${{ inputs.expected }}
           INPUT_OUTCOME: ${{ inputs.outcome }}
+          INPUT_REASON: ${{ inputs.inconclusive-reason }}
           INPUT_NOTE: ${{ inputs.note }}
+        # The reason is passed whatever the outcome, and an empty one reads as
+        # none, exactly as the note does. Which outcomes need a reason is the
+        # reader's rule, and a second copy of it in this shell would be a place
+        # for the two to disagree: a run that settled nothing and was given no
+        # reason is refused by the step rather than recorded without one.
         run: |
           pnpm ledger:record -- \
             --check-id "$INPUT_CHECK_ID" \
@@ -98,6 +111,7 @@ jobs:
             --planted "$INPUT_PLANTED" \
             --expected "$INPUT_EXPECTED" \
             --outcome "$INPUT_OUTCOME" \
+            --inconclusive-reason "$INPUT_REASON" \
             --source hand \
             --note "$INPUT_NOTE"
 
@@ -125,10 +139,12 @@ jobs:
             echo "This run is already recorded. Nothing to commit."
             exit 0
           fi
-          git commit --message "Record a $INPUT_OUTCOME for $INPUT_CHECK_ID on $INPUT_RUN_ON"
+          # Worded so that all three outcomes fit the sentence. "a caught"
+          # and "a inconclusive" cannot both be written the same way round.
+          git commit --message "Record a run for $INPUT_CHECK_ID on $INPUT_RUN_ON: $INPUT_OUTCOME"
           git push origin "$BRANCH"
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "Record a $INPUT_OUTCOME for $INPUT_CHECK_ID on $INPUT_RUN_ON" \
+            --title "Record a run for $INPUT_CHECK_ID on $INPUT_RUN_ON: $INPUT_OUTCOME" \
             --body "Recorded by the \`Record a run\` workflow, run $GITHUB_RUN_ID. The diff is the whole record: one file, one run."

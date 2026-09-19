@@ -32,6 +32,14 @@ export interface PublishedRun {
   readonly planted: string;
   readonly expected: string;
   readonly outcome: TestRunOutcome;
+  /**
+   * Why the run settled nothing, or null when it settled something.
+   *
+   * Published as it was written. A reader deciding whether the plant needs
+   * rewriting is reading this sentence, so anything that rephrased it would be
+   * deciding for them.
+   */
+  readonly inconclusiveReason: string | null;
   readonly note: string | null;
   /** Whether a person typed the run in or a replay posted it. */
   readonly source: TestRunSource;
@@ -74,8 +82,11 @@ export interface PublishedCheck {
   readonly runCount: number;
   readonly caughtCount: number;
   readonly missedCount: number;
+  readonly inconclusiveCount: number;
   readonly lastCaughtOn: IsoDate | null;
   readonly lastRunOn: IsoDate | null;
+  /** The last day a run settled anything, which is what the status was read from. */
+  readonly lastSettledOn: IsoDate | null;
   readonly lastSeenArmedOn: IsoDate | null;
   readonly lastArmed: boolean | null;
   /** Newest first. */
@@ -163,6 +174,7 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       planted: entry.record.planted,
       expected: entry.record.expected,
       outcome: entry.record.outcome,
+      inconclusiveReason: entry.record.inconclusiveReason,
       note: entry.record.note,
       source: entry.record.source,
       sourceCommit: entry.record.sourceCommit,
@@ -210,8 +222,10 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       runCount: summary.runCount,
       caughtCount: summary.caughtCount,
       missedCount: summary.missedCount,
+      inconclusiveCount: summary.inconclusiveCount,
       lastCaughtOn: summary.lastCaughtOn,
       lastRunOn: summary.lastRunOn,
+      lastSettledOn: summary.lastSettledOn,
       lastSeenArmedOn: summary.lastSeenArmedOn,
       lastArmed: summary.lastArmed,
       runs: runsByCheck.get(entry.record.id) ?? [],

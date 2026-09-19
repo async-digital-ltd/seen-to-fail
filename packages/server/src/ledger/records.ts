@@ -3,9 +3,11 @@ import { z } from 'zod';
 import { isRealDay } from '../day.ts';
 import {
   checkRunProvenance,
+  checkRunSettlement,
   issuesFrom,
   MAX_LABEL_LENGTH,
   MAX_TEXT_LENGTH,
+  optionalInconclusiveReason,
   optionalNote,
   optionalSourceCommit,
   optionalSourceRunUrl,
@@ -125,12 +127,18 @@ function ledgerRunSchema(today: IsoDate) {
         MAX_TEXT_LENGTH,
       ),
       outcome: z.enum(testRunOutcomes),
+      // Absent on every record written before a run could settle nothing, and
+      // absent is what a run that settled something has to be. No default is
+      // needed for either: the field reads as null when it is left out, which
+      // is what those records mean and what the rule below requires of them.
+      inconclusiveReason: optionalInconclusiveReason,
       note: optionalNote,
       source: runSource.default(recordedBeforeSourcesExisted),
       sourceCommit: optionalSourceCommit,
       sourceRunUrl: optionalSourceRunUrl,
     })
-    .superRefine(checkRunProvenance);
+    .superRefine(checkRunProvenance)
+    .superRefine(checkRunSettlement);
 }
 
 function ledgerObservationSchema(today: IsoDate) {

@@ -3,10 +3,12 @@ import { expect, it } from 'vitest';
 import {
   fixtureContents,
   fixtureContentsFromAReplay,
+  fixtureContentsWithAnUnsettledRun,
   fixtureDatabaseTotals,
   fixtureLedgerPath,
   fixtureSnapshot,
   fixtureStatusTotals,
+  fixtureSummariesWithAnUnsettledRun,
 } from '../testing/ledger.ts';
 import { renderPage } from './page.ts';
 import type { PublishedLedger, PublishedRun } from './snapshot.ts';
@@ -257,4 +259,113 @@ it('finds a replay published with a run link its record does not name', () => {
   );
 
   expect(found.join('\n')).toContain('the run that produced it');
+});
+
+/**
+ * The same ledger with a run that settled nothing in it, so the comparisons
+ * about that outcome have something to compare. The database totals gain the
+ * extra run, because those are counted off the tables rather than derived.
+ */
+function soundUnsettled(): VerificationInput {
+  const contents = fixtureContentsWithAnUnsettledRun();
+  const snapshot = fixtureSnapshot(
+    contents,
+    fixtureSummariesWithAnUnsettledRun(),
+  );
+  const totals = fixtureDatabaseTotals();
+  return {
+    ...sound(),
+    contents,
+    snapshot,
+    page: renderPage(snapshot),
+    databaseTotals: { ...totals, runs: totals.runs + 1 },
+  };
+}
+
+/** The same input, with one published run changed. */
+function withUnsettledRun(
+  change: (run: PublishedRun) => PublishedRun,
+): VerificationInput {
+  const input = soundUnsettled();
+  const snapshot = {
+    ...input.snapshot,
+    checks: input.snapshot.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map(change),
+    })),
+  };
+  return { ...input, snapshot, page: renderPage(snapshot) };
+}
+
+it('finds nothing wrong with a ledger whose newest run settled nothing', () => {
+  expect(disagreements(soundUnsettled())).toEqual([]);
+});
+
+/**
+ * The one this outcome exists to stop, at the last step before publishing: a
+ * run whose file says it settled nothing, published as a catch. Every count
+ * the build takes off the database still agrees, because the database was
+ * given the file's own outcome; what disagrees is the row that reached the
+ * export.
+ */
+it('finds a run published as a catch when its record settled nothing', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive'
+        ? { ...run, outcome: 'caught', inconclusiveReason: null }
+        : run,
+    ),
+  );
+
+  expect(found.join('\n')).toContain('what the check did');
+});
+
+it('finds a run published without the reason its record gives', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive'
+        ? { ...run, inconclusiveReason: 'Something else entirely.' }
+        : run,
+    ),
+  );
+
+  expect(found.join('\n')).toContain('why it settled nothing');
+});
+
+/**
+ * The count and the date that travel with the status. A build that folded a
+ * run that settled nothing into one of the other tallies, or that published a
+ * last-settled date the records do not support, is published saying the
+ * evidence is fresher than it is.
+ */
+it('finds a count of runs that settled nothing which the records do not support', () => {
+  const input = soundUnsettled();
+  const found = disagreements({
+    ...input,
+    snapshot: {
+      ...input.snapshot,
+      checks: input.snapshot.checks.map((check) => ({
+        ...check,
+        inconclusiveCount: 0,
+      })),
+    },
+  });
+
+  expect(found.join('\n')).toContain('settled nothing');
+});
+
+it('finds a last-settled date that no run supports', () => {
+  const input = soundUnsettled();
+  const found = disagreements({
+    ...input,
+    snapshot: {
+      ...input.snapshot,
+      checks: input.snapshot.checks.map((check) => ({
+        ...check,
+        lastSettledOn: check.lastRunOn,
+      })),
+    },
+  });
+
+  expect(found.join('\n')).toContain('last settled');
 });
