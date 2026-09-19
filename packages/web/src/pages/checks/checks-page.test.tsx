@@ -204,6 +204,15 @@ function rowFor(name: string): HTMLElement {
   return row;
 }
 
+/** Whether each tile reads as pressed, in the order the tiles are laid out. */
+function pressedTiles(): string[] {
+  return within(
+    screen.getByRole('group', { name: 'Show the checks with one status' }),
+  )
+    .getAllByRole('button')
+    .map((tile) => tile.getAttribute('aria-pressed') ?? 'missing');
+}
+
 function lastChecksCall(calls: readonly Call[]): Call | undefined {
   return calls.findLast((call) => call.name === 'Checks');
 }
@@ -367,6 +376,82 @@ describe('the status tiles', () => {
 
     expect(router.state.location.search).toBe('?f=and!and*status.is.Unproven');
     expect(await screen.findByText('Unused code reported')).toBeInTheDocument();
+  });
+
+  /**
+   * The pressed tile is read off the address, not remembered from a click, so
+   * a pasted link and the back button both show the right tile pressed. Every
+   * tile is asserted, pressed or not: a tile with no attribute at all would
+   * read as "missing" and fail, rather than as merely not pressed.
+   */
+  it('read as pressed for the status the address narrows the list to', async () => {
+    const { user } = renderApp({
+      route: paths.checks({ filter: onlyStatus('Stale') }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('1 of 5 checks');
+
+    expect(pressedTiles()).toEqual([
+      'false',
+      'false',
+      'true',
+      'false',
+      'false',
+    ]);
+
+    await user.click(screen.getByRole('button', { name: /^1 Unproven/ }));
+    await screen.findByText('Unused code reported');
+
+    expect(pressedTiles()).toEqual([
+      'false',
+      'false',
+      'false',
+      'true',
+      'false',
+    ]);
+  });
+
+  it('read as pressed for none while the list is not narrowed', async () => {
+    renderApp({ answers: answersFor(workspace) });
+    await screen.findByText('5 of 5 checks');
+
+    expect(pressedTiles()).toEqual([
+      'false',
+      'false',
+      'false',
+      'false',
+      'false',
+    ]);
+  });
+
+  /** A tile stands for its status alone, so a wider filter presses none. */
+  it('read as pressed for none when the filter holds a status and more', async () => {
+    const staleInDocs: Filter = {
+      kind: 'groups',
+      joiner: 'and',
+      groups: [
+        {
+          joiner: 'and',
+          conditions: [
+            { field: 'status', op: 'is', value: 'Stale' },
+            { field: 'area', op: 'is', value: 'Docs' },
+          ],
+        },
+      ],
+    };
+    renderApp({
+      route: paths.checks({ filter: staleInDocs }),
+      answers: answersFor(workspace),
+    });
+    await screen.findByText('1 of 5 checks');
+
+    expect(pressedTiles()).toEqual([
+      'false',
+      'false',
+      'false',
+      'false',
+      'false',
+    ]);
   });
 });
 

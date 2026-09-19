@@ -17,6 +17,8 @@ interface StatusTileProps {
   readonly status: Status;
   /** How many checks hold the status, across the whole workspace. */
   readonly count: number;
+  /** True when the list is narrowed to this status and nothing else. */
+  readonly selected: boolean;
   /** Called with the tile's status when somebody presses it. */
   readonly onSelect: (status: Status) => void;
 }
@@ -26,6 +28,12 @@ interface StatusTileProps {
  * pressing it does is the screen's decision, so the tile only says which
  * status was pressed.
  *
+ * A tile is pressed while the list is showing its status alone, and stays
+ * pressed when pressed again: the screen treats a press for what is already
+ * shown as no step, as ToggleField leaves a pressed choice pressed. So the
+ * tile is a toggle button that a reader can only switch on, and the
+ * stylesheet gives the pressed one a thicker edge.
+ *
  * The spaces between the parts are for the button's accessible name. The
  * parts are flex items, so the spaces take no room on screen, but without them
  * a screen reader hears "1ProvenCaught a planted defect" as one word.
@@ -33,12 +41,14 @@ interface StatusTileProps {
 export function StatusTile({
   status,
   count,
+  selected,
   onSelect,
 }: StatusTileProps): ReactElement {
   return (
     <button
       type="button"
       className="status-tile"
+      aria-pressed={selected}
       onClick={() => {
         onSelect(status);
       }}

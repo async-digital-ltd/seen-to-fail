@@ -1,3 +1,15 @@
+/*
+ * A card that is a button, and has to look like one. The tiles are the
+ * filter's front door, and #49 found a reader who took them for summary cards
+ * and never tried them. So the resting tile carries the pointer; under the
+ * pointer or keyboard focus its edge turns ink and its ground lifts to the
+ * page colour; and the tile whose status the list is showing keeps a thicker
+ * ink edge, so pressing it again reads as asking for what is already there.
+ *
+ * Ink rather than brick throughout. The brick fill is the screen's one primary
+ * action, and brick-fill.test.ts refuses it on any other rule. The three state
+ * rules are read back by status-tile.test.tsx, which fails when one is gone.
+ */
 .status-tile {
   display: flex;
   flex: 1 1 10rem;
@@ -12,8 +24,17 @@
   cursor: pointer;
 }
 
-.status-tile:hover {
-  border-color: var(--muted);
+.status-tile:hover,
+.status-tile:focus-visible {
+  border-color: var(--ink);
+  background: var(--bg);
+}
+
+/* The status the list is narrowed to: a second ink line inside the first. */
+.status-tile[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 .status-tile__head {
