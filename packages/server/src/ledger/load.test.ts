@@ -99,9 +99,28 @@ it('refuses two checks with the same id', async () => {
 });
 
 /**
+ * The name is a label and nothing resolves a check by it, but the app keeps
+ * names unique and the build writes into the app's own table. Two checks
+ * sharing a name would be refused there by checks_name_unique, after both
+ * files had been committed. So a rename onto a name already in use is refused
+ * here, where it is a validation failure rather than a broken build.
+ */
+it('refuses two checks with the same name', async () => {
+  const result = await load({
+    'checks/ci-lint.json': check,
+    'checks/ci-lint-again.json': { ...check, id: 'ci-lint-again' },
+  });
+  expect(said(result)).toContain('already has this name');
+});
+
+/**
  * A run against a check nobody wrote down would otherwise be committed, and
  * then refused by a foreign key when the build inserted it, which is after the
  * record is in the history.
+ *
+ * The refusal names the address that matched nothing. A job in another
+ * repository wrote that id into a file, and the id is the one thing in the
+ * message that tells its author which file to look at.
  */
 it('refuses a run against a check that is not in the ledger', async () => {
   const result = await load({
@@ -109,7 +128,7 @@ it('refuses a run against a check that is not in the ledger', async () => {
     'runs/one.json': { ...run, checkId: 'ci-test' },
   });
   expect(said(result)).toContain(
-    'There is no check in the ledger with this id',
+    'There is no check in the ledger with the id ci-test',
   );
 });
 
@@ -122,7 +141,7 @@ it('refuses an observation against a check that is not in the ledger', async () 
     },
   });
   expect(said(result)).toContain(
-    'There is no check in the ledger with this id',
+    'There is no check in the ledger with the id ci-test',
   );
 });
 

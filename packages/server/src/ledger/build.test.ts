@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -128,6 +128,50 @@ it('shows a run recorded by the recorder, and the commit that recorded it', asyn
     `https://github.com/${repository}/commit/${recordedIn}`,
   );
   expect(ledger.checks[0]?.runs[0]?.sourceFile).toBe(`ledger/${recorded.file}`);
+});
+
+/**
+ * The address a run carries is the check's id, and the name beside it is a
+ * label. So a check can be renamed after runs have been recorded against it
+ * and every one of them still reaches it: the file the job wrote is untouched,
+ * the check publishes under the same id, and the page reads the new name over
+ * the old evidence. A build that resolved by name would leave the run behind,
+ * and the status with it.
+ */
+it("keeps a check's runs when its name changes, because a run names the id", async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  const recorded = await recordRun({
+    directory,
+    today: asOf,
+    input: {
+      checkId: 'ci-lint',
+      runOn: asOf,
+      planted: 'A rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+  });
+  if (!recorded.ok) {
+    throw new Error('The run was refused.');
+  }
+
+  await writeFile(
+    join(directory, 'checks', 'ci-lint.json'),
+    `${JSON.stringify({ ...check, name: 'Lint on every pull request' }, null, 2)}\n`,
+    'utf8',
+  );
+
+  const { ledger } = await build(directory);
+  const [published] = ledger.checks;
+  expect(published?.id).toBe('ci-lint');
+  expect(published?.name).toBe('Lint on every pull request');
+  expect(published?.status).toBe('Proven');
+  expect(published?.runs.map((run) => run.sourceFile)).toEqual([
+    `ledger/${recorded.file}`,
+  ]);
 });
 
 /**

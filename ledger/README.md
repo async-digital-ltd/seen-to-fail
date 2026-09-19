@@ -55,6 +55,27 @@ because a misspelled field silently ignored is a record published without it.
 }
 ```
 
+## A check's address
+
+A check's `id` is how anything outside this app refers to it. A run or an
+observation names its check by `checkId`, the recording workflow takes the id
+as its `check-id` input, and a replay in another repository quotes it when it
+posts a result. The uuid the database keys on is derived from the id at build
+time and is never written anywhere; nothing outside the build ever sees one.
+
+The `name` beside it is a label, not an address. Nothing resolves a check by
+its name, so a check can be renamed after runs have been recorded against it
+and every run still reaches it: the run files are untouched, the check
+publishes under the same id, and the page reads the new name over the old
+evidence. Two checks cannot share a name, because the app keeps names unique,
+and the validator refuses the pair before the build meets the constraint.
+
+Changing the `id` is not a rename. It is a new check, and every run naming the
+old id is then a run against a check that is not in the ledger, which the
+validator refuses. An id that matches no check is always a refusal naming that
+id, from `pnpm ledger:record` and from `pnpm ledger:validate` alike, and never
+a check quietly brought into being to receive the run.
+
 ## A run that settled nothing
 
 `inconclusive` is a run that tells you nothing about the check: the plant no
