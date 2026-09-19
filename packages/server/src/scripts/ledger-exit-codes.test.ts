@@ -138,6 +138,30 @@ it('refuses a run against a check that is not in the ledger, and exits 1', async
   ).toBe(1);
 });
 
+/**
+ * A check's name is a label and its id is its address, so a rename is an
+ * ordinary edit to the check's file. What a rename cannot do is take a name
+ * another check already holds: the app keeps names unique, and the build
+ * would refuse the pair by constraint after both files had been committed. So
+ * the validator refuses it first, and the workflow reads that as a failed
+ * step rather than as a record to commit.
+ */
+it('refuses two checks with the same name and exits 1', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    'checks/ci-lint-again.json': { ...check, id: 'ci-lint-again' },
+  });
+
+  expect(
+    await exitCodeOf('validate-ledger.ts', ['--directory', directory]),
+  ).toBe(1);
+});
+
+/**
+ * A run logged against a check identified by nothing but its id, which is what
+ * a person writes in a file and what a job in another repository quotes. No
+ * uuid appears anywhere in the call.
+ */
 it('records a sound run and exits 0', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
@@ -160,6 +184,39 @@ it('records a sound run and exits 0', async () => {
     ]),
   ).toBe(0);
   expect(await readdir(join(directory, 'runs'))).toHaveLength(1);
+});
+
+/**
+ * An address that matches nothing is refused, and nothing is brought into
+ * being to receive the run. Judged by the exit code, which is what the job
+ * reads, and by what is on disk afterwards: no run, and the same one check
+ * file there was before. A recorder that answered a misspelled id by creating
+ * the check would publish a status nobody recorded, which is the exact
+ * failure this product exists to expose.
+ */
+it('refuses a run against a check that is not in the ledger, exits 1, and leaves no file', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  expect(
+    await exitCodeOf('record-run.ts', [
+      '--directory',
+      directory,
+      '--check-id',
+      'ci-test',
+      '--run-on',
+      '2026-09-18',
+      '--planted',
+      'A rule violation.',
+      '--expected',
+      'The lint step fails.',
+      '--outcome',
+      'caught',
+    ]),
+  ).toBe(1);
+  await expect(readdir(join(directory, 'runs'))).rejects.toThrow();
+  expect(await readdir(join(directory, 'checks'))).toEqual(['ci-lint.json']);
 });
 
 /**
