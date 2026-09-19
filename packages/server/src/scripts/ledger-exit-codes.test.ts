@@ -73,6 +73,49 @@ it('validates a sound ledger and exits 0', async () => {
   ).toBe(0);
 });
 
+/**
+ * The documented form, `pnpm ledger:validate -- --directory <path>`, reaches
+ * the script with the separator still on the front. A script that read it as
+ * a positional would refuse its own flag, which is what the build script did
+ * (#97). Run through the real process so the wiring is what is tested, not the
+ * helper alone.
+ */
+it('validates a sound ledger through the separator pnpm forwards, and exits 0', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    'runs/one.json': soundRun,
+  });
+
+  expect(
+    await exitCodeOf('validate-ledger.ts', ['--', '--directory', directory]),
+  ).toBe(0);
+});
+
+it('records a sound run through the separator pnpm forwards, and exits 0', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  expect(
+    await exitCodeOf('record-run.ts', [
+      '--',
+      '--directory',
+      directory,
+      '--check-id',
+      'ci-lint',
+      '--run-on',
+      '2026-09-18',
+      '--planted',
+      'A rule violation.',
+      '--expected',
+      'The lint step fails.',
+      '--outcome',
+      'caught',
+    ]),
+  ).toBe(0);
+  expect(await readdir(join(directory, 'runs'))).toHaveLength(1);
+});
+
 it('refuses a malformed record and exits 1', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
