@@ -204,6 +204,13 @@ it('refuses a malformed run and writes nothing', async () => {
   expect(await runFiles(directory)).toEqual([]);
 });
 
+/**
+ * The address is the one thing a job in another repository writes about a
+ * check, so the case where it names nothing is the case that matters. The run
+ * is refused, the refusal names the address, and no check is brought into
+ * being to receive it: a check that appeared because a job misspelled one
+ * would publish a status nobody recorded.
+ */
 it('refuses a run against a check nobody has written down', async () => {
   const directory = await ledgerWithACheck();
   const result = await record(directory, { ...run, checkId: 'ci-test' });
@@ -211,7 +218,9 @@ it('refuses a run against a check nobody has written down', async () => {
   expect(result.ok ? [] : result.errors.map((issue) => issue.path)).toEqual([
     'checkId',
   ]);
+  expect(result.ok ? '' : result.errors[0]?.message).toContain('ci-test');
   expect(await runFiles(directory)).toEqual([]);
+  expect(await readdir(join(directory, 'checks'))).toEqual(['ci-lint.json']);
 });
 
 /**
