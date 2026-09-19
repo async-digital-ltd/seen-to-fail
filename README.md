@@ -397,6 +397,41 @@ The job does six things:
    request. A green run here means recorded and waiting for a person; it does
    not mean done.
 
+**What makes a check due.** A check is replayed when a path matching its
+`dependsOn` list has changed since that check was last replayed, and the range
+is worked out per check rather than once for the run. The anchor is the
+`sourceCommit` of that check's newest recorded replay, read back out of the
+ledger, and newest means newest by git's count of commits to `HEAD` rather than
+by the day the run was recorded on, because two replays recorded on one day
+carry no order between them. One shared anchor would be the newest of them all,
+so a check replayed a month ago would have its month of changes hidden behind a
+check replayed yesterday and would quietly stop being replayed.
+
+Two things about that range are decisions rather than details. It is the whole
+window since the check was last proved and not the last commit, because a weekly
+cadence puts several commits between one dispatch and the next and the one that
+matters is rarely the one that happened to land last. And it is the difference
+between two trees rather than the union of every path the commits in it touched,
+so a dependency edited and put back inside the window leaves the check's proof
+standing: the proof is about a tree, and the tree is the one it was proved
+against.
+
+A check that has never been replayed is measured against the empty tree, so
+every tracked file counts as changed and the matching decides from there. A
+check with no `dependsOn`, or one whose list matches nothing, is not selected at
+all, and keeps the behaviour it had before any of this existed: it is proved
+when somebody dispatches the workflow. A dispatch replays every declared check
+unless its `only-due` box is ticked, which is what lets the hand route reach a
+check the matching deliberately does not.
+
+All of that needs the whole history, which is why the job checks out with
+`fetch-depth: 0` and why the selection refuses a shallow clone outright rather
+than answering from one. In a shallow clone every recorded commit is
+unreachable, so every check would fall back to the empty tree and every check
+with a list would be replayed on every run. That is a guard that always says
+yes, which is the failure this repository exists to describe, so it refuses
+instead.
+
 The mapping from a verdict to a record is fixed, and those four verdicts are the
 whole vocabulary of 0.2.1:
 
