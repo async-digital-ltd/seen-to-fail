@@ -7,7 +7,10 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import { outcomeSettlesSomething } from '../database/rows.ts';
+import type { IsoDate, TestRunOutcome } from '../database/rows.ts';
 import { todayInUtc } from '../day.ts';
+import { REPLAY_AFTER_DAYS } from '../staleness.ts';
 
 /**
  * Choosing which checks to replay, judged the way the workflow judges it: by
@@ -102,23 +105,64 @@ function aCheck(id: string, name: string): Record<string, unknown> {
   };
 }
 
+/**
+ * A day this many days before today, as the ledger spells one.
+ *
+ * Counted from the same `todayInUtc` the script counts from, so the fixtures
+ * move with the clock rather than pinning a day that stops meaning what it
+ * meant. Every case below dates its runs from `REPLAY_AFTER_DAYS` rather than
+ * from a number of its own, so moving the floor moves the fixtures with it and
+ * there is no second copy of the policy to disagree.
+ */
+function daysBeforeToday(days: number): IsoDate {
+  const day = 24 * 60 * 60 * 1000;
+  return new Date(Date.parse(`${todayInUtc()}T00:00:00Z`) - days * day)
+    .toISOString()
+    .slice(0, 10);
+}
+
+interface RunOptions {
+  readonly checkId: string;
+  /** Today when it is left out, which is what the anchor cases want. */
+  readonly runOn?: IsoDate;
+  /** Caught when it is left out. */
+  readonly outcome?: TestRunOutcome;
+  /**
+   * The commit a replay ran against. Left out, the run is one somebody typed
+   * in, which the ledger insists carries neither a commit nor a run link.
+   */
+  readonly sourceCommit?: string;
+}
+
+/** One run in the ledger, built the one way, however this file needs it. */
+function aRun(options: RunOptions): Record<string, unknown> {
+  const outcome = options.outcome ?? 'caught';
+  const replayed = options.sourceCommit !== undefined;
+  return {
+    checkId: options.checkId,
+    runOn: options.runOn ?? todayInUtc(),
+    planted: 'A plant.',
+    expected: 'The check fails.',
+    outcome,
+    // The ledger refuses a settled run carrying a reason and an unsettled one
+    // without, so which of the two this is decides the field rather than the
+    // caller.
+    inconclusiveReason: outcomeSettlesSomething[outcome]
+      ? null
+      : 'The plant no longer applied.',
+    note: null,
+    source: replayed ? 'replay' : 'hand',
+    sourceCommit: options.sourceCommit ?? null,
+    sourceRunUrl: replayed ? 'https://ci.example.com/runs/1' : null,
+  };
+}
+
 /** A run a replay recorded against a given commit, for the anchor lookup. */
 function aReplayRun(
   checkId: string,
   sourceCommit: string,
 ): Record<string, unknown> {
-  return {
-    checkId,
-    runOn: todayInUtc(),
-    planted: 'A plant.',
-    expected: 'The check fails.',
-    outcome: 'caught',
-    inconclusiveReason: null,
-    note: null,
-    source: 'replay',
-    sourceCommit,
-    sourceRunUrl: 'https://ci.example.com/runs/1',
-  };
+  return aRun({ checkId, sourceCommit });
 }
 
 async function write(
@@ -505,6 +549,251 @@ describe('what the selection refuses', () => {
     });
 
     expect(await selectIn(directory)).toBe(1);
+    expect(await dueIn(directory)).toBeNull();
+  });
+});
+
+/**
+ * The age floor: a proof that has aged past it is due a replay whether or not
+ * anything the check depends on has changed.
+ *
+ * Every case in this block is built so that the dependency lane selects
+ * nothing. That is the point of them. A case the dependency lane would also
+ * have selected passes under both the selection #68 shipped and the one this
+ * block describes, and a test that passes under both has tested nothing about
+ * the difference between them.
+ *
+ * The first case is the one to read if only one is read. It is the quiet
+ * repository #68's ruling did not account for: the check was replayed against
+ * the commit that is still the tip of what it depends on, nothing it depends on
+ * has changed since, and the proof has simply got old.
+ */
+describe('a proof that has aged past the floor', () => {
+  /**
+   * A repository where nothing either check depends on has changed, and where
+   * the second check's proof is fresh.
+   *
+   * Both halves are load-bearing. Only files under `ledger` are written, and
+   * neither check's list mentions the ledger, so the dependency lane has
+   * nothing to say about either of them. And the second check is given a proof
+   * dated today rather than left with none, because a check nothing has ever
+   * replayed is measured against the empty tree: every tracked file would count
+   * as changed, its list would match the workflow it names, and the dependency
+   * lane would select it. That is the dependency lane working correctly, and it
+   * would mask the floor in every assertion below.
+   *
+   * The files each case needs are written in the same commit, so the window a
+   * check is measured over holds them all.
+   */
+  async function aQuietRepository(
+    files: (first: string) => Readonly<Record<string, unknown>>,
+  ): Promise<string> {
+    const { directory, first } = await aRepository();
+    await write(directory, {
+      'ledger/runs/a-fresh-replay-of-the-recorder.json': aRun({
+        checkId: 'ledger-record-validation',
+        sourceCommit: first,
+      }),
+      ...files(first),
+    });
+    await commit(directory, 'Record what this case starts from.');
+    return directory;
+  }
+
+  /**
+   * Selected on age alone, and the case to read if only one is read.
+   *
+   * Under the dependency-only selection this exits 3 and writes nothing:
+   * nothing in the window is on either check's list. Under the floor it exits 0
+   * with the aged check alone. The assertion is the whole list, so a floor that
+   * selected both would fail it: the second check's dependencies are just as
+   * untouched, and its proof is fresh.
+   */
+  it('selects the check on age alone, though nothing it depends on changed', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'ledger/runs/an-old-replay-of-the-type-check.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+    }));
+
+    expect(await selectIn(directory)).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  /**
+   * The boundary, pinned in both directions, because a floor asserted on one
+   * side only is a floor that could be anywhere below the day it was tested.
+   *
+   * It is the same boundary the backstop uses. There, a catch exactly
+   * `STALE_AFTER_DAYS` old still reads Proven and one day older reads Stale;
+   * here, a run exactly `REPLAY_AFTER_DAYS` old is not yet owed a replay and
+   * one day older is.
+   */
+  it('leaves a proof that is exactly the floor old alone', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'ledger/runs/a-replay-of-the-type-check.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS),
+        sourceCommit: first,
+      }),
+    }));
+
+    expect(await selectIn(directory)).toBe(nothingIsDue);
+    expect(await dueIn(directory)).toBeNull();
+  });
+
+  /**
+   * A check with no dependency list is selected by age, and this is where the
+   * floor parts company with #68 most plainly.
+   *
+   * #68 ruled that such a check is never replayed automatically and goes Stale
+   * on the backstop instead. A missing list says nobody has worked out what
+   * voids this check's proof, which is a reason to keep proving it rather than
+   * a reason to stop, and nothing here can produce a false Proven: the floor
+   * selects a check to be replayed and the replay records whatever happened.
+   * The dependency lane still never selects it, which the case above in
+   * "which checks a change touches" holds it to.
+   */
+  it('selects a check that declares no dependencies when its proof has aged', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'canfail.json': {
+        checks: [
+          {
+            name: 'Type check',
+            checkId: 'ci-type-check',
+            expected: 'The type check fails.',
+            run: 'pnpm typecheck',
+            breaks: declaration.checks[0]?.breaks,
+          },
+        ],
+      },
+      'ledger/runs/an-old-replay-of-the-type-check.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+    }));
+
+    expect(await selectIn(directory)).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  /**
+   * A check nobody has ever run anything against is passed over, and that is
+   * not the floor declining to act.
+   *
+   * Such a check is Unproven, so there is no proof for the backstop to void and
+   * none for the floor to keep alive. Its first replay comes from the
+   * dependency lane, which measures it against the empty tree. Asserted with
+   * `--since HEAD` so that lane has nothing to offer either, which is what
+   * leaves the floor as the only thing that could have selected it.
+   */
+  it('passes over a check with no run at all', async () => {
+    const { directory } = await aRepository();
+
+    expect(await selectIn(directory, ['--since', 'HEAD'])).toBe(nothingIsDue);
+    expect(await dueIn(directory)).toBeNull();
+  });
+
+  /**
+   * The floor reads the newest settled run and not the newest replay.
+   *
+   * A replay that settled nothing is not evidence about the check: the status
+   * rules skip it, so the backstop still measures from the last real catch.
+   * Reading it as the check's freshness would hold the floor off while that
+   * catch aged quietly past the backstop, which is the failure the floor exists
+   * to stop. The inconclusive run here is dated today, so a floor reading the
+   * newest replay would exit 3.
+   */
+  it('is not refreshed by a replay that settled nothing', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'ledger/runs/an-old-catch.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+      'ledger/runs/a-replay-that-settled-nothing.json': aRun({
+        checkId: 'ci-type-check',
+        outcome: 'inconclusive',
+        sourceCommit: first,
+      }),
+    }));
+
+    expect(await selectIn(directory)).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  /**
+   * And it reads a run whoever typed it in as readily as one a replay posted.
+   *
+   * The floor exists to keep the published page off Stale, and what takes a
+   * check Stale is the age of its latest settled run from any source. A check
+   * somebody proved by hand this morning is Proven for another month, and
+   * selecting it because its last *replay* was old would file the near
+   * identical run the weekly cadence was chosen to avoid.
+   */
+  it('is refreshed by a run somebody typed in', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'ledger/runs/an-old-replay.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+      'ledger/runs/a-run-somebody-typed-in.json': aRun({
+        checkId: 'ci-type-check',
+      }),
+    }));
+
+    expect(await selectIn(directory)).toBe(nothingIsDue);
+    expect(await dueIn(directory)).toBeNull();
+  });
+
+  /**
+   * `--since` replaces the anchor a dependency is measured from and nothing
+   * else, so the floor still reads the ledger under it.
+   *
+   * `--since HEAD` is an empty window, so the dependency lane has nothing at
+   * all to say here and the selection is the floor's alone.
+   */
+  it('still applies when --since pins the dependency window', async () => {
+    const directory = await aQuietRepository((first) => ({
+      'ledger/runs/an-old-replay-of-the-type-check.json': aRun({
+        checkId: 'ci-type-check',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+    }));
+
+    expect(await selectIn(directory, ['--since', 'HEAD'])).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  /**
+   * Only a check the declaration declares can be selected, however old its
+   * proof is.
+   *
+   * This is the limit of what the floor fixes, and it is worth an assertion
+   * rather than a sentence in a pull request. Three of the four checks carrying
+   * a proof in this repository's real ledger have no plant in `canfail.json` at
+   * all, so nothing on this path can reach them and the floor does not rescue
+   * them. The second check is taken out of the declaration below and left in
+   * the ledger with a proof well past the floor.
+   */
+  it('cannot select a check the declaration does not declare', async () => {
+    const { directory, first } = await aRepository();
+    await write(directory, {
+      'canfail.json': { checks: [declaration.checks[0]] },
+      'ledger/runs/an-old-replay-of-the-recorder.json': aRun({
+        checkId: 'ledger-record-validation',
+        runOn: daysBeforeToday(REPLAY_AFTER_DAYS + 1),
+        sourceCommit: first,
+      }),
+    });
+    await commit(directory, 'Leave the recorder out of the declaration.');
+
+    expect(await selectIn(directory, ['--since', 'HEAD'])).toBe(nothingIsDue);
     expect(await dueIn(directory)).toBeNull();
   });
 });

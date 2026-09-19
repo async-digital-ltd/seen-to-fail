@@ -14,3 +14,49 @@
  * The record has no finer grain than that: a run is dated, not timed.
  */
 export const STALE_AFTER_DAYS = 30;
+
+/**
+ * How old a check's newest settled run may be before a replay is owed for it,
+ * whether or not anything the check depends on has changed.
+ *
+ * This is the age floor, and it exists because #68's schedule replays a check
+ * only when a declared dependency changed. That was stated as a decision rather
+ * than an omission, and it makes the epic's goal clause false: once the
+ * repository goes quiet, nothing a check depends on changes, no replay is ever
+ * selected, and every proof ages out on the backstop above. A check does not
+ * stay Proven for as long as it keeps catching its defect. It stays Proven for
+ * thirty days and then stops, with nothing left that could refresh it.
+ *
+ * Fourteen, and the arithmetic is against the backstop and the cadence rather
+ * than against taste. A check crosses the floor fourteen days after its newest
+ * settled run. The schedule fires weekly, so the first dispatch that can act on
+ * that crossing is at most seven days later, on day twenty-one, which is nine
+ * days inside the backstop. GitHub drops scheduled runs, so the second dispatch
+ * matters: it is day twenty-eight, still two days inside. The cadence therefore
+ * gets two attempts at refreshing a proof before the backstop takes it Stale,
+ * and the third attempt, on day thirty-five, is the backstop correctly winning.
+ * Sixteen is the largest floor that still buys the second attempt; fourteen is
+ * chosen over it because it is two whole cadence periods and leaves the spare
+ * two days as margin rather than spending them.
+ *
+ * Slower was rejected for that reason and faster for the opposite one. At seven
+ * a check nothing has touched would be replayed on most dispatches, and the
+ * `Replay a plant` workflow's own header objects to exactly that: a replay is a
+ * dated observation, and filing a near identical proof over and over buries the
+ * runs that say something under runs that say the same thing again. At fourteen
+ * such a check is replayed about once a fortnight.
+ *
+ * It costs nothing measurable in Actions minutes, and that is arithmetic too.
+ * The floor adds no dispatch: the schedule fires weekly either way, and the
+ * floor only changes whether a dispatch that would have stopped at the
+ * selection goes on to replay. Actions bills a job rounded up to the minute,
+ * and the one full replay on record, run 35429662430, took 58 seconds, so a
+ * dispatch is one billed minute whether it replays or not. The whole lane stays
+ * at about five billed minutes a month against the 2,000 a private repository
+ * gets free, which is the quarter of one percent #68 already measured.
+ *
+ * The relationship above is asserted in `staleness.test.ts` rather than left in
+ * this comment, because a comment cannot notice the backstop or the cadence
+ * moving underneath it.
+ */
+export const REPLAY_AFTER_DAYS = 14;
