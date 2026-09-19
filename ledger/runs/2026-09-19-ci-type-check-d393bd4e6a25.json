@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-type-check",
+  "runOn": "2026-09-19",
+  "planted": "STALE_AFTER_DAYS is written as a string rather than a number.",
+  "expected": "The type check fails.",
+  "outcome": "inconclusive",
+  "inconclusiveReason": "the check already FAILS on the clean tree (exit 1: [ELIFECYCLE] Command failed with exit code 1.) — breaking something can prove nothing from here",
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "7d7e24c04277f22fa6f427f66d565c35e5720cea",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35431432957"
+}
