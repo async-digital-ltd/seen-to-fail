@@ -38,6 +38,21 @@ export interface SeedRun {
   readonly planted: string;
   readonly expected: string;
   readonly note?: string;
+  /**
+   * What a replay recorded about itself, on the one run below that came from
+   * one. Absent on the rest, which a person typed in.
+   *
+   * The two halves are one optional object rather than two optional fields, so
+   * a seeded replay cannot be written with half its evidence. The database
+   * refuses that combination anyway; this is the fixture never having to find
+   * out.
+   */
+  readonly replay?: {
+    /** The commit the plant was applied to. Invented, like everything here. */
+    readonly commit: string;
+    /** The run that produced it. */
+    readonly runUrl: string;
+  };
 }
 
 /** Evidence, on one day, about whether a check is switched on at all. */
@@ -117,6 +132,13 @@ export const seedChecks: readonly SeedCheck[] = [
         outcome: 'caught',
         planted: 'A value of the wrong type passed to a function.',
         expected: 'The type check fails.',
+        // The one run in the workspace that nobody typed in, so that both
+        // sources can be seen on a page before either has a real record
+        // behind it.
+        replay: {
+          commit: '4f1d0c2a9b7e5f3a1c8d6b4e2f0a9c7d5b3e1f0a',
+          runUrl: 'https://example.com/ci/runs/8412',
+        },
       },
     ],
     observations: [{ daysAgo: 9, armed: true }],
@@ -321,8 +343,9 @@ export async function seedWorkspace(client: Client): Promise<SeedResult> {
       for (const run of check.runs ?? []) {
         await client.query(
           `INSERT INTO test_runs
-             (check_id, run_on, planted, expected, outcome, note)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+             (check_id, run_on, planted, expected, outcome, note,
+              source, source_commit, source_run_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             id,
             daysBefore(asOf, run.daysAgo),
@@ -330,6 +353,9 @@ export async function seedWorkspace(client: Client): Promise<SeedResult> {
             run.expected,
             run.outcome,
             run.note ?? null,
+            run.replay === undefined ? 'hand' : 'replay',
+            run.replay?.commit ?? null,
+            run.replay?.runUrl ?? null,
           ],
         );
         runCount += 1;

@@ -2,13 +2,14 @@ import { expect, it } from 'vitest';
 
 import {
   fixtureContents,
+  fixtureContentsFromAReplay,
   fixtureDatabaseTotals,
   fixtureLedgerPath,
   fixtureSnapshot,
   fixtureStatusTotals,
 } from '../testing/ledger.ts';
 import { renderPage } from './page.ts';
-import type { PublishedLedger } from './snapshot.ts';
+import type { PublishedLedger, PublishedRun } from './snapshot.ts';
 import { disagreements } from './verify.ts';
 import type { VerificationInput } from './verify.ts';
 
@@ -185,4 +186,75 @@ it('refuses a page that does not name the commit it was built from', () => {
       ),
     }).join('\n'),
   ).toContain('the commit it was built from');
+});
+
+/**
+ * The same ledger read as a replay, so the provenance comparison has something
+ * to compare. Without this the fixture's only run is hand-written with two
+ * nulls beside it, and a build that published every run as hand-written would
+ * agree with it exactly.
+ */
+function soundReplay(): VerificationInput {
+  const contents = fixtureContentsFromAReplay();
+  const snapshot = fixtureSnapshot(contents);
+  return { ...sound(), contents, snapshot, page: renderPage(snapshot) };
+}
+
+/** The same input, with one run's published fields changed. */
+function withRun(
+  change: (run: PublishedRun) => PublishedRun,
+): VerificationInput {
+  const input = soundReplay();
+  const snapshot = {
+    ...input.snapshot,
+    checks: input.snapshot.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map(change),
+    })),
+  };
+  return { ...input, snapshot, page: renderPage(snapshot) };
+}
+
+it('finds nothing wrong with a replay that agrees with its record', () => {
+  expect(disagreements(soundReplay())).toEqual([]);
+});
+
+/**
+ * A run published as one somebody typed in when a job recorded it. Every count
+ * still adds up, the page still renders, and the answer to the question this
+ * story exists to answer is wrong.
+ */
+it('finds a run published as coming from somewhere it did not', () => {
+  const found = disagreements(
+    withRun((run) => ({
+      ...run,
+      source: 'hand',
+      sourceCommit: null,
+      sourceRunUrl: null,
+    })),
+  );
+
+  expect(found.join('\n')).toContain('where it came from');
+});
+
+it('finds a replay published against a commit its record does not name', () => {
+  const found = disagreements(
+    withRun((run) => ({
+      ...run,
+      sourceCommit: '0000000000000000000000000000000000000000',
+    })),
+  );
+
+  expect(found.join('\n')).toContain('the commit it ran against');
+});
+
+it('finds a replay published with a run link its record does not name', () => {
+  const found = disagreements(
+    withRun((run) => ({
+      ...run,
+      sourceRunUrl: 'https://ci.example.com/runs/other',
+    })),
+  );
+
+  expect(found.join('\n')).toContain('the run that produced it');
 });

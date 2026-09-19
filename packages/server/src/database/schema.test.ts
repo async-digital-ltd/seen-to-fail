@@ -20,9 +20,19 @@ const database = useTestDatabase();
 /** The day the database is having, in UTC, as the constraints read it. */
 const today = "(now() AT TIME ZONE 'UTC')::date";
 
+/**
+ * The columns every insert below names, and the source it gives.
+ *
+ * source has no default, on purpose: a run that does not say where it came from
+ * is refused rather than recorded as somebody's typing. That is a rule of its
+ * own, with its own test, and it is why every statement here spells it out.
+ */
+const runColumns = '(check_id, run_on, planted, expected, outcome, source)';
+
 const insertRun = `
-  INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
-  VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught')
+  INSERT INTO test_runs ${runColumns}
+  VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+          'hand')
 `;
 
 const insertObservation = `
@@ -136,9 +146,9 @@ it('refuses a check whose area is blank', async () => {
 it('refuses a test run against a check that does not exist', async () => {
   const refused = await rejectionOf(
     database.client(),
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
+    `INSERT INTO test_runs ${runColumns}
      VALUES (gen_random_uuid(), ${today}, 'A removed semicolon',
-             'The job fails', 'caught')`,
+             'The job fails', 'caught', 'hand')`,
   );
 
   expect(refused).toEqual({
@@ -152,8 +162,9 @@ it('refuses a test run whose outcome is not one the enum has', async () => {
 
   const refused = await rejectionOf(
     database.client(),
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
-     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'ignored')`,
+    `INSERT INTO test_runs ${runColumns}
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'ignored',
+             'hand')`,
     [checkId],
   );
 
@@ -169,9 +180,11 @@ it('accepts both outcomes the enum does have', async () => {
   const checkId = await insertCheck();
 
   await database.client().query(
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
-     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught'),
-            ($1, ${today}, 'A removed semicolon', 'The job fails', 'missed')`,
+    `INSERT INTO test_runs ${runColumns}
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             'hand'),
+            ($1, ${today}, 'A removed semicolon', 'The job fails', 'missed',
+             'hand')`,
     [checkId],
   );
 
@@ -183,9 +196,9 @@ it('refuses a test run dated after the day it was recorded', async () => {
 
   const refused = await rejectionOf(
     database.client(),
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
+    `INSERT INTO test_runs ${runColumns}
      VALUES ($1, ${today} + 1, 'A removed semicolon', 'The job fails',
-             'caught')`,
+             'caught', 'hand')`,
     [checkId],
   );
 
@@ -199,10 +212,11 @@ it('accepts a test run dated today and one dated well in the past', async () => 
   const checkId = await insertCheck();
 
   await database.client().query(
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
-     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught'),
+    `INSERT INTO test_runs ${runColumns}
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             'hand'),
             ($1, ${today} - 400, 'A removed semicolon', 'The job fails',
-             'missed')`,
+             'missed', 'hand')`,
     [checkId],
   );
 
@@ -322,4 +336,109 @@ it('deletes a check together with its runs and its observations', async () => {
 
   expect(await count('test_runs')).toBe(0);
   expect(await count('arming_observations')).toBe(0);
+});
+
+/**
+ * A run's source and the evidence that has to travel with it.
+ *
+ * Four statements, because the rule has four ways to be broken and each one
+ * publishes a different lie: a replay with no commit is a claim nobody can
+ * check, a replay with no run link is a claim nobody can go and look at, and a
+ * run typed in by hand carrying either is evidence nobody produced. The pair
+ * of accepting statements underneath is what tells a constraint that refuses
+ * everything apart from one that refuses the right things.
+ */
+it.each([
+  [
+    'a replay with no commit',
+    `'replay', NULL, 'https://ci.example.com/runs/91'`,
+  ],
+  [
+    'a replay with no run to link to',
+    `'replay', '1234567890abcdef1234567890abcdef12345678', NULL`,
+  ],
+  [
+    'a run typed in by hand carrying a commit',
+    `'hand', '1234567890abcdef1234567890abcdef12345678', NULL`,
+  ],
+  [
+    'a run typed in by hand carrying a run link',
+    `'hand', NULL, 'https://ci.example.com/runs/91'`,
+  ],
+])('refuses %s', async (_description, evidence) => {
+  const checkId = await insertCheck();
+
+  const refused = await rejectionOf(
+    database.client(),
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome,
+        source, source_commit, source_run_url)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             ${evidence})`,
+    [checkId],
+  );
+
+  expect(refused).toEqual({
+    code: sqlStates.checkViolation,
+    constraint: 'test_runs_source_carries_its_evidence',
+  });
+});
+
+it('accepts a hand run with nothing beside it and a replay with both', async () => {
+  const checkId = await insertCheck();
+
+  await database.client().query(
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome,
+        source, source_commit, source_run_url)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             'hand', NULL, NULL),
+            ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             'replay', '1234567890abcdef1234567890abcdef12345678',
+             'https://ci.example.com/runs/91')`,
+    [checkId],
+  );
+
+  expect(await count('test_runs')).toBe(2);
+});
+
+/**
+ * No default on the source column, and that is the point of this test rather
+ * than an incidental fact about it.
+ *
+ * A default would have made a writer that forgot to say where a run came from
+ * record it as somebody's typing, silently and in a column whose whole job is
+ * to say who wrote the row. With none, the same omission is a refusal.
+ */
+it('refuses a run that does not say where it came from', async () => {
+  const checkId = await insertCheck();
+
+  const refused = await rejectionOf(
+    database.client(),
+    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught')`,
+    [checkId],
+  );
+
+  expect(refused.code).toBe(sqlStates.notNullViolation);
+});
+
+/**
+ * The runs recorded before the source column existed.
+ *
+ * The migration backfilled them as hand, which is true of every one of them:
+ * nothing but the form could write a run until this story. The test inserts a
+ * row through the table as it stands, then reads back what the migration would
+ * have left, which is the closest a test against the current schema can get to
+ * a row that predates it.
+ */
+it('reads a run recorded before sources existed as one typed in', async () => {
+  const checkId = await insertCheck();
+  await database.client().query(insertRun, [checkId]);
+
+  const rows = await database
+    .client()
+    .query<{ source: string }>('SELECT source FROM test_runs');
+
+  expect(rows.rows.map((row) => row.source)).toEqual(['hand']);
 });

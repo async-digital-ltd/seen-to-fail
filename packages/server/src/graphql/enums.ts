@@ -1,16 +1,16 @@
 import type { Status } from '@seen-to-fail/filter';
 
-import type { TestRunOutcome } from '../database/rows.ts';
+import type { TestRunOutcome, TestRunSource } from '../database/rows.ts';
 
 /**
  * The one place a closed set of values changes spelling on its way out.
  *
- * Two vocabularies cross this boundary and neither is defined here. The five
+ * Three vocabularies cross this boundary and none is defined here. The five
  * statuses are the filter package's list, read by the database enum, the web
- * client and this API alike. The two outcomes are the run table's enum. GraphQL
- * enum values are conventionally written in capitals, though, so the wire
- * spells both differently from everything behind it, and something has to say
- * how.
+ * client and this API alike. The two outcomes and the two sources are the run
+ * table's own enums. GraphQL enum values are conventionally written in capitals,
+ * though, so the wire spells all three differently from everything behind them,
+ * and something has to say how.
  *
  * The maps below are that and nothing more. Neither is a second list. Each map
  * has the domain type as its key, so a value added there and not here fails to
@@ -25,10 +25,10 @@ import type { TestRunOutcome } from '../database/rows.ts';
  * it never passes through a map here. A function with no caller would be a
  * claim nothing tests.
  *
- * Outcomes go both ways, because logging a run sends one. The inward map is
- * pinned the same way from the other side: its keys are the upper case of the
- * outcomes and each value is the outcome its key spells, so a swapped pair or a
- * missing one fails to compile.
+ * Outcomes and sources go both ways, because logging a run sends one of each.
+ * The inward maps are pinned the same way from the other side: their keys are
+ * the upper case of the domain values and each value is the one its key spells,
+ * so a swapped pair or a missing one fails to compile.
  */
 
 const statusNames = {
@@ -51,6 +51,18 @@ const outcomesByName = {
   readonly [O in TestRunOutcome as Uppercase<O>]: O;
 };
 
+const sourceNames = {
+  hand: 'HAND',
+  replay: 'REPLAY',
+} as const satisfies { readonly [S in TestRunSource]: Uppercase<S> };
+
+const sourcesByName = {
+  HAND: 'hand',
+  REPLAY: 'replay',
+} as const satisfies {
+  readonly [S in TestRunSource as Uppercase<S>]: S;
+};
+
 /** How a status is spelled on the wire. */
 export type StatusName = (typeof statusNames)[Status];
 
@@ -70,4 +82,17 @@ export function outcomeName(outcome: TestRunOutcome): OutcomeName {
 /** The outcome a caller sent, as the run table's enum spells it. */
 export function outcomeFromName(name: OutcomeName): TestRunOutcome {
   return outcomesByName[name];
+}
+
+/** How a run's source is spelled on the wire. */
+export type SourceName = (typeof sourceNames)[TestRunSource];
+
+/** The source, as the schema's enum spells it. */
+export function sourceName(source: TestRunSource): SourceName {
+  return sourceNames[source];
+}
+
+/** The source a caller sent, as the run table's enum spells it. */
+export function sourceFromName(name: SourceName): TestRunSource {
+  return sourcesByName[name];
 }

@@ -17,6 +17,9 @@ query CheckDetail($id: ID!) {
       expected
       outcome
       note
+      source
+      sourceCommit
+      sourceRunUrl
     }
     armingObservations {
       id

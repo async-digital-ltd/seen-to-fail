@@ -2,12 +2,16 @@ import { z } from 'zod';
 
 import { isRealDay } from '../day.ts';
 import {
+  checkRunProvenance,
   issuesFrom,
   MAX_LABEL_LENGTH,
   MAX_TEXT_LENGTH,
   optionalNote,
+  optionalSourceCommit,
+  optionalSourceRunUrl,
   optionalText,
   requiredText,
+  runSource,
 } from '../database/new-records.ts';
 import type { ParseResult, RecordIssue } from '../database/new-records.ts';
 import { testRunOutcomes } from '../database/rows.ts';
@@ -93,18 +97,40 @@ function ledgerCheckSchema() {
   });
 }
 
+/**
+ * A record with no source is a record from before runs carried one, and every
+ * one of those was typed in by a person.
+ *
+ * The only key here with a default, and it is here so that the records already
+ * committed stay valid exactly as they were written. Rewriting them to add the
+ * key would change each file's digest, which is its name, which is its
+ * identity: an append-only record would have quietly rewritten its own past to
+ * make a new rule look as though it had always held.
+ *
+ * It is not a hole in the rule. A replay that left its source out carries a
+ * commit and a link, and reading it as hand-written then refuses it on both of
+ * those, so the only record this default can silently mislabel is one with no
+ * evidence of a replay in it at all.
+ */
+const recordedBeforeSourcesExisted = 'hand';
+
 function ledgerRunSchema(today: IsoDate) {
-  return z.strictObject({
-    checkId: ledgerId(),
-    runOn: ledgerDay(today, 'A run cannot be dated after today.'),
-    planted: requiredText('Say what was planted.', MAX_TEXT_LENGTH),
-    expected: requiredText(
-      'Say what the check was expected to do.',
-      MAX_TEXT_LENGTH,
-    ),
-    outcome: z.enum(testRunOutcomes),
-    note: optionalNote,
-  });
+  return z
+    .strictObject({
+      checkId: ledgerId(),
+      runOn: ledgerDay(today, 'A run cannot be dated after today.'),
+      planted: requiredText('Say what was planted.', MAX_TEXT_LENGTH),
+      expected: requiredText(
+        'Say what the check was expected to do.',
+        MAX_TEXT_LENGTH,
+      ),
+      outcome: z.enum(testRunOutcomes),
+      note: optionalNote,
+      source: runSource.default(recordedBeforeSourcesExisted),
+      sourceCommit: optionalSourceCommit,
+      sourceRunUrl: optionalSourceRunUrl,
+    })
+    .superRefine(checkRunProvenance);
 }
 
 function ledgerObservationSchema(today: IsoDate) {

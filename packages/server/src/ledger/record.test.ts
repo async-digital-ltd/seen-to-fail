@@ -72,7 +72,63 @@ it('writes a record the loader will read back', async () => {
   const written: unknown = JSON.parse(
     await readFile(join(directory, result.file), 'utf8'),
   );
-  expect(written).toEqual({ ...run, note: 'Seen twice.' });
+  // The record is written as the reader parsed it, not as it was handed over,
+  // so the source the reader filled in for a run that did not say is in the
+  // file. A record that dropped it on the way to disk would be published with
+  // nothing saying where it came from.
+  expect(written).toEqual({
+    ...run,
+    note: 'Seen twice.',
+    source: 'hand',
+    sourceCommit: null,
+    sourceRunUrl: null,
+  });
+});
+
+/**
+ * A replay records the two things that let a reader check it, and they reach
+ * the file unchanged.
+ */
+it('writes a replay with the commit and the run it names', async () => {
+  const directory = await ledgerWithACheck();
+  const result = await record(directory, {
+    ...run,
+    source: 'replay',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  });
+  if (!result.ok) {
+    throw new Error('The replay was refused.');
+  }
+
+  const written: unknown = JSON.parse(
+    await readFile(join(directory, result.file), 'utf8'),
+  );
+  expect(written).toEqual({
+    ...run,
+    note: null,
+    source: 'replay',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  });
+});
+
+/**
+ * The gate the recording workflow leans on: a replay that lost half its
+ * evidence never becomes a file, so it never becomes a commit.
+ */
+it('refuses a replay with no commit and writes nothing', async () => {
+  const directory = await ledgerWithACheck();
+  const result = await record(directory, {
+    ...run,
+    source: 'replay',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  });
+
+  expect(result.ok ? [] : result.errors.map((issue) => issue.path)).toEqual([
+    'sourceCommit',
+  ]);
+  expect(await runFiles(directory)).toEqual([]);
 });
 
 /**
@@ -117,8 +173,14 @@ it('names a file for what is in it, not for how it was built', () => {
     expected: 'The lint step fails.',
     outcome: 'caught',
     note: null,
+    source: 'hand',
+    sourceCommit: null,
+    sourceRunUrl: null,
   } as const;
   const backwards = {
+    sourceRunUrl: null,
+    sourceCommit: null,
+    source: 'hand',
     note: null,
     outcome: 'caught',
     expected: 'The lint step fails.',

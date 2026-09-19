@@ -59,6 +59,9 @@ const proven: RecordedCheck = {
       expected: 'The job fails.',
       outcome: 'CAUGHT',
       note: null,
+      source: 'HAND',
+      sourceCommit: null,
+      sourceRunUrl: null,
     },
   ],
   armingObservations: [

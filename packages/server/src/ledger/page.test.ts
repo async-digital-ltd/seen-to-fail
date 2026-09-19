@@ -4,6 +4,9 @@ import { expect, it } from 'vitest';
 import {
   fixtureCommit,
   fixtureContents,
+  fixtureContentsFromAReplay,
+  fixtureReplayCommit,
+  fixtureReplayRunUrl,
   fixtureSnapshot,
   fixtureSummaries,
 } from '../testing/ledger.ts';
@@ -80,17 +83,61 @@ it('carries no script at all', () => {
   expect(renderPage(fixtureSnapshot())).not.toMatch(/<script/i);
 });
 
-it('fetches nothing: every link it holds is to a commit or to the export', () => {
-  const page = renderPage(fixtureSnapshot());
+/**
+ * Three destinations and no fourth: a commit in this repository, the run a
+ * replay named, and the export beside the page. Nothing here is fetched; these
+ * are places a reader can go, and the list is closed so that a page which
+ * started reaching somewhere else would fail rather than be noticed by
+ * somebody reading the HTML.
+ *
+ * The replay's ledger is the one rendered, because it is the one with a link
+ * that is not a commit. Rendering the other would let a page that dropped the
+ * run link pass.
+ */
+it('links only to a commit, to a run a record named, or to the export', () => {
+  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
   const urls = [...page.matchAll(/https?:\/\/[^"'\s]+/g)].map(
     (match) => match[0],
   );
-  expect(urls.length).toBeGreaterThan(0);
+
+  expect(urls).toContain(fixtureReplayRunUrl);
   for (const url of urls) {
+    if (url === fixtureReplayRunUrl) {
+      continue;
+    }
     expect(url).toMatch(
       /^https:\/\/github\.com\/async-digital-ltd\/seen-to-fail\/commit\//,
     );
   }
+});
+
+/**
+ * Where each run came from, on the page, for both answers.
+ *
+ * "By hand" is rendered as plainly as "by replay", because the absence of a
+ * word is the one thing a reader cannot tell from a page that failed to render
+ * it, and by hand is the answer that says the proof does not keep itself.
+ */
+it('says where every run came from', () => {
+  expect(renderPage(fixtureSnapshot())).toContain('By hand');
+
+  const replayed = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
+  expect(replayed).toContain('By replay');
+  expect(replayed).not.toContain('By hand');
+});
+
+/**
+ * Two commits can appear in one row and they are different facts: the commit a
+ * replay ran against, and the commit that recorded the run afterwards. The
+ * page names both, so neither is told from the other by position alone.
+ */
+it('names the commit a replay ran against apart from the one that recorded it', () => {
+  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
+
+  expect(page).toContain(`/commit/${fixtureReplayCommit}`);
+  expect(page).toContain('/commit/1234567890abcdef1234567890abcdef12345678');
+  expect(page).toContain('Came from');
+  expect(page).toContain('Recorded in');
 });
 
 /**

@@ -53,8 +53,21 @@ function aRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
     expected: 'The job fails and names the line',
     outcome: 'CAUGHT',
     note: null,
+    source: 'HAND',
+    sourceCommit: null,
+    sourceRunUrl: null,
     ...overrides,
   };
+}
+
+/** The same run, recorded by a replay rather than typed in. */
+function aReplayRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
+  return aRun({
+    source: 'REPLAY',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+    ...overrides,
+  });
 }
 
 function renderCheck(check: RecordedCheck | null) {
@@ -528,7 +541,7 @@ describe('the test runs', () => {
     expect(card).toHaveTextContent('Today15 Sep 2026');
   });
 
-  it('shows a caught run with its age, its day and its three rows', async () => {
+  it('shows a caught run with its age, its day and its four rows', async () => {
     await renderRecordedCheck({
       status: 'PROVEN',
       lastCaughtOn: '2026-09-13',
@@ -546,7 +559,7 @@ describe('the test runs', () => {
       within(caught)
         .getAllByRole('term')
         .map((term) => term.textContent),
-    ).toEqual(['Planted', 'Expected', 'Observed']);
+    ).toEqual(['Planted', 'Expected', 'Observed', 'Came from']);
     expect(
       within(caught)
         .getAllByRole('definition')
@@ -555,6 +568,7 @@ describe('the test runs', () => {
       'A missing return type',
       'The job fails and names the line',
       'Caught it',
+      'By hand',
     ]);
     expect(caught).toHaveTextContent(
       'Planted on a branch and deleted afterwards.',
@@ -579,8 +593,50 @@ describe('the test runs', () => {
       within(missed)
         .getAllByRole('definition')
         .map((row) => row.textContent),
-    ).toEqual(['An unused variable', 'The job fails', 'Missed it']);
+    ).toEqual(['An unused variable', 'The job fails', 'Missed it', 'By hand']);
     expect(within(missed).getAllByRole('paragraph')).toHaveLength(2);
+  });
+
+  /**
+   * The acceptance criterion on #64, read off the rendered page: every run
+   * says where it came from, and the two answers are rendered as plainly as
+   * each other. "By hand" is the one that matters most, because it is the one
+   * that says the proof does not keep itself, and an answer left off would be
+   * indistinguishable from a page that failed to render it.
+   */
+  it('says where every run came from, by hand or by replay', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-13',
+      runCount: 2,
+      caughtCount: 2,
+      runs: [
+        aReplayRun({ id: 'r9', runOn: '2026-09-13' }),
+        aRun({ id: 'r8', runOn: '2026-09-12' }),
+      ],
+    });
+
+    const cards = within(runsSection()).getAllByRole('listitem');
+    for (const card of cards) {
+      expect(
+        within(card)
+          .getAllByRole('term')
+          .map((term) => term.textContent),
+      ).toContain('Came from');
+    }
+
+    const [replayed, typedIn] = cards;
+    if (replayed === undefined || typedIn === undefined) {
+      throw new Error('Both run cards should have rendered.');
+    }
+    expect(typedIn).toHaveTextContent('By hand');
+    // The commit is abbreviated the way git and the forge abbreviate it, and
+    // is shown rather than linked: this screen does not know which repository
+    // the check guards.
+    expect(replayed).toHaveTextContent('By replay, against 1234567');
+    expect(
+      within(replayed).getByRole('link', { name: 'The run that produced it' }),
+    ).toHaveAttribute('href', 'https://ci.example.com/runs/91');
   });
 
   it('says there are no runs yet, with the hint to plant one', async () => {

@@ -32,6 +32,13 @@ import type { ArmingObservation, Queryable, TestRun } from './rows.ts';
  * answer in, and a refusal is turned into the issue a form shows rather than
  * into an error.
  *
+ * A run's source and its evidence are held together by a constraint too, and
+ * that one is deliberately absent from the lists below. Every value reaching
+ * here has been through the parse function, which applies the same rule, so the
+ * constraint firing would mean the two readings of it disagree. That is a fault
+ * in this server rather than something somebody can fix by editing a field, so
+ * it is thrown rather than dressed up as an issue beside a form field.
+ *
  * A refusal is recognised by its SQLSTATE and the name of the constraint that
  * raised it, together. The name alone is not enough. A unique index that cannot
  * fit a value raises a program limit error that still names the index's
@@ -129,10 +136,22 @@ export async function insertTestRun(
 ): Promise<WriteResult<TestRun>> {
   return insertReturning(
     database,
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome, note)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, note,
+        source, source_commit, source_run_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING ${testRunColumns}`,
-    [run.checkId, run.runOn, run.planted, run.expected, run.outcome, run.note],
+    [
+      run.checkId,
+      run.runOn,
+      run.planted,
+      run.expected,
+      run.outcome,
+      run.note,
+      run.source,
+      run.sourceCommit,
+      run.sourceRunUrl,
+    ],
     [
       {
         code: foreignKeyViolation,

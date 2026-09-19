@@ -113,7 +113,8 @@ const writesThatFail = [
     document: `mutation {
       logTestRun(input: {
         checkId: "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", runOn: "2026-01-01",
-        planted: "Anything", expected: "Anything", outcome: CAUGHT
+        planted: "Anything", expected: "Anything", outcome: CAUGHT,
+        source: HAND
       }) { __typename }
     }`,
   },

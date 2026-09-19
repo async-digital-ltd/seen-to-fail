@@ -18,7 +18,13 @@ import {
 } from '../database/writes.ts';
 import type { RequestContext } from './context.ts';
 import { dateScalar } from './date.ts';
-import { outcomeFromName, outcomeName, statusName } from './enums.ts';
+import {
+  outcomeFromName,
+  outcomeName,
+  sourceFromName,
+  sourceName,
+  statusName,
+} from './enums.ts';
 import { filterFromArgument, filterInputScalar } from './filter-input.ts';
 import type {
   ArmingObservationRecordedResolvers,
@@ -176,7 +182,11 @@ const Mutation: Required<MutationResolvers> = {
 
   logTestRun: async (_parent, args, context) => {
     const parsed = parseNewTestRun(
-      { ...args.input, outcome: outcomeFromName(args.input.outcome) },
+      {
+        ...args.input,
+        outcome: outcomeFromName(args.input.outcome),
+        source: sourceFromName(args.input.source),
+      },
       context.asOf,
     );
     if (!parsed.ok) {
@@ -290,6 +300,9 @@ const TestRun: TestRunResolvers = {
   expected: (run) => run.expected,
   outcome: (run) => outcomeName(run.outcome),
   note: (run) => run.note,
+  source: (run) => sourceName(run.source),
+  sourceCommit: (run) => run.sourceCommit,
+  sourceRunUrl: (run) => run.sourceRunUrl,
 };
 
 const ArmingObservation: ArmingObservationResolvers = {
