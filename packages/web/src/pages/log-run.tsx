@@ -11,6 +11,7 @@ import type { Choice } from '../components/form/fields';
 import {
   DateField,
   SelectField,
+  SubmitButton,
   TextField,
   ToggleField,
 } from '../components/form/fields';
@@ -223,9 +224,7 @@ function RunForm({
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        if (!fetching) {
-          void send();
-        }
+        void send();
       }}
     >
       <ErrorSummary
@@ -292,9 +291,7 @@ function RunForm({
         error={errors.byField.note}
       />
       <div className="form__actions">
-        <button type="submit" className="button button--primary">
-          Save run
-        </button>
+        <SubmitButton label="Save run" busy={fetching} />
         <Link to={cancelTo} className="button">
           Cancel
         </Link>

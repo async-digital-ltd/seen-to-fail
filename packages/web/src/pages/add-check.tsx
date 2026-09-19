@@ -6,7 +6,7 @@ import { useMutation, useQuery } from 'urql';
 import { ErrorNotice } from '../components/error-notice';
 import { ErrorSummary } from '../components/form/error-summary';
 import type { FieldErrors } from '../components/form/field-errors';
-import { TextField } from '../components/form/fields';
+import { SubmitButton, TextField } from '../components/form/fields';
 import { useFormErrors } from '../components/form/use-form-errors';
 import type { CreateCheckInput } from '../graphql/generated/graphql';
 import {
@@ -157,9 +157,7 @@ export function AddCheck(): ReactElement {
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          if (!fetching) {
-            void send();
-          }
+          void send();
         }}
       >
         <ErrorSummary
@@ -214,9 +212,7 @@ export function AddCheck(): ReactElement {
           error={errors.byField.howToTellArmed}
         />
         <div className="form__actions">
-          <button type="submit" className="button button--primary">
-            Save check
-          </button>
+          <SubmitButton label="Save check" busy={fetching} />
           <Link to={paths.checks()} className="button">
             Cancel
           </Link>
