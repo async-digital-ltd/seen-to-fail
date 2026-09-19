@@ -278,10 +278,14 @@ const singleConditions: readonly FilterCase[] = [
   {
     name: 'runs more than 1',
     condition: { field: 'runs', op: 'moreThan', count: 1 },
+    // The type check is here on two runs, one of which settled nothing. The
+    // count is of runs recorded rather than of runs that proved something, and
+    // two are recorded against it.
     matches: [
       'No focused tests left behind',
       'Test suite required to merge',
       'Translations complete before release',
+      'Type check on every pull request',
     ],
   },
   {
@@ -411,6 +415,7 @@ it('keeps the two levels apart when the joiners are swapped between them', async
     'No focused tests left behind',
     'Test suite required to merge',
     'Translations complete before release',
+    'Type check on every pull request',
   ]);
 });
 

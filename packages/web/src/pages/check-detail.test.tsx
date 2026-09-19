@@ -38,9 +38,11 @@ function aCheck(overrides: Partial<RecordedCheck> = {}): RecordedCheck {
     howToTellArmed: 'A type check job is listed on every pull request.',
     status: 'UNARMED',
     lastCaughtOn: null,
+    lastSettledOn: null,
     runCount: 0,
     caughtCount: 0,
     missedCount: 0,
+    inconclusiveCount: 0,
     runs: [],
     armingObservations: [],
     ...overrides,
@@ -52,6 +54,7 @@ function aRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
     planted: 'A string passed where a number is expected',
     expected: 'The job fails and names the line',
     outcome: 'CAUGHT',
+    inconclusiveReason: null,
     note: null,
     source: 'HAND',
     sourceCommit: null,
@@ -66,6 +69,25 @@ function aReplayRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
     source: 'REPLAY',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
+    ...overrides,
+  });
+}
+
+/** The reason the runs below that settled nothing give for settling nothing. */
+const settledNothingBecause =
+  'The anchor matches 0 times in the file and has to match exactly once.';
+
+/**
+ * A run that settled nothing: a replay whose plant no longer fits the code.
+ * That is the case this outcome was added for, and it is a replay because the
+ * plant being out of date is something only a replay finds out on its own.
+ */
+function anUnsettledRun(
+  overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>,
+): Run {
+  return aReplayRun({
+    outcome: 'INCONCLUSIVE',
+    inconclusiveReason: settledNothingBecause,
     ...overrides,
   });
 }
@@ -168,6 +190,24 @@ describe('the heading', () => {
 
     expect(
       screen.getByText('CI · 1 run · 1 caught · 0 missed'),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The runs that settled nothing are named only when there are some, and the
+   * other two counts add up to the run count beside them when there are not,
+   * so the absence cannot hide one.
+   */
+  it('counts the runs that settled nothing, when any did', async () => {
+    await renderRecordedCheck({
+      runCount: 3,
+      caughtCount: 1,
+      missedCount: 0,
+      inconclusiveCount: 2,
+    });
+
+    expect(
+      screen.getByText('CI · 3 runs · 1 caught · 0 missed · 2 settled nothing'),
     ).toBeInTheDocument();
   });
 });
@@ -347,6 +387,89 @@ describe('the latest evidence', () => {
     });
 
     expect(latest('Latest test run')).toHaveTextContent('Missed it, yesterday');
+  });
+
+  it('reads a latest run that settled nothing as settling nothing', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-01',
+      lastSettledOn: '2026-09-01',
+      runs: [
+        anUnsettledRun({ id: 'r2', runOn: '2026-09-14' }),
+        aRun({ id: 'r1', runOn: '2026-09-01' }),
+      ],
+    });
+
+    expect(latest('Latest test run')).toHaveTextContent(
+      'Settled nothing, yesterday',
+    );
+  });
+});
+
+/**
+ * The line that says the status did not move, and why it did not.
+ *
+ * It is the reason this outcome is on the page at all. A check whose replays
+ * have stopped applying keeps its status, which is right, and the newest row
+ * in its table would otherwise make the evidence look fresher than it is. So
+ * the page says what the latest run settled, gives the reason as it was
+ * recorded, and dates the run the status really came from.
+ */
+describe('a latest run that settled nothing', () => {
+  it('says so, gives the reason, and dates the evidence behind the status', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-01',
+      lastSettledOn: '2026-09-01',
+      runCount: 2,
+      caughtCount: 1,
+      inconclusiveCount: 1,
+      runs: [
+        anUnsettledRun({ id: 'r2', runOn: '2026-09-14' }),
+        aRun({ id: 'r1', runOn: '2026-09-01' }),
+      ],
+    });
+
+    // The status is where it was, on evidence two weeks old.
+    expect(screen.getByText('Proven')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `The latest run settled nothing: ${settledNothingBecause} The status above is read from 14 days ago, the last run that settled anything.`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing has ever settled anything when none has', async () => {
+    await renderRecordedCheck({
+      status: 'UNARMED',
+      lastSettledOn: null,
+      runCount: 1,
+      inconclusiveCount: 1,
+      runs: [anUnsettledRun({ id: 'r2', runOn: '2026-09-14' })],
+    });
+
+    expect(
+      screen.getByText(
+        `The latest run settled nothing: ${settledNothingBecause} Nothing has ever settled anything for this check.`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing of the kind when the latest run settled something', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-14',
+      lastSettledOn: '2026-09-14',
+      runCount: 2,
+      caughtCount: 1,
+      inconclusiveCount: 1,
+      runs: [
+        aRun({ id: 'r2', runOn: '2026-09-14' }),
+        anUnsettledRun({ id: 'r1', runOn: '2026-09-01' }),
+      ],
+    });
+
+    expect(screen.queryByText(/The latest run settled nothing/)).toBeNull();
   });
 });
 
@@ -595,6 +718,56 @@ describe('the test runs', () => {
         .map((row) => row.textContent),
     ).toEqual(['An unused variable', 'The job fails', 'Missed it', 'By hand']);
     expect(within(missed).getAllByRole('paragraph')).toHaveLength(2);
+  });
+
+  /**
+   * The card for a run that settled nothing carries a row the others do not:
+   * the reason. A reader deciding whether to rewrite the plant is reading that
+   * sentence, and it is shown as it was recorded rather than turned into a
+   * category, because only one of the situations that settle nothing means the
+   * plant is at fault.
+   */
+  it('shows a run that settled nothing with the reason it gives', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-01',
+      lastSettledOn: '2026-09-01',
+      runCount: 2,
+      caughtCount: 1,
+      inconclusiveCount: 1,
+      runs: [
+        anUnsettledRun({ id: 'r2', runOn: '2026-09-13' }),
+        aRun({ id: 'r1', runOn: '2026-09-01' }),
+      ],
+    });
+
+    const cards = within(runsSection()).getAllByRole('listitem');
+    const [toldNothing, caught] = cards;
+    if (toldNothing === undefined || caught === undefined) {
+      throw new Error('Both run cards should have rendered.');
+    }
+
+    expect(toldNothing).toHaveTextContent('?Settled nothing');
+    expect(
+      within(toldNothing)
+        .getAllByRole('term')
+        .map((term) => term.textContent),
+    ).toEqual([
+      'Planted',
+      'Expected',
+      'Observed',
+      'Why it settled nothing',
+      'Came from',
+    ]);
+    expect(toldNothing).toHaveTextContent(settledNothingBecause);
+
+    // The row is on the card that has a reason and on no other, so its absence
+    // carries no meaning a reader has to infer.
+    expect(
+      within(caught)
+        .getAllByRole('term')
+        .map((term) => term.textContent),
+    ).toEqual(['Planted', 'Expected', 'Observed', 'Came from']);
   });
 
   /**

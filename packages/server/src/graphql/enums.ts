@@ -7,7 +7,7 @@ import type { TestRunOutcome, TestRunSource } from '../database/rows.ts';
  *
  * Three vocabularies cross this boundary and none is defined here. The five
  * statuses are the filter package's list, read by the database enum, the web
- * client and this API alike. The two outcomes and the two sources are the run
+ * client and this API alike. The three outcomes and the two sources are the run
  * table's own enums. GraphQL enum values are conventionally written in capitals,
  * though, so the wire spells all three differently from everything behind them,
  * and something has to say how.
@@ -42,11 +42,13 @@ const statusNames = {
 const outcomeNames = {
   caught: 'CAUGHT',
   missed: 'MISSED',
+  inconclusive: 'INCONCLUSIVE',
 } as const satisfies { readonly [O in TestRunOutcome]: Uppercase<O> };
 
 const outcomesByName = {
   CAUGHT: 'caught',
   MISSED: 'missed',
+  INCONCLUSIVE: 'inconclusive',
 } as const satisfies {
   readonly [O in TestRunOutcome as Uppercase<O>]: O;
 };

@@ -14,6 +14,11 @@
   color: var(--error);
 }
 
+/* Amber is too light to read as text, so this one says its word in ink. */
+.outcome-badge--inconclusive {
+  color: var(--ink);
+}
+
 .outcome-badge__glyph {
   display: inline-flex;
   flex: none;
@@ -34,4 +39,10 @@
 
 .outcome-badge__glyph--missed {
   background: var(--error);
+}
+
+/* Amber only ever appears as a fill, with dark ink on it. */
+.outcome-badge__glyph--inconclusive {
+  background: var(--warning);
+  color: var(--ink);
 }

@@ -119,8 +119,11 @@ interface CheckFields {
   readonly howToTellArmed: string;
   readonly status: string;
   readonly runCount: number;
+  readonly caughtCount: number;
   readonly missedCount: number;
+  readonly inconclusiveCount: number;
   readonly lastRunOn: string | null;
+  readonly lastSettledOn: string | null;
   readonly lastArmed: boolean | null;
   readonly lastSeenArmedOn: string | null;
   readonly runs: readonly { readonly id: string }[];
@@ -136,8 +139,11 @@ const checkFields = `
   howToTellArmed
   status
   runCount
+  caughtCount
   missedCount
+  inconclusiveCount
   lastRunOn
+  lastSettledOn
   lastArmed
   lastSeenArmedOn
   runs { id }
@@ -164,6 +170,7 @@ interface LoggedRun {
     readonly planted: string;
     readonly expected: string;
     readonly outcome: string;
+    readonly inconclusiveReason: string | null;
     readonly note: string | null;
     readonly source: string;
     readonly sourceCommit: string | null;
@@ -178,7 +185,7 @@ const logTestRunDocument = `
       ... on TestRunLogged {
         __typename
         testRun {
-          id runOn planted expected outcome note
+          id runOn planted expected outcome inconclusiveReason note
           source sourceCommit sourceRunUrl
         }
         check { ${checkFields} }
@@ -1203,6 +1210,94 @@ it('refuses a run link that is not an https address, and writes nothing', async 
   expect(pathsOf(result)).toStrictEqual(['sourceRunUrl']);
   expect(await workspace(server)).toStrictEqual(before);
 });
+
+/** What a run that settled nothing says about why, as a caller sends it. */
+const settledNothingBecause =
+  'The anchor matches 0 times in the file and has to match exactly once.';
+
+/**
+ * The third outcome, end to end: written, read back with its reason, and
+ * counted as neither of the other two.
+ *
+ * The check it is logged against has an observation saying it is on and no
+ * runs, so it reads Unproven before this. A run that settled nothing leaves it
+ * Unproven, because nobody has yet learned anything about whether it works.
+ */
+it('logs a run that settled nothing and moves no status', async () => {
+  const { server, asOf, idOf } = await seeded();
+
+  const logged = writtenAs(
+    await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+      outcome: 'INCONCLUSIVE',
+      inconclusiveReason: settledNothingBecause,
+    }),
+    'TestRunLogged',
+  );
+
+  expect(logged.testRun.outcome).toBe('INCONCLUSIVE');
+  expect(logged.testRun.inconclusiveReason).toBe(settledNothingBecause);
+  // The run is recorded, and it is not evidence: the status is where it was,
+  // and the run is in neither tally.
+  expect(logged.check).toMatchObject({
+    status: 'UNPROVEN',
+    runCount: 1,
+    caughtCount: 0,
+    missedCount: 0,
+    inconclusiveCount: 1,
+    lastSettledOn: null,
+  });
+});
+
+/**
+ * A run that settled nothing and will not say why is refused, and nothing is
+ * written. Without the reason the record is a dead end: "the plant no longer
+ * applies" and "the check was already failing" ask for opposite things, and a
+ * reader cannot tell which they have.
+ */
+it('refuses a run that settled nothing with no reason, and writes nothing', async () => {
+  const { server, asOf, idOf, before } = await seeded();
+
+  const result = await logTestRun(server, {
+    ...validInput(
+      'logTestRun',
+      idOf('Commit message format', 'UNPROVEN'),
+      asOf,
+    ),
+    outcome: 'INCONCLUSIVE',
+  });
+
+  expect(pathsOf(result)).toStrictEqual(['inconclusiveReason']);
+  expect(await workspace(server)).toStrictEqual(before);
+});
+
+/**
+ * The rule in the other direction: a run that settled the question and carries
+ * a reason anyway is refused rather than stored with a field nobody meant.
+ */
+it.each(['CAUGHT', 'MISSED'])(
+  'refuses a %s run carrying a reason, and writes nothing',
+  async (outcome) => {
+    const { server, asOf, idOf, before } = await seeded();
+
+    const result = await logTestRun(server, {
+      ...validInput(
+        'logTestRun',
+        idOf('Commit message format', 'UNPROVEN'),
+        asOf,
+      ),
+      outcome,
+      inconclusiveReason: settledNothingBecause,
+    });
+
+    expect(pathsOf(result)).toStrictEqual(['inconclusiveReason']);
+    expect(await workspace(server)).toStrictEqual(before);
+  },
+);
 
 /**
  * Not a rule this server applies but one GraphQL applies for it, and it is

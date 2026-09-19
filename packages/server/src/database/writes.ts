@@ -32,12 +32,13 @@ import type { ArmingObservation, Queryable, TestRun } from './rows.ts';
  * answer in, and a refusal is turned into the issue a form shows rather than
  * into an error.
  *
- * A run's source and its evidence are held together by a constraint too, and
- * that one is deliberately absent from the lists below. Every value reaching
- * here has been through the parse function, which applies the same rule, so the
- * constraint firing would mean the two readings of it disagree. That is a fault
- * in this server rather than something somebody can fix by editing a field, so
- * it is thrown rather than dressed up as an issue beside a form field.
+ * Two more constraints hold a run together: its source with its evidence, and
+ * its outcome with the reason it settled nothing. Both are deliberately absent
+ * from the lists below. Every value reaching here has been through the parse
+ * function, which applies the same two rules, so either constraint firing would
+ * mean the two readings of it disagree. That is a fault in this server rather
+ * than something somebody can fix by editing a field, so it is thrown rather
+ * than dressed up as an issue beside a form field.
  *
  * A refusal is recognised by its SQLSTATE and the name of the constraint that
  * raised it, together. The name alone is not enough. A unique index that cannot
@@ -137,9 +138,9 @@ export async function insertTestRun(
   return insertReturning(
     database,
     `INSERT INTO test_runs
-       (check_id, run_on, planted, expected, outcome, note,
-        source, source_commit, source_run_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+        note, source, source_commit, source_run_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING ${testRunColumns}`,
     [
       run.checkId,
@@ -147,6 +148,7 @@ export async function insertTestRun(
       run.planted,
       run.expected,
       run.outcome,
+      run.inconclusiveReason,
       run.note,
       run.source,
       run.sourceCommit,

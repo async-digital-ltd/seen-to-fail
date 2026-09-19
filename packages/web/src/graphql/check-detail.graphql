@@ -7,15 +7,18 @@ query CheckDetail($id: ID!) {
     howToTellArmed
     status
     lastCaughtOn
+    lastSettledOn
     runCount
     caughtCount
     missedCount
+    inconclusiveCount
     runs {
       id
       runOn
       planted
       expected
       outcome
+      inconclusiveReason
       note
       source
       sourceCommit

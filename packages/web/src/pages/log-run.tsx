@@ -47,6 +47,7 @@ const runFields: readonly RunField[] = [
   'planted',
   'expected',
   'outcome',
+  'inconclusiveReason',
   'note',
 ];
 
@@ -56,9 +57,21 @@ function idOf(field: RunField): string {
 
 const summaryId = 'run-errors';
 
+/**
+ * The three things a run can have done, including the one that is not about
+ * the check at all.
+ *
+ * The third is here because the alternative is worse. Somebody who goes to
+ * plant the defect and finds that the plant no longer fits the code has
+ * learned something real, and with only two choices they would have to file it
+ * as a catch or a miss, either of which moves a status on evidence that says
+ * nothing about the check. That is the failure this outcome exists to stop, so
+ * the form that most often records a run is not the place to leave it out.
+ */
 const outcomes: readonly Choice<Outcome>[] = [
   { value: 'CAUGHT', label: 'Caught it' },
   { value: 'MISSED', label: 'Missed it' },
+  { value: 'INCONCLUSIVE', label: 'Settled nothing' },
 ];
 
 /** What the form holds while it is being filled in. */
@@ -68,6 +81,7 @@ interface Draft {
   readonly planted: string;
   readonly expected: string;
   readonly outcome: Outcome | null;
+  readonly inconclusiveReason: string;
   readonly note: string;
 }
 
@@ -97,7 +111,15 @@ function checkDraft(draft: Draft, day: string): Checked {
     errors.expected = 'Say what the check was expected to do.';
   }
   if (draft.outcome === null) {
-    errors.outcome = 'Say whether the check caught it or missed it.';
+    errors.outcome = 'Say what the check did with it.';
+  }
+  // Asked for only when it is needed, and required when it is. A run that
+  // settled nothing is worth nothing to the next reader without the reason:
+  // "the plant no longer applies" and "the check was already failing" call for
+  // opposite things, and the status has not moved either way.
+  const settledNothing = draft.outcome === 'INCONCLUSIVE';
+  if (settledNothing && draft.inconclusiveReason.trim() === '') {
+    errors.inconclusiveReason = 'Say why the run settled nothing.';
   }
   if (draft.outcome === null || Object.keys(errors).length > 0) {
     return { ok: false, errors };
@@ -110,6 +132,10 @@ function checkDraft(draft: Draft, day: string): Checked {
       planted: draft.planted,
       expected: draft.expected,
       outcome: draft.outcome,
+      // Null rather than the text somebody typed and then changed their mind
+      // about: a run that caught or missed carrying a reason is refused by the
+      // API, and sending one would be sending a field nobody meant.
+      inconclusiveReason: settledNothing ? draft.inconclusiveReason : null,
       note: draft.note.trim() === '' ? null : draft.note,
       // Somebody filling in this form is the hand route, whatever else is
       // recording runs elsewhere, so the form says so rather than leaving the
@@ -145,8 +171,9 @@ function reading(status: Status): string {
  *
  * Logging a caught run usually reads Proven and a missed one Broken, but the
  * status is whatever the API worked out, not a guess from the outcome: a run
- * dated long ago can leave a check Stale, and a check somebody saw switched
- * off after the run's date stays Unarmed.
+ * dated long ago can leave a check Stale, a check somebody saw switched off
+ * after the run's date stays Unarmed, and a run that settled nothing leaves
+ * the status exactly where it was.
  */
 export function loggedSentence(check: {
   readonly name: string;
@@ -181,6 +208,7 @@ function RunForm({
   const [planted, setPlanted] = useState('');
   const [expected, setExpected] = useState('');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [inconclusiveReason, setInconclusiveReason] = useState('');
   const [note, setNote] = useState('');
   const errors = useFormErrors(runFields, idOf, summaryId);
   const [{ fetching, error: sendError }, logTestRun] =
@@ -195,7 +223,15 @@ function RunForm({
 
   async function send(): Promise<void> {
     const checked = checkDraft(
-      { checkId, runOn, planted, expected, outcome, note },
+      {
+        checkId,
+        runOn,
+        planted,
+        expected,
+        outcome,
+        inconclusiveReason,
+        note,
+      },
       today(),
     );
     if (!checked.ok) {
@@ -281,6 +317,21 @@ function RunForm({
         onChange={setOutcome}
         error={errors.byField.outcome}
       />
+      {/*
+       * Only when it is being asked for. A field that is always on screen and
+       * refuses to be filled in for two of the three answers is a field that
+       * teaches people to ignore it.
+       */}
+      {outcome === 'INCONCLUSIVE' ? (
+        <TextField
+          id={idOf('inconclusiveReason')}
+          label="Why it settled nothing"
+          multiline
+          value={inconclusiveReason}
+          onChange={setInconclusiveReason}
+          error={errors.byField.inconclusiveReason}
+        />
+      ) : null}
       <TextField
         id={idOf('note')}
         label="Note"

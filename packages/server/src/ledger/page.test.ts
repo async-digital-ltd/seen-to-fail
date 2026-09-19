@@ -5,10 +5,13 @@ import {
   fixtureCommit,
   fixtureContents,
   fixtureContentsFromAReplay,
+  fixtureContentsWithAnUnsettledRun,
   fixtureReplayCommit,
   fixtureReplayRunUrl,
   fixtureSnapshot,
   fixtureSummaries,
+  fixtureSummariesWithAnUnsettledRun,
+  fixtureUnsettledReason,
 } from '../testing/ledger.ts';
 import { escapeHtml, publishedStatusOrder, renderPage } from './page.ts';
 import { buildSnapshot } from './snapshot.ts';
@@ -138,6 +141,56 @@ it('names the commit a replay ran against apart from the one that recorded it', 
   expect(page).toContain('/commit/1234567890abcdef1234567890abcdef12345678');
   expect(page).toContain('Came from');
   expect(page).toContain('Recorded in');
+});
+
+/**
+ * A run that settled nothing, on the page it is published to.
+ *
+ * The page it is published to is where somebody finds out that a plant has
+ * stopped applying, so three things have to be on it: that the run settled
+ * nothing, why, and how old the evidence behind the status really is. The
+ * status itself is unchanged, and that is asserted too, because a page that
+ * moved it would be the failure this outcome exists to stop.
+ */
+it('shows a run that settled nothing, its reason, and the day the status is read from', () => {
+  const page = renderPage(
+    fixtureSnapshot(
+      fixtureContentsWithAnUnsettledRun(),
+      fixtureSummariesWithAnUnsettledRun(),
+    ),
+  );
+
+  expect(page).toContain('settled nothing');
+  expect(page).toContain(escapeHtml(fixtureUnsettledReason));
+  expect(page).toContain('<dt>Last settled</dt><dd>2026-09-10</dd>');
+  expect(page).toContain('<dt>Last run</dt><dd>2026-09-16</dd>');
+  // Read from the catch, not from the run that settled nothing.
+  expect(page).toContain('1 settled nothing');
+  expect(page).toContain('<span class="status status-Proven">Proven</span>');
+});
+
+/**
+ * The counts under a check's name say what they leave out.
+ *
+ * On a check where nothing settled nothing the third figure is absent, and
+ * that is safe only because the other two add up to the run count beside
+ * them. Both sides are asserted so the absence is a decision rather than a
+ * figure that got lost.
+ */
+it('names the runs that settled nothing only when there are some', () => {
+  expect(renderPage(fixtureSnapshot())).toContain('1 run, 1 caught, 0 missed');
+  // The footer explains the outcome whatever is recorded, so what is absent
+  // from a page with none of them is the figure rather than the words.
+  expect(renderPage(fixtureSnapshot())).not.toContain('0 settled nothing');
+
+  expect(
+    renderPage(
+      fixtureSnapshot(
+        fixtureContentsWithAnUnsettledRun(),
+        fixtureSummariesWithAnUnsettledRun(),
+      ),
+    ),
+  ).toContain('2 runs, 1 caught, 0 missed, 1 settled nothing');
 });
 
 /**

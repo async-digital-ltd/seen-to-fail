@@ -36,9 +36,9 @@ every push, so a record that breaks a rule never becomes a commit.
 
 A check's id is lower case letters, digits and single hyphens, and the file is
 named after it. A run names a check that exists, is dated a day that exists and
-not after today, and has an outcome of `caught` or `missed`. Every schema is
-strict: a key nobody reads is refused rather than dropped, because a misspelled
-field silently ignored is a record published without it.
+not after today, and has an outcome of `caught`, `missed` or `inconclusive`.
+Every schema is strict: a key nobody reads is refused rather than dropped,
+because a misspelled field silently ignored is a record published without it.
 
 ```json
 {
@@ -47,12 +47,48 @@ field silently ignored is a record published without it.
   "planted": "A rule violation.",
   "expected": "The lint step fails.",
   "outcome": "caught",
+  "inconclusiveReason": null,
   "note": null,
   "source": "hand",
   "sourceCommit": null,
   "sourceRunUrl": null
 }
 ```
+
+## A run that settled nothing
+
+`inconclusive` is a run that tells you nothing about the check: the plant no
+longer applied, the check was already failing before anything was planted, it
+never ran, or it went red for some reason other than the declared one. None of
+those is the check missing a defect.
+
+Such a run carries `inconclusiveReason`, which is required on it and refused on
+a run that caught or missed. The reason is the words whoever recorded it wrote,
+published as they arrived and never sorted into a category here: only the first
+situation above means the plant needs rewriting, and the tool that scores a
+replay separates its reasons inside an English sentence, so a category recovered
+by matching that prose would send a reader to rewrite a plant that is fine.
+
+```json
+{
+  "checkId": "ci-lint",
+  "runOn": "2026-09-18",
+  "planted": "A rule violation.",
+  "expected": "The lint step fails.",
+  "outcome": "inconclusive",
+  "inconclusiveReason": "The anchor matches 0 times in src/rules.ts and has to match exactly once, so nothing was broken.",
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "1234567890abcdef1234567890abcdef12345678",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/1"
+}
+```
+
+Nothing in the status rules reads one. A check whose replays have all settled
+nothing keeps the status its last real run gave it, and the published page shows
+the day of that run beside it, so the status can be seen for how old it is. A
+record that says nothing about a reason is a run that settled something, which
+is how every record written before this outcome existed stays valid.
 
 ## Where a run came from
 
@@ -83,8 +119,9 @@ That is how the runs recorded before this existed stay valid: their filenames
 are digests of their own contents, so adding a key to them would have meant an
 append-only record rewriting its own past.
 
-Nothing in the status rules reads any of this. A replay and a run typed in, with
-the same outcome on the same day, leave a check reading the same thing.
+Nothing in the status rules reads any of this either. A replay and a run typed
+in, with the same outcome on the same day, leave a check reading the same
+thing.
 
 ## Where the commit comes from
 

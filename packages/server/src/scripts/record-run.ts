@@ -8,6 +8,11 @@
 //   --source-commit <the forty-character commit it ran against> \
 //   --source-run-url https://github.com/<owner>/<repo>/actions/runs/<id>
 //
+// A run that settled nothing says why, in the words the replay reported:
+//
+// pnpm ledger:record -- ... --outcome inconclusive \
+//   --inconclusive-reason "the anchor matches 0 times and must match once"
+//
 // Writes one run into the ledger, or refuses it and writes nothing. This is the
 // step the recording workflow runs before it commits, which is what "refuses a
 // malformed record before it lands" means: a record that is wrong never becomes
@@ -42,6 +47,7 @@ const { values } = parseArgs({
     planted: { type: 'string' },
     expected: { type: 'string' },
     outcome: { type: 'string' },
+    'inconclusive-reason': { type: 'string' },
     note: { type: 'string' },
     source: { type: 'string' },
     'source-commit': { type: 'string' },
@@ -74,6 +80,10 @@ const result = await recordRun({
     planted: values.planted,
     expected: values.expected,
     outcome: values.outcome,
+    // Passed on absent, like the source, so the reader decides whether this
+    // run needed one. A default here would be a second reading of the rule
+    // that says which runs have a reason to give.
+    inconclusiveReason: values['inconclusive-reason'] ?? null,
     note: values.note ?? null,
     source: values.source,
     sourceCommit: values['source-commit'] ?? null,

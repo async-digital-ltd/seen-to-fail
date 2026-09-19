@@ -370,16 +370,18 @@ it('says it is not ready when the database does not answer', async () => {
 });
 
 /**
- * Where each run came from, read back through the same path a page reads it
- * on: the check's own query, through the loader, rather than out of the write
- * that made it.
+ * What each run did and where it came from, read back through the same path a
+ * page reads it on: the check's own query, through the loader, rather than out
+ * of the write that made it.
  *
- * The two answers come from two different checks in the seeded workspace, so a
- * server that answered the same thing to both would fail here. The seed has
- * exactly one replay in it, which is what makes the second half a real read
- * rather than a null every column would satisfy.
+ * The answers come from two different checks in the seeded workspace, so a
+ * server that answered the same thing to both would fail here. The replayed
+ * check's two runs are the other half of it: the newest settled nothing and
+ * carries its reason, the one before it caught and carries none, and reading
+ * either field off the wrong row would swap two values that are both really
+ * there.
  */
-it('says where each run came from, and what a replay ran against', async () => {
+it('says what each run did, why, and where it came from', async () => {
   const server = await seededServer();
   const {
     checks: { checks },
@@ -387,6 +389,8 @@ it('says where each run came from, and what a replay ran against', async () => {
     Listed<{
       name: string;
       runs: {
+        outcome: string;
+        inconclusiveReason: string | null;
         source: string;
         sourceCommit: string | null;
         sourceRunUrl: string | null;
@@ -394,14 +398,28 @@ it('says where each run came from, and what a replay ran against', async () => {
     }>
   >(
     server,
-    '{ checks { checks { name runs { source sourceCommit sourceRunUrl } } } }',
+    `{ checks { checks { name runs {
+       outcome inconclusiveReason source sourceCommit sourceRunUrl
+     } } } }`,
   );
 
   const replayed = checks.find(
     (check) => check.name === 'Type check on every pull request',
   );
+  // Newest first, so the run that settled nothing is the first of the two.
   expect(replayed?.runs).toStrictEqual([
     {
+      outcome: 'INCONCLUSIVE',
+      inconclusiveReason:
+        'The anchor matches 0 times in the file and has to match exactly ' +
+        'once, so nothing was broken and the check was never put to the test.',
+      source: 'REPLAY',
+      sourceCommit: '7c2b8e1d4a6f3b9e0d5c2a8f4b1e7d3c9a6f2b8e',
+      sourceRunUrl: 'https://example.com/ci/runs/9037',
+    },
+    {
+      outcome: 'CAUGHT',
+      inconclusiveReason: null,
       source: 'REPLAY',
       sourceCommit: '4f1d0c2a9b7e5f3a1c8d6b4e2f0a9c7d5b3e1f0a',
       sourceRunUrl: 'https://example.com/ci/runs/8412',
@@ -412,6 +430,12 @@ it('says where each run came from, and what a replay ran against', async () => {
     (check) => check.name === 'Secrets never committed',
   );
   expect(typedIn?.runs).toStrictEqual([
-    { source: 'HAND', sourceCommit: null, sourceRunUrl: null },
+    {
+      outcome: 'CAUGHT',
+      inconclusiveReason: null,
+      source: 'HAND',
+      sourceCommit: null,
+      sourceRunUrl: null,
+    },
   ]);
 });

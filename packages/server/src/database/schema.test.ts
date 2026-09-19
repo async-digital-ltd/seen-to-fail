@@ -403,6 +403,67 @@ it('accepts a hand run with nothing beside it and a replay with both', async () 
 });
 
 /**
+ * An outcome and its reason, both directions, each refused by name.
+ *
+ * The first row is the one the rule was nearly blind to. btrim of null is
+ * null and a check constraint passes on null, so a branch that only compared
+ * the trimmed text would have accepted a run that settled nothing and said
+ * nothing about why. It was seen to accept exactly that row before the IS NOT
+ * NULL was written beside it.
+ */
+it.each([
+  ['a run that settled nothing with no reason', `'inconclusive', NULL`],
+  ['a run that settled nothing with a blank reason', `'inconclusive', ''`],
+  [
+    'a run that settled nothing with nothing but spaces for a reason',
+    `'inconclusive', '   '`,
+  ],
+  ['a caught run carrying a reason', `'caught', 'the anchor is gone'`],
+  ['a missed run carrying a reason', `'missed', 'the anchor is gone'`],
+])('refuses %s', async (_description, values) => {
+  const checkId = await insertCheck();
+
+  const refused = await rejectionOf(
+    database.client(),
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+        source)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', ${values},
+             'hand')`,
+    [checkId],
+  );
+
+  expect(refused).toEqual({
+    code: sqlStates.checkViolation,
+    constraint: 'test_runs_inconclusive_carries_its_reason',
+  });
+});
+
+/**
+ * The other half of the pair. A constraint that has started refusing
+ * everything is as broken as one that has stopped refusing anything, and only
+ * this says which of the two is in front of us.
+ */
+it('accepts a run that settled nothing with a reason, and two that settled', async () => {
+  const checkId = await insertCheck();
+
+  await database.client().query(
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+        source)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails',
+             'inconclusive', 'The anchor matches nothing any more.', 'hand'),
+            ($1, ${today}, 'A removed semicolon', 'The job fails',
+             'caught', NULL, 'hand'),
+            ($1, ${today}, 'A removed semicolon', 'The job fails',
+             'missed', NULL, 'hand')`,
+    [checkId],
+  );
+
+  expect(await count('test_runs')).toBe(3);
+});
+
+/**
  * No default on the source column, and that is the point of this test rather
  * than an incidental fact about it.
  *

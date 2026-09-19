@@ -170,6 +170,80 @@ describe('a run', () => {
   });
 });
 
+describe('a run that settled nothing', () => {
+  /** What a replay that could not apply its plant reported, word for word. */
+  const reason =
+    'The anchor matches 0 times in the file and has to match exactly once.';
+
+  it('is accepted, and keeps the reason as it was written', () => {
+    const result = parseLedgerRun(
+      { ...soundRun, outcome: 'inconclusive', inconclusiveReason: reason },
+      today,
+    );
+
+    expect(result.ok && result.value.outcome).toBe('inconclusive');
+    expect(result.ok && result.value.inconclusiveReason).toBe(reason);
+  });
+
+  it('is refused when it does not say why', () => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun({ ...soundRun, outcome: 'inconclusive' }, today),
+      ),
+    ).toEqual(['inconclusiveReason']);
+  });
+
+  it.each([
+    ['blank', ''],
+    ['nothing but spaces', '   '],
+  ])('is refused when the reason is %s', (_description, reason_) => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun(
+          {
+            ...soundRun,
+            outcome: 'inconclusive',
+            inconclusiveReason: reason_,
+          },
+          today,
+        ),
+      ),
+    ).toEqual(['inconclusiveReason']);
+  });
+
+  /**
+   * The rule in the other direction. A run that settled the question and
+   * carries a reason anyway is refused rather than having the reason dropped,
+   * because a record that quietly loses a field it was written with is the
+   * failure this project exists to make visible.
+   */
+  it.each(['caught', 'missed'])(
+    'refuses a %s run that carries a reason',
+    (outcome) => {
+      expect(
+        fieldsAtFault(
+          parseLedgerRun(
+            { ...soundRun, outcome, inconclusiveReason: reason },
+            today,
+          ),
+        ),
+      ).toEqual(['inconclusiveReason']);
+    },
+  );
+
+  /**
+   * Every record committed before this outcome existed says nothing about a
+   * reason, and every one of them settled something. Reading an absent key as
+   * no reason is what keeps those files valid without rewriting them, and
+   * their names are digests of their own contents, so rewriting them would
+   * have been an append-only record editing its own past.
+   */
+  it('reads a run that says nothing as one with no reason to give', () => {
+    const result = parseLedgerRun(soundRun, today);
+    expect(result.ok && result.value.inconclusiveReason).toBeNull();
+  });
+});
+
 describe('where a run came from', () => {
   /**
    * The rule that keeps the records already committed valid.

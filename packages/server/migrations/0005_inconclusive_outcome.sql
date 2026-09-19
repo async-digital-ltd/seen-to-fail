@@ -1,0 +1,28 @@
+-- A third thing a run can say: it settled nothing.
+--
+-- A replay can fail without telling you anything about the check. The plant no
+-- longer applies to code that has moved on, the check was already red before
+-- anything was planted, the check never ran, or it did go red but not for the
+-- declared reason. None of those is the check missing a defect, and recording
+-- one as a miss would take a working check to Broken on evidence that says
+-- nothing about it.
+--
+-- The label is "inconclusive" rather than "could not apply", because the four
+-- situations above are not one situation. Only the first means the plant needs
+-- rewriting; the rest are not the plant's fault. The run carries the reason as
+-- the words whoever recorded it wrote, and nothing in this project sorts those
+-- words into categories: the tool that scores a replay separates its reasons
+-- only inside an English sentence, and matching prose to recover a category is
+-- a guess wearing a category's clothes.
+--
+-- Alone in its migration, and that is a rule of PostgreSQL's rather than a
+-- preference. A value added to an enum cannot be used in the transaction that
+-- added it, and this runner puts each migration file in one transaction, so a
+-- file that added the label and then wrote a constraint naming it would fail on
+-- the constraint. 0006 is the rest of the change.
+--
+-- Appended rather than inserted in any particular place. enum_range then lists
+-- the labels in this order, and a test compares that list with the outcomes the
+-- server knows about, so a fourth label added here and nowhere else fails a
+-- test rather than reaching a status rule that has never heard of it.
+ALTER TYPE test_run_outcome ADD VALUE 'inconclusive';

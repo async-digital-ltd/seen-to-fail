@@ -37,9 +37,11 @@ const unarmedWithNoRuns: RecordedCheck = {
   howToTellArmed: 'The release job lists the notes step.',
   status: 'UNARMED',
   lastCaughtOn: null,
+  lastSettledOn: null,
   runCount: 0,
   caughtCount: 0,
   missedCount: 0,
+  inconclusiveCount: 0,
   runs: [],
   armingObservations: [],
 };
@@ -49,6 +51,7 @@ const proven: RecordedCheck = {
   name: 'Type check on every pull request',
   status: 'PROVEN',
   lastCaughtOn: '2026-09-10',
+  lastSettledOn: '2026-09-10',
   runCount: 1,
   caughtCount: 1,
   runs: [
@@ -58,6 +61,7 @@ const proven: RecordedCheck = {
       planted: 'A string where a number belongs.',
       expected: 'The job fails.',
       outcome: 'CAUGHT',
+      inconclusiveReason: null,
       note: null,
       source: 'HAND',
       sourceCommit: null,

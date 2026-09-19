@@ -1,6 +1,7 @@
 import { STATUSES } from '@seen-to-fail/filter';
 
 import type { StatusTotals } from '../database/checks.ts';
+import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
 import { escapeHtml } from './page.ts';
 import type { LedgerContents } from './load.ts';
@@ -24,8 +25,8 @@ import type { PublishedLedger } from './snapshot.ts';
  *  - the files on disk against the rows the database now holds, which catches an
  *    insert that dropped a record,
  *  - the files on disk against the export, which catches an export that dropped
- *    one, counted it twice, or published a run as coming from somewhere other
- *    than where its own file says it came from,
+ *    one, counted it twice, or published a run saying something other than what
+ *    its own file says about what the check did or where the run came from,
  *  - the export's own tally of statuses against the database's independent
  *    count of them,
  *  - the export against the rendered page, which catches a renderer that left a
@@ -145,6 +146,17 @@ export function disagreements(input: VerificationInput): string[] {
     );
     const caught = runs.filter((run) => run.record.outcome === 'caught');
     const missed = runs.filter((run) => run.record.outcome === 'missed');
+    // Counted from the files by the same rule the derivation uses, rather than
+    // as "everything that is not caught or missed". A run that settled nothing
+    // is kept out of the status rules, so a build that started counting one as
+    // a catch would publish a status nothing recorded supports, and this is the
+    // comparison that would say so.
+    const settledNothing = runs.filter(
+      (run) => !outcomeSettlesSomething[run.record.outcome],
+    );
+    const settled = runs.filter(
+      (run) => outcomeSettlesSomething[run.record.outcome],
+    );
 
     const label = `The check ${entry.record.id}`;
     compare(found, `${label}: runs`, runs.length, check.runCount);
@@ -152,9 +164,21 @@ export function disagreements(input: VerificationInput): string[] {
     compare(found, `${label}: missed`, missed.length, check.missedCount);
     compare(
       found,
+      `${label}: settled nothing`,
+      settledNothing.length,
+      check.inconclusiveCount,
+    );
+    compare(
+      found,
       `${label}: last run`,
       latest(runs.map((run) => run.record.runOn)),
       check.lastRunOn,
+    );
+    compare(
+      found,
+      `${label}: last settled`,
+      latest(settled.map((run) => run.record.runOn)),
+      check.lastSettledOn,
     );
     compare(
       found,
@@ -217,6 +241,24 @@ export function disagreements(input: VerificationInput): string[] {
         continue;
       }
       const where = `The run recorded in ${run.sourceFile}`;
+      // What the run said the check did, and why it said nothing when it said
+      // nothing. The counts above compare the files with what the database
+      // derived from them, so they cannot see a row that reached the export
+      // saying something other than what its own file says. A run published as
+      // a catch when its file says it settled nothing is exactly that, and it
+      // is the failure this outcome exists to stop.
+      compare(
+        found,
+        `${where}: what the check did`,
+        record.outcome,
+        run.outcome,
+      );
+      compare(
+        found,
+        `${where}: why it settled nothing`,
+        record.inconclusiveReason,
+        run.inconclusiveReason,
+      );
       compare(found, `${where}: where it came from`, record.source, run.source);
       compare(
         found,

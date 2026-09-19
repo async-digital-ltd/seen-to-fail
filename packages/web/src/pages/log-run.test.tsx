@@ -196,7 +196,7 @@ describe('the form refusing a submit', () => {
     {
       leaveOut: 'outcome',
       control: () => screen.getByRole('button', { name: 'Caught it' }),
-      message: 'Say whether the check caught it or missed it.',
+      message: 'Say what the check did with it.',
     },
   ] as const;
 
@@ -220,6 +220,49 @@ describe('the form refusing a submit', () => {
       expect(logCalls(calls)).toEqual([]);
     },
   );
+
+  /**
+   * The reason is asked for only when it is needed and required when it is.
+   * A run that settled nothing and will not say why is a dead end for the next
+   * reader: the plant no longer applying and the check already being red ask
+   * for opposite things, and the status has not moved either way.
+   */
+  it('asks for a reason only once the run settles nothing', async () => {
+    const { user } = renderApp({
+      route: paths.newRun(),
+      answers: [options, logged('PROVEN')],
+    });
+    await fillIn(user, { leaveOut: ['outcome'] });
+
+    expect(screen.queryByLabelText('Why it settled nothing')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Settled nothing' }));
+    expect(screen.getByLabelText('Why it settled nothing')).toBeInTheDocument();
+
+    // And it goes away again, so a reason cannot be sent with a run that
+    // settled something.
+    await user.click(screen.getByRole('button', { name: 'Caught it' }));
+    expect(screen.queryByLabelText('Why it settled nothing')).toBeNull();
+  });
+
+  it('refuses a run that settled nothing with no reason, and sends nothing', async () => {
+    const { user, calls } = renderApp({
+      route: paths.newRun(),
+      answers: [options, logged('PROVEN')],
+    });
+    await fillIn(user, { leaveOut: ['outcome'] });
+    await user.click(screen.getByRole('button', { name: 'Settled nothing' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save run' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'One detail is missing. It is marked below.',
+    );
+    expect(
+      screen.getByLabelText('Why it settled nothing'),
+    ).toHaveAccessibleDescription('Say why the run settled nothing.');
+    expect(logCalls(calls)).toEqual([]);
+  });
 
   it('counts text of nothing but spaces as missing', async () => {
     const { user } = renderApp({
@@ -416,9 +459,56 @@ describe('a saved run', () => {
             planted: 'An unused import in a changed file.',
             expected: 'The commit is refused.',
             outcome: 'CAUGHT',
+            // A run that settled the question carries no reason, and the form
+            // sends none rather than the empty field it has for one.
+            inconclusiveReason: null,
             note: null,
             // The form is the hand route and says so, rather than leaving the
             // API to assume it. There is no control for this on the page.
+            source: 'HAND',
+          },
+        },
+      },
+    ]);
+  });
+
+  /**
+   * The third outcome, from the form.
+   *
+   * Somebody who goes to plant the defect and finds the plant no longer fits
+   * the code has learned something real. Without this choice they would have
+   * to file it as a catch or a miss, either of which moves a status on
+   * evidence that says nothing about the check, which is the failure this
+   * outcome exists to stop.
+   */
+  it('sends a run that settled nothing with the reason for it', async () => {
+    const { user, calls } = renderApp({
+      route: paths.newRun(),
+      answers: [options, logged('PROVEN')],
+    });
+    await fillIn(user, { leaveOut: ['outcome'] });
+    await user.click(screen.getByRole('button', { name: 'Settled nothing' }));
+    await user.type(
+      screen.getByLabelText('Why it settled nothing'),
+      'The anchor matches nothing any more.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save run' }));
+    await screen.findByText(/now has/);
+
+    expect(logCalls(calls)).toEqual([
+      {
+        kind: 'mutation',
+        name: 'LogTestRun',
+        variables: {
+          input: {
+            checkId: lint.id,
+            runOn: testDay,
+            planted: 'An unused import in a changed file.',
+            expected: 'The commit is refused.',
+            outcome: 'INCONCLUSIVE',
+            inconclusiveReason: 'The anchor matches nothing any more.',
+            note: null,
             source: 'HAND',
           },
         },
@@ -540,6 +630,10 @@ it('works end to end with the keyboard alone', async () => {
   expect(screen.getByRole('button', { name: 'Missed it' })).toHaveFocus();
   await user.keyboard(' ');
   await user.tab();
+  // The third choice is a tab stop of its own, between the second and the
+  // note, and a keyboard reader passes through it on the way.
+  expect(screen.getByRole('button', { name: 'Settled nothing' })).toHaveFocus();
+  await user.tab();
   await user.keyboard('Nobody noticed for a week.');
   await user.tab();
   expect(screen.getByRole('button', { name: 'Save run' })).toHaveFocus();
@@ -559,6 +653,7 @@ it('works end to end with the keyboard alone', async () => {
           planted: 'A rule switched off in the config.',
           expected: 'The build fails.',
           outcome: 'MISSED',
+          inconclusiveReason: null,
           note: 'Nobody noticed for a week.',
           source: 'HAND',
         },

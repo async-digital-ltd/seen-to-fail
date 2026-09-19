@@ -114,6 +114,7 @@ it('reads back a test run, with its day as text', async () => {
       planted: true,
       expected: true,
       outcome: true,
+      inconclusiveReason: true,
       note: true,
       source: true,
       sourceCommit: true,
@@ -131,6 +132,9 @@ it('reads back a test run, with its day as text', async () => {
   expect(testRunOutcomes).toContain(run.outcome);
   expect(run.outcome).toBe('caught');
   expect(run.note).toBe('Took four minutes to report');
+  // A run that settled the question has no reason to give, and reads back with
+  // none rather than with an empty string standing in for one.
+  expect(run.inconclusiveReason).toBeNull();
   expect(testRunSources).toContain(run.source);
   expect(run.source).toBe('hand');
   // A run somebody typed in has neither, and reads back with neither rather

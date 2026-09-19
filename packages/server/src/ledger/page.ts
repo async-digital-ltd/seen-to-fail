@@ -1,6 +1,7 @@
 import type { Status } from '@seen-to-fail/filter';
 
-import type { IsoDate } from '../database/rows.ts';
+import { outcomeSettlesSomething } from '../database/rows.ts';
+import type { IsoDate, TestRunOutcome } from '../database/rows.ts';
 import type {
   PublishedCheck,
   PublishedLedger,
@@ -122,12 +123,44 @@ function written(text: string): string {
     : escapeHtml(text);
 }
 
+/**
+ * What each outcome is called on the page.
+ *
+ * "settled nothing" rather than "inconclusive", because the word a reader needs
+ * is the one that says the run tells them nothing about the check, and every
+ * other sentence on the page about this outcome is worded the same way. Keyed
+ * by the outcome, so an outcome added and not worded fails to compile rather
+ * than printing its own label at a reader.
+ */
+const outcomeWords = {
+  caught: 'caught',
+  missed: 'missed',
+  inconclusive: 'settled nothing',
+} as const satisfies Record<TestRunOutcome, string>;
+
+/**
+ * What a run did, and for one that settled nothing the reason as it was
+ * written.
+ *
+ * The reason is shown and not sorted into a category. Only one of the
+ * situations that settle nothing means the plant needs rewriting, they are told
+ * apart by a scoring tool inside an English sentence, and a category recovered
+ * by matching that prose would send a reader to rewrite a plant that is fine.
+ * So the sentence is handed over as it arrived and the reader decides.
+ */
+function outcomeCell(run: PublishedRun): string {
+  const badge = `<span class="outcome outcome-${escapeHtml(run.outcome)}">${escapeHtml(outcomeWords[run.outcome])}</span>`;
+  return run.inconclusiveReason === null
+    ? badge
+    : `${badge}<p class="note">${escapeHtml(run.inconclusiveReason)}</p>`;
+}
+
 function runRow(ledger: PublishedLedger, run: PublishedRun): string {
   const note =
     run.note === null ? '' : `<p class="note">${escapeHtml(run.note)}</p>`;
   return `<tr>
   <td>${escapeHtml(run.runOn)}</td>
-  <td><span class="outcome outcome-${escapeHtml(run.outcome)}">${escapeHtml(run.outcome)}</span></td>
+  <td>${outcomeCell(run)}</td>
   <td>${escapeHtml(run.planted)}${note}</td>
   <td>${escapeHtml(run.expected)}</td>
   <td>${sourceCell(ledger, run)}</td>
@@ -179,24 +212,73 @@ ${check.observations.map((observation) => observationRow(ledger, observation)).j
 </table>`;
 }
 
-function checkSection(ledger: PublishedLedger, check: PublishedCheck): string {
-  const counts =
-    check.runCount === 0
-      ? 'no runs'
-      : `${String(check.runCount)} ${check.runCount === 1 ? 'run' : 'runs'}, ` +
-        `${String(check.caughtCount)} caught, ${String(check.missedCount)} missed`;
+/**
+ * The counts under a check's name.
+ *
+ * The runs that settled nothing are named only when there are some. They are
+ * safe to leave out at zero because the three counts add up to the run count
+ * beside them, so a reader who can see that caught and missed already account
+ * for every run can see that nothing is being held back.
+ */
+function countsLine(check: PublishedCheck): string {
+  if (check.runCount === 0) {
+    return 'no runs';
+  }
+  const settledNothing =
+    check.inconclusiveCount === 0
+      ? ''
+      : `, ${String(check.inconclusiveCount)} settled nothing`;
+  return (
+    `${String(check.runCount)} ${check.runCount === 1 ? 'run' : 'runs'}, ` +
+    `${String(check.caughtCount)} caught, ${String(check.missedCount)} missed` +
+    settledNothing
+  );
+}
 
+/**
+ * The line that says the latest run told the reader nothing, when it did.
+ *
+ * It is the whole point of the third outcome being on this page. Without it, a
+ * check whose replays have all stopped applying reads with the status its last
+ * real run left it, and nothing on the page says that the runs since then were
+ * not evidence. The status is not wrong; it is just older than the newest row
+ * in the table makes it look, and this says how much older.
+ */
+function unsettledNotice(check: PublishedCheck): string {
+  const [latest] = check.runs;
+  if (latest === undefined || outcomeSettlesSomething[latest.outcome]) {
+    return '';
+  }
+  if (latest.inconclusiveReason === null) {
+    // A run that settled nothing carries its reason or the reader, the
+    // database and the check the build runs before it publishes all refuse it.
+    // Reaching here without one means all three have stopped working, so this
+    // says so rather than printing a sentence with a hole in it.
+    throw new Error(
+      `The run recorded in ${latest.sourceFile} settled nothing and is published without a reason.`,
+    );
+  }
+  const since =
+    check.lastSettledOn === null
+      ? 'Nothing has ever settled anything for this check.'
+      : `Its status is read from ${escapeHtml(check.lastSettledOn)}, the last run that settled anything.`;
+  return `<p class="unsettled">The latest run settled nothing: ${escapeHtml(latest.inconclusiveReason)} ${since} Read that reason and decide whether the plant needs rewriting.</p>`;
+}
+
+function checkSection(ledger: PublishedLedger, check: PublishedCheck): string {
   return `<article class="check" id="${escapeHtml(check.id)}">
 <h3>${escapeHtml(check.name)}</h3>
 <p class="summary">
   <span class="status status-${escapeHtml(check.status)}">${escapeHtml(check.status)}</span>
   <span class="area">${escapeHtml(check.area)}</span>
-  <span class="muted">${escapeHtml(counts)}</span>
+  <span class="muted">${escapeHtml(countsLine(check))}</span>
 </p>
+${unsettledNotice(check)}
 <dl>
   <dt>Protects</dt><dd>${written(check.protects)}</dd>
   <dt>How you can tell it is on</dt><dd>${written(check.howToTellArmed)}</dd>
   <dt>Last caught</dt><dd>${day(check.lastCaughtOn)}</dd>
+  <dt>Last settled</dt><dd>${day(check.lastSettledOn)}</dd>
   <dt>Last run</dt><dd>${day(check.lastRunOn)}</dd>
 </dl>
 ${runsTable(ledger, check)}
@@ -278,9 +360,19 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .status-Proven, .outcome-caught { color: var(--success); border-color: var(--success); }
 .status-Broken, .outcome-missed { color: var(--error); border-color: var(--error); }
 .status-Stale { color: var(--warning); border-color: var(--warning); }
+/* Amber measures 2.9:1 on this page's ground, which is under the floor for
+   text, so this pill takes the colour on its edge and says its word in ink. */
+.outcome-inconclusive { color: var(--ink); border-color: var(--warning); }
 .status-Unproven, .status-Unarmed { color: var(--muted); }
 .area { color: var(--muted); font-size: 0.9rem; }
 .muted { color: var(--muted); }
+.unsettled {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--warning);
+  background: var(--bg);
+  font-size: 0.9rem;
+}
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0 0 1.25rem; }
 dt { color: var(--muted); font-size: 0.85rem; }
 dd { margin: 0; }
@@ -333,6 +425,7 @@ ${
 <footer>
 <p>Built from commit <a href="${escapeHtml(commitHref)}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, read as of ${escapeHtml(ledger.builtOn)}, with a catch counted stale after ${String(ledger.staleAfterDays)} days. ${String(checkCount)} ${checkCount === 1 ? 'check' : 'checks'}, ${String(runCount)} recorded ${runCount === 1 ? 'run' : 'runs'}.</p>
 <p>Every run above is a file in the repository, and the commit under "Recorded in" is the commit that added that file. A run gets there by being committed, so a record that is wrong has an author, a diff and a revert.</p>
+<p>A run that <strong>settled nothing</strong> is neither a catch nor a miss, and no status rule reads one. The plant may no longer apply to code that has moved on, the check may have been red before anything was planted, or it may never have run at all. Each of those calls for something different, so the reason is shown as whoever recorded it wrote it rather than sorted into a category here. "Last settled" is the day of the newest run that did settle something, which is the day the status above it was read from.</p>
 <p>"Came from" is a different fact, and it is the one that says whether a proof keeps itself. A run by hand is one somebody planted, watched and typed in. A run by replay was planted and scored by a job, and names the commit it ran against, which is the state of the code it was applied to rather than the commit that recorded it afterwards.</p>
 <p>This page is the record and nothing else: it is read-only, it has no filter bar, and there is no server behind it. The filter language, which compiles a filter to SQL, needs a database to compile against, so it is what you get when you run the app locally rather than something this page can offer.</p>
 <p>The same ledger is published beside this page as <a href="ledger.json"><code>ledger.json</code></a>.</p>

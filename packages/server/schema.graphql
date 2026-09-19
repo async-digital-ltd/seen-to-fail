@@ -37,12 +37,21 @@ enum Status {
   BROKEN
 }
 
-"What a check did with the defect that was planted for it."
+"""
+What a check did with the defect that was planted for it.
+
+Two of these are evidence about the check and one is not. A run that settled
+nothing says the defect never got planted as declared, or that the check was
+already failing, or that it never ran, and none of those is a check missing a
+defect. No status rule reads one.
+"""
 enum Outcome {
   "It reported the planted defect, which is the only thing that proves it works."
   CAUGHT
   "The defect was planted and the check said nothing."
   MISSED
+  "The run settled nothing, and says why. Never counted as either of the above."
+  INCONCLUSIVE
 }
 
 """
@@ -75,6 +84,15 @@ type TestRun {
   expected: String!
   "What it actually did."
   outcome: Outcome!
+  """
+  Why the run settled nothing. Null on a run that settled something.
+
+  The words whoever recorded it wrote, not a category. The situations that
+  settle nothing call for different things, only one of them means the plant
+  needs rewriting, and they are told apart by a sentence rather than by a code,
+  so this is handed over as it arrived and the reader decides.
+  """
+  inconclusiveReason: String
   "Anything worth telling the next person. Null when nobody wrote one."
   note: String
   "Whether a person typed this run in or a replay posted it."
@@ -128,9 +146,23 @@ type Check {
   lastCaughtOn: Date
   "The day of the latest run, or null when there are none."
   lastRunOn: Date
+  """
+  The day of the latest run that settled anything, or null when none has.
+
+  The day the status was read from. On a check whose recent runs have all
+  settled nothing, this is how old the status really is.
+  """
+  lastSettledOn: Date
   runCount: Int!
   caughtCount: Int!
   missedCount: Int!
+  """
+  How many runs settled nothing, and so proved nothing either way.
+
+  With the two above it adds up to runCount, so none of the three can quietly
+  absorb another.
+  """
+  inconclusiveCount: Int!
   "The last day an observation said it was on, or null if none has."
   lastSeenArmedOn: Date
   """
@@ -247,6 +279,11 @@ input LogTestRunInput {
   expected: String!
   "What it actually did."
   outcome: Outcome!
+  """
+  Why the run settled nothing. Required on a run that settled nothing, and
+  refused on one that caught or missed, which has nothing to explain.
+  """
+  inconclusiveReason: String
   "Anything worth telling the next person. A blank note is stored as none."
   note: String
   """
@@ -355,7 +392,9 @@ type Mutation {
   cannot be saved is refused on that field, an unknown check on checkId, and a
   day after today on runOn. A replay without its commit or its run link is
   refused on whichever is missing, and a run typed in by hand carrying either
-  is refused on the one it carries.
+  is refused on the one it carries. A run that settled nothing and does not say
+  why is refused on inconclusiveReason, as is one that caught or missed and
+  says why anyway.
   """
   logTestRun(input: LogTestRunInput!): TestRunResult!
   """

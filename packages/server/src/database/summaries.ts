@@ -25,9 +25,23 @@ export interface CheckSummary {
   readonly lastCaughtOn: IsoDate | null;
   /** The day of the latest run, or null when there are none. */
   readonly lastRunOn: IsoDate | null;
+  /**
+   * The day of the latest run that settled anything, or null when none has.
+   *
+   * The day the status was read from. On a check whose recent runs have all
+   * settled nothing it is the figure a reader needs beside the status: the
+   * status is as old as this, whatever has been attempted since.
+   */
+  readonly lastSettledOn: IsoDate | null;
   readonly runCount: number;
   readonly caughtCount: number;
   readonly missedCount: number;
+  /**
+   * How many runs settled nothing. With the two above it adds up to runCount,
+   * so a reader can see that none of them has been quietly absorbed into
+   * another.
+   */
+  readonly inconclusiveCount: number;
   /** The last day an observation said it was on, or null if none has. */
   readonly lastSeenArmedOn: IsoDate | null;
   /**
@@ -57,9 +71,11 @@ export function derivedSummaryColumnsFrom(source: string): string {
     `${source}.status`,
     `${isoDate(`${source}.last_caught_on`)} AS "lastCaughtOn"`,
     `${isoDate(`${source}.last_run_on`)} AS "lastRunOn"`,
+    `${isoDate(`${source}.last_settled_on`)} AS "lastSettledOn"`,
     `${source}.run_count AS "runCount"`,
     `${source}.caught_count AS "caughtCount"`,
     `${source}.missed_count AS "missedCount"`,
+    `${source}.inconclusive_count AS "inconclusiveCount"`,
     `${isoDate(`${source}.last_seen_armed_on`)} AS "lastSeenArmedOn"`,
     `${source}.last_armed AS "lastArmed"`,
   ].join(', ');

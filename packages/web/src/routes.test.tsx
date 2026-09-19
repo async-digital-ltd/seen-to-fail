@@ -64,9 +64,11 @@ const recorded: NonNullable<CheckDetailQuery['check']> = {
   howToTellArmed: 'The lint job is listed on every push.',
   status: 'PROVEN',
   lastCaughtOn: '2026-09-12',
+  lastSettledOn: '2026-09-12',
   runCount: 1,
   caughtCount: 1,
   missedCount: 0,
+  inconclusiveCount: 0,
   runs: [
     {
       id: 'run-1',
@@ -74,6 +76,7 @@ const recorded: NonNullable<CheckDetailQuery['check']> = {
       planted: 'An unused import.',
       expected: 'The push is refused.',
       outcome: 'CAUGHT',
+      inconclusiveReason: null,
       note: null,
       source: 'HAND',
       sourceCommit: null,

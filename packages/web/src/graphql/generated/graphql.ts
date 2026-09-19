@@ -29,6 +29,11 @@ export type LogTestRunInput = {
   checkId: string | number;
   /** What the check was expected to do about it. Not blank. */
   expected: string;
+  /**
+   * Why the run settled nothing. Required on a run that settled nothing, and
+   * refused on one that caught or missed, which has nothing to explain.
+   */
+  inconclusiveReason?: string | null | undefined;
   /** Anything worth telling the next person. A blank note is stored as none. */
   note?: string | null | undefined;
   /** What it actually did. */
@@ -54,10 +59,19 @@ export type LogTestRunInput = {
   sourceRunUrl?: string | null | undefined;
 };
 
-/** What a check did with the defect that was planted for it. */
+/**
+ * What a check did with the defect that was planted for it.
+ *
+ * Two of these are evidence about the check and one is not. A run that settled
+ * nothing says the defect never got planted as declared, or that the check was
+ * already failing, or that it never ran, and none of those is a check missing a
+ * defect. No status rule reads one.
+ */
 export type Outcome =
   /** It reported the planted defect, which is the only thing that proves it works. */
   | 'CAUGHT'
+  /** The run settled nothing, and says why. Never counted as either of the above. */
+  | 'INCONCLUSIVE'
   /** The defect was planted and the check said nothing. */
   | 'MISSED';
 
@@ -121,15 +135,18 @@ export type CheckDetailQuery = {
     howToTellArmed: string;
     status: Status;
     lastCaughtOn: string | null;
+    lastSettledOn: string | null;
     runCount: number;
     caughtCount: number;
     missedCount: number;
+    inconclusiveCount: number;
     runs: Array<{
       id: string;
       runOn: string;
       planted: string;
       expected: string;
       outcome: Outcome;
+      inconclusiveReason: string | null;
       note: string | null;
       source: RunSource;
       sourceCommit: string | null;
@@ -298,9 +315,17 @@ export const CheckDetailDocument = {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'lastCaughtOn' },
                 },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'lastSettledOn' },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'runCount' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'caughtCount' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'missedCount' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'inconclusiveCount' },
+                },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'runs' },
@@ -320,6 +345,10 @@ export const CheckDetailDocument = {
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'outcome' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'inconclusiveReason' },
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'note' } },
                       {

@@ -49,11 +49,45 @@ export interface Queryable {
  */
 export type IsoDate = string;
 
-/** What a check did with the defect that was planted for it. */
-export const testRunOutcomes = ['caught', 'missed'] as const;
+/**
+ * What a check did with the defect that was planted for it.
+ *
+ * In the order the database's own enum lists them, because a test reads the
+ * labels back and compares the two lists. An outcome added on one side only is
+ * then a failing test rather than a value that arrives somewhere nothing has a
+ * branch for.
+ */
+export const testRunOutcomes = ['caught', 'missed', 'inconclusive'] as const;
 
 /** The outcome column's PostgreSQL enum, as a TypeScript type. */
 export type TestRunOutcome = (typeof testRunOutcomes)[number];
+
+/**
+ * Whether an outcome settles anything about the check, which is the same
+ * question as whether the status rules read it.
+ *
+ * A run that settled nothing is not evidence about the check: the plant no
+ * longer applied, or the check was already red, or it never ran. Counting one
+ * as a miss would take a working check to Broken on evidence that says nothing
+ * about it, so the derivation skips those rows entirely.
+ *
+ * A map rather than a second list, so that adding an outcome above and not
+ * classifying it here is a type error. The answer cannot be guessed from the
+ * label, so somebody has to give it.
+ */
+export const outcomeSettlesSomething = {
+  caught: true,
+  missed: true,
+  inconclusive: false,
+} as const satisfies Record<TestRunOutcome, boolean>;
+
+/** The outcomes the status rules read. */
+export const settledOutcomes: readonly TestRunOutcome[] =
+  testRunOutcomes.filter((outcome) => outcomeSettlesSomething[outcome]);
+
+/** The outcomes that settle nothing, and are kept out of the status rules. */
+export const unsettledOutcomes: readonly TestRunOutcome[] =
+  testRunOutcomes.filter((outcome) => !outcomeSettlesSomething[outcome]);
 
 /**
  * Where a run came from: a person typed it in, or a replay posted it.
@@ -90,6 +124,16 @@ export interface TestRun {
   readonly planted: string;
   readonly expected: string;
   readonly outcome: TestRunOutcome;
+  /**
+   * Why the run settled nothing, or null when it settled something.
+   *
+   * The words whoever recorded it wrote, copied and not interpreted. Nothing
+   * in this project sorts them into categories: a replay's scoring tool
+   * separates its own reasons only inside an English sentence, and a category
+   * recovered by matching prose is a guess that would tell a reader to rewrite
+   * a plant that is fine.
+   */
+  readonly inconclusiveReason: string | null;
   readonly note: string | null;
   /** Whether a person typed this run in or a replay posted it. */
   readonly source: TestRunSource;
@@ -198,6 +242,7 @@ export const testRunColumns = [
   'planted',
   'expected',
   'outcome',
+  'inconclusive_reason AS "inconclusiveReason"',
   'note',
   'source',
   'source_commit AS "sourceCommit"',

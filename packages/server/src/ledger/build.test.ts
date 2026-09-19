@@ -131,6 +131,66 @@ it('shows a run recorded by the recorder, and the commit that recorded it', asyn
 });
 
 /**
+ * A run that settled nothing, all the way through: recorded by the step a job
+ * runs, loaded into the database, read back through the status function, and
+ * published.
+ *
+ * The check is Proven from a catch three weeks earlier and stays Proven with
+ * a newer run that settled nothing against it. Every step between the file and
+ * the page has its own tests; this is the one that says they agree with each
+ * other, and it is the path a replay whose plant has stopped applying takes.
+ */
+it('publishes a run that settled nothing without moving the status', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  const caught = await recordRun({
+    directory,
+    today: asOf,
+    input: {
+      checkId: 'ci-lint',
+      runOn: '2026-08-28',
+      planted: 'A rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+  });
+  const toldNothing = await recordRun({
+    directory,
+    today: asOf,
+    input: {
+      checkId: 'ci-lint',
+      runOn: asOf,
+      planted: 'A rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'inconclusive',
+      inconclusiveReason:
+        'The anchor matches 0 times in the file and has to match once.',
+      source: 'replay',
+      sourceCommit: 'abcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      sourceRunUrl: 'https://ci.example.com/runs/91',
+    },
+  });
+  if (!caught.ok || !toldNothing.ok) {
+    throw new Error('A run was refused.');
+  }
+
+  const { page, ledger } = await build(directory);
+  const published = ledger.checks[0];
+
+  expect(published?.status).toBe('Proven');
+  expect(published?.inconclusiveCount).toBe(1);
+  expect(published?.caughtCount).toBe(1);
+  expect(published?.missedCount).toBe(0);
+  // The status is as old as the catch, and the newest run is the later one.
+  expect(published?.lastSettledOn).toBe('2026-08-28');
+  expect(published?.lastRunOn).toBe(asOf);
+  expect(page).toContain('settled nothing');
+  expect(page).toContain('The anchor matches 0 times in the file');
+});
+
+/**
  * The acceptance criterion this whole design turns on: the published statuses
  * are the database's, not a second implementation's. The database is asked
  * again here, by this test rather than by the build, and the two answers are
