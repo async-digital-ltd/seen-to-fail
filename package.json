@@ -27,6 +27,7 @@
     "ledger:validate": "node packages/server/src/scripts/validate-ledger.ts",
     "ledger:record": "node packages/server/src/scripts/record-run.ts",
     "ledger:replay": "node packages/server/src/scripts/record-replay.ts",
+    "replay:select": "node packages/server/src/scripts/select-replays.ts",
     "ledger:build": "node packages/server/src/scripts/build-ledger.ts"
   },
   "devDependencies": {

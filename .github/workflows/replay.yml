@@ -4,22 +4,54 @@ name: Replay a plant
 # does, and records one run per break through the same recorder a person's run
 # goes through. Nothing is typed in and no verdict is guessed at.
 #
-# Dispatch only, deliberately. Two reasons, and the second is the stronger one.
-# Each dispatch runs the check once on a clean tree and once per declared break,
-# which is three runs of `pnpm typecheck` today, and Actions minutes on a
-# private repository are a finite allowance this project has no budget for. The
-# larger cost is to the record: a replay is a dated observation, and running one
-# on every merge would file a near identical proof several times a day, each
-# against a different commit and so each a separate row, burying the runs that
-# say something under runs that say the same thing again. A cadence belongs on a
-# schedule rather than on every push, and choosing one is not this story's work.
+# On a schedule, and never on a push. Two reasons, and the second is the
+# stronger one. Each replay runs the check once on a clean tree and once per
+# declared break, which is three runs of `pnpm typecheck` today, and Actions
+# minutes on a private repository are a finite allowance this project has no
+# budget for. The larger cost is to the record: a replay is a dated observation,
+# and running one on every merge would file a near identical proof several times
+# a day, each against a different commit and so each a separate row, burying the
+# runs that say something under runs that say the same thing again. Both of
+# those are arguments against a per-push cadence rather than against a cadence,
+# and the one chosen here is weekly.
+#
+# The arithmetic, measured rather than estimated. Run 35429662430, the only full
+# replay this repository has on record, ran from 07:33:51 to 07:34:49 on 19
+# September 2026: 58 seconds, billed as one minute, because Actions bills a job
+# rounded up. Weekly is about 4.3 runs a month, so about five billed minutes
+# against the 2,000 a private repository gets free, a quarter of one percent.
+# Daily would be about thirty billed minutes a month for a record whose inputs
+# change a few times a week, and it would queue up to thirty branches a month
+# for a person to open a pull request on, which is the handoff #74 ruled on and
+# the real bound on how often this can usefully run.
+#
+# Weekly against the thirty-day backstop is the other half of the choice. The
+# backstop is what voids a proof when no replay arrives, so a cadence has to sit
+# well inside it or it does nothing the backstop was not already doing: at
+# monthly, something a check depends on could change the day after a run and the
+# check would be Stale before the next run ever looked. Weekly notices a change
+# within seven days, which leaves twenty-three days of margin.
+#
+# The schedule does not refresh a proof that is merely old, and that is #68's
+# second criterion rather than an omission. Only a change to something a check
+# declares it depends on posts a run, so a check nothing has touched still goes
+# Stale at thirty days and is replayed by hand from the dispatch below.
 #
 # The replay is NOT added to the CI workflow that runs on every pull request.
 # canfail edits real source files on disk and restores them afterwards, which is
 # fine on a runner nobody else is using and is not something to put in the path
 # of every contributor's change.
 on:
+  schedule:
+    # Mondays, 04:17 UTC. Not on the hour: GitHub queues scheduled runs, and the
+    # top of the hour is where everybody else's are.
+    - cron: '17 4 * * 1'
   workflow_dispatch:
+    inputs:
+      only-due:
+        description: Replay only the checks a change has touched, as the schedule does.
+        type: boolean
+        default: false
 
 # Only what it needs. The job pushes a branch and never opens a pull request, so
 # `pull-requests: write` would be a permission nothing here uses. See the last
@@ -44,8 +76,18 @@ jobs:
       BRANCH: replay/${{ github.run_id }}
 
     steps:
+      # With the whole history, because the selection below asks what has
+      # changed since the commit each check was last replayed against, and that
+      # commit is usually weeks behind. A shallow clone holds one, so every
+      # recorded commit would be unreachable, every check would fall back to
+      # comparing against the empty tree, and every check with a list would be
+      # replayed on every run. The script refuses a shallow clone outright
+      # rather than answering that, so this is what keeps the step passing as
+      # well as what keeps it truthful.
       - name: Check out the repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -56,19 +98,68 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Which checks a change touches (#68), and the step that decides whether
+      # anything below it runs at all. Ahead of Python and of the replay tool on
+      # purpose: the whole point of asking is to spend nothing when the answer
+      # is nothing.
+      #
+      # Three statuses, each meaning something different here. 0 is work to do,
+      # and the declaration naming it is written under RUNNER_TEMP. 3 is nothing
+      # to do, which is a green job with no output rather than a failure.
+      # Anything else is a refusal, and it stops the run with nothing written. A
+      # step that looked for the output file instead could not tell a refusal
+      # from an honest empty answer, which is the distinction this whole
+      # repository is about.
+      - name: Work out which checks are due
+        id: select
+        env:
+          # A dispatch replays every declared check unless it is asked not to.
+          # That is the behaviour this workflow had before the schedule existed,
+          # and it is the route a person takes when a check has gone Stale with
+          # nobody having touched anything it depends on, which the matching
+          # deliberately does not catch.
+          MATCHING: ${{ github.event_name == 'schedule' || inputs.only-due }}
+        run: |
+          set -euo pipefail
+          if [ "$MATCHING" != 'true' ]; then
+            echo "Every declared check will be replayed."
+            echo "config=canfail.json" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status=0
+          pnpm replay:select -- \
+            --config canfail.json \
+            --out "$RUNNER_TEMP/canfail-due.json" || status=$?
+          if [ "$status" -eq 3 ]; then
+            {
+              echo "## Nothing to replay"
+              echo
+              echo "Nothing a declared check depends on has changed since that check was last replayed."
+              echo "No plant was applied and nothing was recorded."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "The selection refused, so nothing was replayed." >&2
+            exit 1
+          fi
+          echo "config=$RUNNER_TEMP/canfail-due.json" >> "$GITHUB_OUTPUT"
+
       - name: Install Python
+        if: steps.select.outputs.config != ''
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       # Pinned to the version #66 adopted and measured. An unpinned install
       # would let the scoring change under a ledger that cannot yet see which
       # version produced a verdict, which is the staleness condition epic #62
       # names and the reason the tool field is worth having.
       - name: Install the replay tool
+        if: steps.select.outputs.config != ''
         run: pip install canfail==0.2.1
 
       # canfail exits 1 when any guard was blind or failed the wrong way, and 0
@@ -88,11 +179,20 @@ jobs:
       # is an ordinary environment variable on the runner; the `runner` context
       # it mirrors is not available in a job level `env` block, so spelling it
       # here is what makes the path resolve rather than expanding to nothing.
+      #
+      # The declaration it is handed is the one the step above chose, which on
+      # the scheduled lane holds only the checks that are due and sits under
+      # RUNNER_TEMP. Every break inside it still names its file relative to the
+      # checkout, which is what `--cwd` is for: where the declaration lives and
+      # where the files it breaks live are two different questions.
       - name: Replay the declared plants
+        if: steps.select.outputs.config != ''
+        env:
+          CANFAIL_CONFIG: ${{ steps.select.outputs.config }}
         run: |
           set -euo pipefail
           status=0
-          canfail --cwd "$GITHUB_WORKSPACE" --json canfail.json > "$RUNNER_TEMP/canfail-report.json" || status=$?
+          canfail --cwd "$GITHUB_WORKSPACE" --json "$CANFAIL_CONFIG" > "$RUNNER_TEMP/canfail-report.json" || status=$?
           echo "canfail exited $status."
           if [ "$status" -ge 2 ]; then
             echo "canfail could not run. Nothing was replayed." >&2
@@ -106,6 +206,7 @@ jobs:
       # than as a negated command, because `set -e` does not apply to a command
       # whose status is inverted with `!`.
       - name: Check the tree came back
+        if: steps.select.outputs.config != ''
         run: |
           set -euo pipefail
           if [ -n "$(git status --porcelain)" ]; then
@@ -119,7 +220,13 @@ jobs:
       # stops here with nothing written, so the steps below have nothing to
       # commit. Every value it reads comes through the environment rather than
       # being substituted into the text of this script.
+      #
+      # The whole declaration, not the one the selection chose. The addresses a
+      # report is recorded against are the same either way, and reading them
+      # from the file that is committed keeps this step's behaviour independent
+      # of which lane picked the plants.
       - name: Record what the replay found
+        if: steps.select.outputs.config != ''
         run: |
           pnpm ledger:replay -- \
             --report "$RUNNER_TEMP/canfail-report.json" \
@@ -130,6 +237,7 @@ jobs:
       # The same command CI runs and the recording workflow runs, so this job
       # cannot commit a ledger either of them would have refused.
       - name: Check the whole ledger still reads
+        if: steps.select.outputs.config != ''
         run: pnpm ledger:validate
 
       # Push the branch, exit 0, and tell a person what is waiting.
@@ -149,6 +257,7 @@ jobs:
       # summary rather than buried in a failed step's log. The green means
       # recorded and waiting for a person. It does not mean done.
       - name: Push the record and say what is waiting
+        if: steps.select.outputs.config != ''
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
