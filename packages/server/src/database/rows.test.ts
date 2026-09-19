@@ -1,9 +1,11 @@
 import { expect, it } from 'vitest';
 
 import { useTestDatabase } from '../testing/test-database.ts';
+import { listRunsForChecks } from './checks.ts';
 import {
   armingObservationColumns,
   checkColumns,
+  outcomePrecedence,
   savedFilterColumns,
   selectRows,
   testRunColumns,
@@ -251,4 +253,53 @@ it('reads back a saved filter with its tree intact', async () => {
   expect(saved.name).toBe('Needs proving');
   expect(saved.filter).toEqual(filter);
   expect(saved.createdAt).toBeInstanceOf(Date);
+});
+
+/**
+ * The rank in outcomePrecedence and the rank the database sorts by, read off
+ * each other.
+ *
+ * An ORDER BY cannot read a TypeScript map, so the same rule is written a
+ * second time in SQL, in listRunsForChecks and in the migrations. Two copies of
+ * one rule drift, and this is the only thing that would say so: one run per
+ * outcome, all on one day, so the day decides nothing and the outcome is the
+ * only key left with anything to say.
+ *
+ * The three are inserted in the order they are expected back, one statement at
+ * a time, so created_at ascends with them. The keys this ordering used before
+ * the outcome was one of them were created_at and then the id, and the newest
+ * written is the last inserted, so a query that ignored the outcome returns
+ * this list reversed. It cannot pass by accident.
+ */
+it('sorts runs on one day by the precedence outcomePrecedence gives', async () => {
+  const checkId = await insertCheck();
+  const expected = [...testRunOutcomes].sort(
+    (left, right) => outcomePrecedence[left] - outcomePrecedence[right],
+  );
+
+  for (const outcome of expected) {
+    await database.client().query(
+      `INSERT INTO test_runs
+         (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+          source)
+       VALUES ($1, '2026-09-17', 'A removed semicolon', 'The job fails', $2,
+               $3, 'hand')`,
+      [
+        checkId,
+        outcome,
+        outcome === 'inconclusive'
+          ? 'The anchor no longer matches, so nothing broke.'
+          : null,
+      ],
+    );
+  }
+
+  const runs = await listRunsForChecks(database.client(), [checkId]);
+
+  expect(runs.map((run) => run.outcome)).toEqual(expected);
+  // The control on the fixture rather than on the query: all three really are
+  // on one day, so nothing above was decided by the day.
+  expect(new Set(runs.map((run) => run.runOn))).toEqual(
+    new Set(['2026-09-17']),
+  );
 });

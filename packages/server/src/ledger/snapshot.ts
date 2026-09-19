@@ -1,5 +1,6 @@
 import type { Status } from '@seen-to-fail/filter';
 
+import { outcomePrecedence } from '../database/rows.ts';
 import type {
   IsoDate,
   TestRunOutcome,
@@ -131,20 +132,34 @@ function sourceFileOf(ledgerPath: string, entry: LedgerEntry<unknown>): string {
 }
 
 /**
- * Newest first, by the day it happened and then by the file it is recorded in.
+ * Newest first, by the day it happened, then by a rank the caller gives, then
+ * by the file it is recorded in.
  *
- * The second key is what makes the order the same on every build. Two runs can
- * share a day, and sorting by the day alone leaves the order to whatever the
+ * The rank is what decides between two records dated to the same day, which is
+ * the finest grain either kind of record is dated to. Runs pass
+ * outcomePrecedence, so a miss published on a day outranks a catch published on
+ * the same day and the first run in a check's list is the run its status was
+ * read from. Observations have nothing to rank and pass none, and every record
+ * then ranks equal, which is the order this function gave before there was a
+ * rank at all.
+ *
+ * The file is the last key, and it is what makes the order the same on every
+ * build. Sorting by the earlier keys alone leaves the rest to whatever the
  * directory listing happened to give, so the same records could publish in two
  * different orders and a reader comparing two builds would see a change that is
  * not one.
  */
 function byNewest<Record extends { readonly file: string }>(
   dayOf: (record: Record) => IsoDate,
+  rankOf: (record: Record) => number = () => 0,
 ) {
   return (left: Record, right: Record): number => {
     const days = dayOf(right).localeCompare(dayOf(left));
-    return days === 0 ? right.file.localeCompare(left.file) : days;
+    if (days !== 0) {
+      return days;
+    }
+    const ranks = rankOf(left) - rankOf(right);
+    return ranks === 0 ? right.file.localeCompare(left.file) : ranks;
   };
 }
 
@@ -164,7 +179,10 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
 
   const runsByCheck = new Map<string, PublishedRun[]>();
   for (const entry of [...input.contents.runs].sort(
-    byNewest((entry) => entry.record.runOn),
+    byNewest(
+      (entry) => entry.record.runOn,
+      (entry) => outcomePrecedence[entry.record.outcome],
+    ),
   )) {
     const sourceFile = sourceFileOf(input.ledgerPath, entry);
     const runs = runsByCheck.get(entry.record.checkId) ?? [];

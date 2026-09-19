@@ -71,10 +71,11 @@ interface RunFixture {
   readonly runOn: IsoDate;
   readonly outcome: TestRunOutcome;
   /**
-   * When the run was written down. Pinned only where two runs share a day and
-   * the order they were recorded in is what decides which is latest. Left out
-   * everywhere else, where the row is written now and the day it happened is
-   * the only thing that matters.
+   * When the run was written down. Pinned only where two runs share a day, and
+   * there it is pinned to prove that the order they were recorded in is *not*
+   * what decides which is latest: the fixtures below pin it both ways round and
+   * expect the same status from each. Left out everywhere else, where the row
+   * is written now and the day it happened is the only thing that matters.
    */
   readonly createdAt?: string;
   /**
@@ -231,8 +232,8 @@ const statusCases: readonly StatusCase[] = [
     ],
   },
   {
-    name: 'a check with a miss and a catch written down on one day',
-    rule: '2, latest is by day and then by the order it was written down',
+    name: 'a check that missed and caught on one day, the miss written later',
+    rule: '2, a miss and a catch on one day read as the miss',
     status: 'Broken',
     runs: [
       {
@@ -264,9 +265,9 @@ const statusCases: readonly StatusCase[] = [
     observations: [{ observedOn: daysBefore(9), armed: false }],
   },
   {
-    name: 'a check with a catch and a miss written down on one day',
-    rule: '3, latest is by day and then by the order it was written down',
-    status: 'Proven',
+    name: 'a check that missed and caught on one day, the catch written later',
+    rule: '2, the outcome decides, not the order it was written down',
+    status: 'Broken',
     runs: [
       {
         runOn: sharedDay,

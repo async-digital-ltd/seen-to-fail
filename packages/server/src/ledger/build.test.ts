@@ -14,7 +14,7 @@ import {
   pageFilename,
 } from './build.ts';
 import type { BuildResult } from './build.ts';
-import { ledgerCheckUuid } from './identity.ts';
+import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { recordRun } from './record.ts';
 import type { PublishedLedger } from './snapshot.ts';
 
@@ -91,6 +91,97 @@ it('publishes a check with the status the record gives it', async () => {
     'Proven',
   ]);
   expect(ledger.statusCounts.Proven).toBe(1);
+});
+
+/**
+ * The case #77 is about: one check, one day, one plant caught and one missed.
+ *
+ * This is the ordinary shape of a dispatch with two declared plants, not an
+ * edge case, and until the outcome became a sort key nothing in the record
+ * decided it. The build writes every record in one transaction, so now() is the
+ * same instant for all of them and created_at ties to the microsecond; the
+ * ordering fell through to the id, which is an MD5 of the record's filename.
+ * Which of Proven and Broken this page published was a comparison of two
+ * digests.
+ *
+ * Two runs that both caught cannot tell a working tie-break from a broken one,
+ * which is exactly why the defect was invisible: the ledger's own two same-day
+ * runs of 19 September both caught. So this fixture is the discriminating one,
+ * and the two filenames are not arbitrary. They are chosen so that the caught
+ * run has both the larger uuid and the later filename, which are the two keys
+ * the build used before this change: under the old rule this check published
+ * Proven with the catch at the top of its table, and under the new one it
+ * publishes Broken with the miss there. The assertion below that the caught
+ * file really does outrank the missed one under both keys is the control. If a
+ * future rename made them rank the other way, the status assertion would start
+ * passing whatever the tie-break did, and the control fails first and says so
+ * rather than leaving a test that proves nothing.
+ *
+ * It has been watched doing exactly that. The pair was first written against a
+ * different day, and since a run's uuid is a digest of its whole path the two
+ * then ranked the other way round: the control failed before the build ran, and
+ * named the reason, rather than letting a fixture that had quietly stopped
+ * discriminating go on reading as a pass.
+ */
+const oneDay = asOf;
+
+/**
+ * The file a run of a day is recorded in, named the way the recorder names one.
+ *
+ * Built by a function rather than written as two literals so that the control
+ * below is a comparison made when the test runs. Narrowed to their literal
+ * types, the compiler works the answer out itself and the lint rule that
+ * forbids a condition with a known answer refuses the assertion, which would
+ * leave the fixture's discriminating property asserted nowhere.
+ */
+function runFile(day: string, digest: string): string {
+  return `runs/${day}-ci-lint-${digest}.json`;
+}
+
+const caughtFile = runFile(oneDay, 'c6ae1438288c');
+const missedFile = runFile(oneDay, '4d4ae8cc6df8');
+
+it('publishes the miss when one day holds a miss and a catch', async () => {
+  // The control, asserted before the build so that a fixture that has stopped
+  // discriminating is reported as that rather than as a status failure.
+  expect(
+    ledgerFileUuid(`ledger/${caughtFile}`) >
+      ledgerFileUuid(`ledger/${missedFile}`),
+  ).toBe(true);
+  expect(caughtFile > missedFile).toBe(true);
+
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    [caughtFile]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+    [missedFile]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A second rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'missed',
+    },
+  });
+
+  const { ledger, page } = await build(directory);
+
+  expect(ledger.checks.map((published) => published.status)).toEqual([
+    'Broken',
+  ]);
+  expect(ledger.statusCounts.Broken).toBe(1);
+  // The page reads the first run in the list as the latest one, so the list has
+  // to agree with the status the database derived. Published the other way
+  // round, the page would say Broken above a table headed by a catch.
+  expect(ledger.checks[0]?.runs.map((run) => run.outcome)).toEqual([
+    'missed',
+    'caught',
+  ]);
+  expect(page).toContain('Broken');
 });
 
 /**
