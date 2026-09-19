@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import fc from 'fast-check';
 import { expect, it } from 'vitest';
 
@@ -20,10 +22,14 @@ import {
 } from './types.ts';
 
 /**
- * The three examples here are the ones `packages/filter/README.md` documents.
- * They are written out as text rather than derived from the serialiser, so the
- * grammar cannot quietly change underneath the documentation: an edit that
- * moves a separator fails here and says which example it broke.
+ * The three worked examples are read off `packages/filter/README.md`, from the
+ * fenced blocks under its Examples heading, in the order the README gives
+ * them. The filters they stand for are written out here, so the serialiser is
+ * checked against the documentation and not against itself: an edit that moves
+ * a separator in the grammar fails here and names the example it broke, and so
+ * does an edit to the README that the serialiser no longer agrees with. Before
+ * #59 the three strings were restated here instead, and one had already
+ * drifted from the README (area.is.ci against area.is.CI) with nothing failing.
  */
 
 /** One condition, in one group, so a condition's own text can be compared. */
@@ -70,16 +76,49 @@ function readmeExample(): Filter {
       },
       {
         joiner: 'and',
-        conditions: [{ field: 'area', op: 'is', value: 'ci' }],
+        conditions: [{ field: 'area', op: 'is', value: 'CI' }],
       },
     ],
   };
 }
 
-const README_EXAMPLE =
-  'and!or*status.is.Unproven*status.is.Stale!and*area.is.ci';
+const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 
-const README_EVERYTHING = 'all';
+/**
+ * The fenced blocks under the README's Examples heading, in the order it gives
+ * them. Each sits inside a numbered item, so each is indented by three spaces,
+ * and each is one line of link text.
+ */
+function readmeExamples(): readonly string[] {
+  const section = readme.split('### Examples\n')[1]?.split('\n### ')[0];
+  if (section === undefined) {
+    throw new Error('packages/filter/README.md has no Examples section.');
+  }
+  return [...section.matchAll(/^ {3}```\n {3}(\S+)\n {3}```$/gm)].map(
+    (block) => block[1] ?? '',
+  );
+}
+
+const examples = readmeExamples();
+
+it('finds the three examples the README documents, and no others', () => {
+  expect(examples).toHaveLength(3);
+});
+
+/** The README's example at this position, refusing one it does not have. */
+function readmeText(index: number): string {
+  const found = examples[index];
+  if (found === undefined) {
+    throw new Error(
+      `packages/filter/README.md has no example ${String(index + 1)}.`,
+    );
+  }
+  return found;
+}
+
+const README_EXAMPLE = readmeText(0);
+
+const README_EVERYTHING = readmeText(1);
 
 function readmeEscapedExample(): Filter {
   return {
@@ -101,8 +140,7 @@ function readmeEscapedExample(): Filter {
   };
 }
 
-const README_ESCAPED_EXAMPLE =
-  'or!and*runs.fewerThan.5*lastCaught.never!and*area.isNot.smoke~0020tests';
+const README_ESCAPED_EXAMPLE = readmeText(2);
 
 it("writes the README's worked example exactly as the README shows it", () => {
   expect(serializeFilter(readmeExample())).toBe(README_EXAMPLE);

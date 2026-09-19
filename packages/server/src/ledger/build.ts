@@ -111,8 +111,9 @@ async function writeLedgerToDatabase(
     for (const entry of contents.runs) {
       await client.query(
         `INSERT INTO test_runs
-           (id, check_id, run_on, planted, expected, outcome, note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+           (id, check_id, run_on, planted, expected, outcome, note,
+            source, source_commit, source_run_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           ledgerFileUuid(`${ledgerPath}/${entry.file}`),
           ledgerCheckUuid(entry.record.checkId),
@@ -121,6 +122,9 @@ async function writeLedgerToDatabase(
           entry.record.expected,
           entry.record.outcome,
           entry.record.note,
+          entry.record.source,
+          entry.record.sourceCommit,
+          entry.record.sourceRunUrl,
         ],
       );
     }

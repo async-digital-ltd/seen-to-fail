@@ -36,6 +36,13 @@ const soundRun = {
   outcome: 'caught',
 };
 
+/** What a replay adds to the run above, when a replay is what recorded it. */
+const soundReplay = {
+  source: 'replay',
+  sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+  sourceRunUrl: 'https://ci.example.com/runs/91',
+} as const;
+
 const soundObservation = {
   checkId: 'ci-lint',
   observedOn: '2026-09-18',
@@ -160,6 +167,122 @@ describe('a run', () => {
     expect(
       fieldsAtFault(parseLedgerRun({ ...soundRun, planted: '' }, today)),
     ).toEqual(['planted']);
+  });
+});
+
+describe('where a run came from', () => {
+  /**
+   * The rule that keeps the records already committed valid.
+   *
+   * Runs recorded before sources existed say nothing about where they came
+   * from, and every one of them was typed in by a person, because until this
+   * story nothing else could record a run. Reading them any other way would
+   * have meant rewriting files whose names are digests of their own contents.
+   */
+  it('reads a run that says nothing as one typed in by hand', () => {
+    const result = parseLedgerRun(soundRun, today);
+    expect(result.ok && result.value.source).toBe('hand');
+    expect(result.ok && result.value.sourceCommit).toBeNull();
+    expect(result.ok && result.value.sourceRunUrl).toBeNull();
+  });
+
+  it('accepts a hand run that says so and names no commit', () => {
+    expect(parseLedgerRun({ ...soundRun, source: 'hand' }, today).ok).toBe(
+      true,
+    );
+  });
+
+  it('accepts a replay carrying its commit and its run', () => {
+    const result = parseLedgerRun({ ...soundRun, ...soundReplay }, today);
+    expect(result.ok && result.value.source).toBe('replay');
+    expect(result.ok && result.value.sourceCommit).toBe(
+      soundReplay.sourceCommit,
+    );
+    expect(result.ok && result.value.sourceRunUrl).toBe(
+      soundReplay.sourceRunUrl,
+    );
+  });
+
+  it.each([
+    ['sourceCommit', 'its commit'],
+    ['sourceRunUrl', 'its run link'],
+  ])('refuses a replay missing %s, which is %s', (field) => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun({ ...soundRun, ...soundReplay, [field]: null }, today),
+      ),
+    ).toEqual([field]);
+  });
+
+  it.each(['sourceCommit', 'sourceRunUrl'] as const)(
+    'refuses a hand run carrying %s',
+    (field) => {
+      expect(
+        fieldsAtFault(
+          parseLedgerRun(
+            { ...soundRun, source: 'hand', [field]: soundReplay[field] },
+            today,
+          ),
+        ),
+      ).toEqual([field]);
+    },
+  );
+
+  it('refuses a source the record has no column for', () => {
+    expect(
+      fieldsAtFault(parseLedgerRun({ ...soundRun, source: 'guessed' }, today)),
+    ).toEqual(['source']);
+  });
+
+  it.each([
+    ['1234567', 'abbreviated'],
+    ['1234567890ABCDEF1234567890ABCDEF12345678', 'in capitals'],
+    ['zzzz567890abcdef1234567890abcdef12345678', 'not hexadecimal'],
+  ])('refuses a commit written %s', (commit) => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun(
+          { ...soundRun, ...soundReplay, sourceCommit: commit },
+          today,
+        ),
+      ),
+    ).toEqual(['sourceCommit']);
+  });
+
+  /**
+   * The published page renders this link in an href, and escaping a value does
+   * nothing at all about its scheme. A record that could choose what a click
+   * does is refused before it is a file, which is the only place the rule can
+   * be applied and still mean something.
+   */
+  it.each([
+    'javascript:alert(1)',
+    'http://ci.example.com/runs/91',
+    'data:text/html,<script>alert(1)</script>',
+    'ci.example.com/runs/91',
+  ])('refuses a run link that is not an https address: %s', (url) => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun(
+          { ...soundRun, ...soundReplay, sourceRunUrl: url },
+          today,
+        ),
+      ),
+    ).toEqual(['sourceRunUrl']);
+  });
+
+  /**
+   * A key nobody reads is refused rather than dropped, and that matters most
+   * here: a replay whose commit was spelled `commit` would otherwise be
+   * published as a run typed in by hand, with its evidence silently gone.
+   */
+  it('refuses a record that misspells a source field', () => {
+    expect(
+      parseLedgerRun(
+        { ...soundRun, source: 'replay', commit: soundReplay.sourceCommit },
+        today,
+      ).ok,
+    ).toBe(false);
   });
 });
 

@@ -9,10 +9,12 @@ import { createGraphQLServer } from './server.ts';
  * What a client is told when something fails inside the server.
  *
  * Unexpected errors are masked: the client gets a fixed message and the detail
- * stays in the server's log. Nothing in this repository asks for that. It is
- * the GraphQL server's default, which is exactly why it needs a test, because a
- * default can be switched off with one option, for debugging or by accident,
- * and every other test still passes when it is.
+ * stays in the server's log. server.ts asks for that in so many words, with
+ * `maskedErrors: { isDev: false }`, since #39: left to the GraphQL server's
+ * default the setting reads NODE_ENV, and `development` adds the original
+ * message and a stack trace to what the client receives. An explicit setting is
+ * still one option away from off, for debugging or by accident, and every other
+ * test passes when it is, which is why it needs a test.
  *
  * The failure is made at the database, through the connection the server is
  * handed, rather than by sending a request that happens to break PostgreSQL
@@ -113,7 +115,8 @@ const writesThatFail = [
     document: `mutation {
       logTestRun(input: {
         checkId: "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", runOn: "2026-01-01",
-        planted: "Anything", expected: "Anything", outcome: CAUGHT
+        planted: "Anything", expected: "Anything", outcome: CAUGHT,
+        source: HAND
       }) { __typename }
     }`,
   },

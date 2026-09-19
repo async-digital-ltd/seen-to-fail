@@ -55,6 +55,19 @@ export const testRunOutcomes = ['caught', 'missed'] as const;
 /** The outcome column's PostgreSQL enum, as a TypeScript type. */
 export type TestRunOutcome = (typeof testRunOutcomes)[number];
 
+/**
+ * Where a run came from: a person typed it in, or a replay posted it.
+ *
+ * A value the run carries rather than something worked out from which of its
+ * other fields happen to be filled in. A replay that lost its commit is then a
+ * row the database refuses by name, where an inferred source would have quietly
+ * read it back as somebody's typing.
+ */
+export const testRunSources = ['hand', 'replay'] as const;
+
+/** The source column's PostgreSQL enum, as a TypeScript type. */
+export type TestRunSource = (typeof testRunSources)[number];
+
 /** An automated check: one thing that is supposed to catch something. */
 export interface Check {
   readonly id: string;
@@ -78,6 +91,18 @@ export interface TestRun {
   readonly expected: string;
   readonly outcome: TestRunOutcome;
   readonly note: string | null;
+  /** Whether a person typed this run in or a replay posted it. */
+  readonly source: TestRunSource;
+  /**
+   * The commit the plant was replayed against, or null for a run typed in.
+   *
+   * Not the commit that recorded the run. That one is read back out of the
+   * history by the build, because it does not exist until the record has been
+   * committed.
+   */
+  readonly sourceCommit: string | null;
+  /** The run that produced it, or null for a run typed in. */
+  readonly sourceRunUrl: string | null;
   readonly createdAt: Date;
 }
 
@@ -174,6 +199,9 @@ export const testRunColumns = [
   'expected',
   'outcome',
   'note',
+  'source',
+  'source_commit AS "sourceCommit"',
+  'source_run_url AS "sourceRunUrl"',
   'created_at AS "createdAt"',
 ].join(', ');
 

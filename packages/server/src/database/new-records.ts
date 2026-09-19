@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 import { uuidPattern } from './checks.ts';
-import { testRunOutcomes } from './rows.ts';
-import type { IsoDate } from './rows.ts';
+import { testRunOutcomes, testRunSources } from './rows.ts';
+import type { IsoDate, TestRunSource } from './rows.ts';
 
 /**
  * What a new check, run or observation has to be before it is written, and the
@@ -81,6 +81,33 @@ export const runDatedAfterToday: RecordIssue = {
 export const observationDatedAfterToday: RecordIssue = {
   path: 'observedOn',
   message: 'An observation cannot be dated after today.',
+};
+
+/**
+ * The four things a run's source and its evidence can disagree about.
+ *
+ * They are constants rather than strings written into the rule below, so a test
+ * can assert the issue a record produced rather than a substring of a message
+ * somebody may reword.
+ */
+export const replayNeedsItsCommit: RecordIssue = {
+  path: 'sourceCommit',
+  message: 'A replay records the commit it ran against.',
+};
+
+export const replayNeedsItsRunUrl: RecordIssue = {
+  path: 'sourceRunUrl',
+  message: 'A replay records a link to the run that produced it.',
+};
+
+export const handRunHasNoCommit: RecordIssue = {
+  path: 'sourceCommit',
+  message: 'A run typed in by hand has no commit to record.',
+};
+
+export const handRunHasNoRunUrl: RecordIssue = {
+  path: 'sourceRunUrl',
+  message: 'A run typed in by hand has no run to link to.',
 };
 
 /**
@@ -188,6 +215,138 @@ export const optionalNote = optionalText(MAX_TEXT_LENGTH)
   );
 
 /**
+ * The longest a link to a run may be.
+ *
+ * Long enough for any URL a forge produces and short enough that the column is
+ * not a place to put something else. Nothing indexes it, so this is a limit on
+ * what a writer can send rather than one PostgreSQL imposes.
+ */
+export const MAX_URL_LENGTH = 2048;
+
+/** A commit, as git writes an object id. */
+const commitPattern = /^[0-9a-f]{40}$/;
+
+const commitMessage =
+  'A commit is written in full, as forty lower-case hexadecimal characters.';
+
+const runUrlMessage = 'A link to a run has to be an https:// address.';
+
+/**
+ * Whether a link is one the published page may put in an href.
+ *
+ * https only, and that is a rule about the page rather than about taste. The
+ * page escapes every value it renders, which stops a record closing the tag it
+ * is written into, and does nothing at all about the scheme: `javascript:`
+ * survives escaping intact and decides what a click does. Refusing anything but
+ * https here is what keeps that decision out of a record's hands.
+ */
+function isHttpsUrl(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === 'https:';
+}
+
+/**
+ * A field only a replay fills in: the value, or null when it was left out.
+ *
+ * Blank is the same as absent, because a form field somebody tabbed through
+ * sends an empty string and means nothing by it. Whether being absent is
+ * allowed at all is the source's business rather than the field's, and is
+ * decided by the rule below.
+ */
+function replayEvidence(
+  maxLength: number,
+  check: (value: string) => boolean,
+  message: string,
+) {
+  return z
+    .string()
+    .max(maxLength, { error: tooLongMessage(maxLength), abort: true })
+    .nullish()
+    .transform((value) =>
+      value === undefined || value === null || value === '' ? null : value,
+    )
+    .refine((value) => value === null || check(value), { error: message });
+}
+
+/** The length of the only commit id this accepts, which the pattern fixes. */
+const COMMIT_LENGTH = 40;
+
+/** The commit a replay ran against, or null when none was given. */
+export const optionalSourceCommit = replayEvidence(
+  COMMIT_LENGTH,
+  (value) => commitPattern.test(value),
+  commitMessage,
+);
+
+/** The run that produced a replay, or null when none was given. */
+export const optionalSourceRunUrl = replayEvidence(
+  MAX_URL_LENGTH,
+  isHttpsUrl,
+  runUrlMessage,
+);
+
+/** Where a run says it came from, spelled as the source column spells it. */
+export const runSource = z.enum(testRunSources);
+
+/** A run's source and the evidence that has to travel with it. */
+export interface RunProvenance {
+  readonly source: TestRunSource;
+  readonly sourceCommit: string | null;
+  readonly sourceRunUrl: string | null;
+}
+
+/**
+ * What a run's source and its evidence disagree about, if anything.
+ *
+ * The rule runs in both directions, and the second half is the one worth
+ * saying out loud: a run typed in by hand carrying a commit is refused, not
+ * ignored. Ignoring it would publish a record with a field nobody wrote and no
+ * way to tell that from one somebody did.
+ *
+ * A plain function rather than only a schema refinement, so the database's own
+ * constraint, the API and the ledger are all judged by the same reading of the
+ * same rule, and a test can put a record in front of it directly.
+ */
+export function runProvenanceIssues(run: RunProvenance): RecordIssue[] {
+  const issues: RecordIssue[] = [];
+  if (run.source === 'replay') {
+    if (run.sourceCommit === null) {
+      issues.push(replayNeedsItsCommit);
+    }
+    if (run.sourceRunUrl === null) {
+      issues.push(replayNeedsItsRunUrl);
+    }
+    return issues;
+  }
+  if (run.sourceCommit !== null) {
+    issues.push(handRunHasNoCommit);
+  }
+  if (run.sourceRunUrl !== null) {
+    issues.push(handRunHasNoRunUrl);
+  }
+  return issues;
+}
+
+/** Adds the issues above to a schema's own, against the fields they name. */
+export function checkRunProvenance(
+  run: RunProvenance,
+  context: z.RefinementCtx,
+): void {
+  for (const issue of runProvenanceIssues(run)) {
+    context.addIssue({
+      code: 'custom',
+      path: [issue.path],
+      message: issue.message,
+    });
+  }
+}
+
+/**
  * A day that is not after today.
  *
  * Compared as text. Both sides are YYYY-MM-DD, which the Date scalar has already
@@ -237,7 +396,11 @@ function newTestRunSchema(today: IsoDate) {
       ),
       outcome: z.enum(testRunOutcomes),
       note: optionalNote,
+      source: runSource,
+      sourceCommit: optionalSourceCommit,
+      sourceRunUrl: optionalSourceRunUrl,
     })
+    .superRefine(checkRunProvenance)
     .brand<'NewTestRun'>();
 }
 

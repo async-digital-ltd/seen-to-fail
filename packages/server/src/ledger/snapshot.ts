@@ -1,6 +1,10 @@
 import type { Status } from '@seen-to-fail/filter';
 
-import type { IsoDate, TestRunOutcome } from '../database/rows.ts';
+import type {
+  IsoDate,
+  TestRunOutcome,
+  TestRunSource,
+} from '../database/rows.ts';
 import type { CheckSummary } from '../database/summaries.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import type { LedgerContents, LedgerEntry } from './load.ts';
@@ -29,6 +33,19 @@ export interface PublishedRun {
   readonly expected: string;
   readonly outcome: TestRunOutcome;
   readonly note: string | null;
+  /** Whether a person typed the run in or a replay posted it. */
+  readonly source: TestRunSource;
+  /**
+   * The commit the plant was replayed against, or null for a run typed in.
+   *
+   * Two commits can appear against one run and they are different facts.
+   * This is the tree the plant was applied to, which the replay knew; the one
+   * below is the commit that added this record, which nothing knew until the
+   * record had been committed and which is read back out of the history.
+   */
+  readonly sourceCommit: string | null;
+  /** The run that produced it, or null for a run typed in. */
+  readonly sourceRunUrl: string | null;
   /** The file it was recorded in, relative to the repository root. */
   readonly sourceFile: string;
   /** The commit that added that file, or null when it is not committed yet. */
@@ -147,6 +164,9 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       expected: entry.record.expected,
       outcome: entry.record.outcome,
       note: entry.record.note,
+      source: entry.record.source,
+      sourceCommit: entry.record.sourceCommit,
+      sourceRunUrl: entry.record.sourceRunUrl,
       sourceFile,
       recordedIn: input.recordingCommits.get(sourceFile) ?? null,
     });
