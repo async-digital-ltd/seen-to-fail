@@ -24,7 +24,8 @@ import type { PublishedLedger } from './snapshot.ts';
  *  - the files on disk against the rows the database now holds, which catches an
  *    insert that dropped a record,
  *  - the files on disk against the export, which catches an export that dropped
- *    one or counted it twice,
+ *    one, counted it twice, or published a run as coming from somewhere other
+ *    than where its own file says it came from,
  *  - the export's own tally of statuses against the database's independent
  *    count of them,
  *  - the export against the rendered page, which catches a renderer that left a
@@ -194,6 +195,41 @@ export function disagreements(input: VerificationInput): string[] {
           `The export names ${record.sourceFile}, which is not a file in the ledger.`,
         );
       }
+    }
+  }
+
+  // Where each run came from, file against export.
+  //
+  // The counts above catch a record that was dropped on the way through. They
+  // cannot catch one that arrived saying something other than what it says on
+  // disk, and a run published as hand-written when a job recorded it is a
+  // wrong answer to the question this whole story exists to answer. The two
+  // sides here were produced by different code: the left is what the loader
+  // parsed out of the file, the right is what the renderer was handed.
+  const recordedRuns = new Map(
+    contents.runs.map((entry) => [`${prefix}${entry.file}`, entry.record]),
+  );
+  for (const check of snapshot.checks) {
+    for (const run of check.runs) {
+      const record = recordedRuns.get(run.sourceFile);
+      if (record === undefined) {
+        // Already reported just above, as a file that is not in the ledger.
+        continue;
+      }
+      const where = `The run recorded in ${run.sourceFile}`;
+      compare(found, `${where}: where it came from`, record.source, run.source);
+      compare(
+        found,
+        `${where}: the commit it ran against`,
+        record.sourceCommit,
+        run.sourceCommit,
+      );
+      compare(
+        found,
+        `${where}: the run that produced it`,
+        record.sourceRunUrl,
+        run.sourceRunUrl,
+      );
     }
   }
 

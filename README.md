@@ -25,7 +25,15 @@ records:
 - what was planted,
 - what the check was expected to do,
 - what it actually did: caught it, or missed it,
+- where it came from: somebody typed it in, or a replay posted it, and a replay
+  names the commit it ran against and links the run that produced it,
 - an optional note for the next person.
+
+Where a run came from is recorded beside it and read by none of the status
+rules. A replay and a run somebody typed in, with the same outcome on the same
+day, leave a check reading the same thing. It is there so that a reader can
+tell a proof that keeps itself from one somebody remembered to write down,
+which is a different question from whether the check works.
 
 It also has a log of **arming observations**: dated evidence that the check was,
 or was not, switched on at all. A check can be configured and not running, and a

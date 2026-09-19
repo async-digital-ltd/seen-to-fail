@@ -6,6 +6,7 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { listCheckSummaries } from './summaries.ts';
 import type { CheckSummary } from './summaries.ts';
+import { testRunOutcomes } from './rows.ts';
 import type { IsoDate, TestRunOutcome } from './rows.ts';
 
 /**
@@ -61,6 +62,14 @@ interface RunFixture {
    * the only thing that matters.
    */
   readonly createdAt?: string;
+  /**
+   * What a replay recorded about itself, on the fixtures that are about a run
+   * nobody typed in. Absent everywhere else.
+   */
+  readonly replay?: {
+    readonly commit: string;
+    readonly runUrl: string;
+  };
 }
 
 interface ObservationFixture {
@@ -93,10 +102,20 @@ async function insertCheck(fixture: CheckFixture): Promise<string> {
   for (const run of fixture.runs ?? []) {
     await database.client().query(
       `INSERT INTO test_runs
-         (check_id, run_on, planted, expected, outcome, created_at)
+         (check_id, run_on, planted, expected, outcome, created_at,
+          source, source_commit, source_run_url)
        VALUES ($1, $2, 'A removed semicolon', 'The job fails', $3,
-               coalesce($4::timestamptz, now()))`,
-      [id, run.runOn, run.outcome, run.createdAt ?? null],
+               coalesce($4::timestamptz, now()),
+               $5, $6, $7)`,
+      [
+        id,
+        run.runOn,
+        run.outcome,
+        run.createdAt ?? null,
+        run.replay === undefined ? 'hand' : 'replay',
+        run.replay?.commit ?? null,
+        run.replay?.runUrl ?? null,
+      ],
     );
   }
 
@@ -434,3 +453,48 @@ it('returns one row per check, each read on its own record', async () => {
     ]),
   );
 });
+
+/**
+ * Where a run came from is recorded beside it and read by nothing here.
+ *
+ * Two checks with records that differ in exactly one column, and the whole
+ * summary is compared rather than only the status, so provenance leaking into
+ * a count or a date would fail this as well. It is the acceptance criterion on
+ * #64 written as an assertion: a status is a reading of outcomes and days, and
+ * recording who wrote a row did not make it a reading of that.
+ */
+it.each(testRunOutcomes)(
+  'reads a run the same whether a person or a replay recorded it (%s)',
+  async (outcome) => {
+    const day = daysBefore(2);
+    const typedIn = await insertCheck({
+      name: `Typed in, ${outcome}`,
+      runs: [{ runOn: day, outcome }],
+    });
+    const replayed = await insertCheck({
+      name: `Replayed, ${outcome}`,
+      runs: [
+        {
+          runOn: day,
+          outcome,
+          replay: {
+            commit: '1234567890abcdef1234567890abcdef12345678',
+            runUrl: 'https://ci.example.com/runs/91',
+          },
+        },
+      ],
+    });
+
+    const { checkId: typedInId, ...typedInSummary } = await summaryOf(typedIn);
+    const { checkId: replayedId, ...replayedSummary } =
+      await summaryOf(replayed);
+
+    expect(replayedSummary).toStrictEqual(typedInSummary);
+    // Named rather than left as "the same as each other", so a derivation that
+    // started answering the same wrong thing to both would still fail.
+    expect(typedInSummary.status).toBe(
+      outcome === 'caught' ? 'Proven' : 'Broken',
+    );
+    expect(replayedId).not.toBe(typedInId);
+  },
+);

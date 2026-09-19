@@ -46,6 +46,20 @@ enum Outcome {
 }
 
 """
+Where a run came from.
+
+The difference between a proof that keeps itself and one somebody remembered to
+write down. Nothing in the status rules reads it: a replay and a hand run with
+the same outcome leave a check reading the same thing.
+"""
+enum RunSource {
+  "Somebody planted the defect, watched the check, and typed in what happened."
+  HAND
+  "A replay planted it and posted the result, naming the commit and the run."
+  REPLAY
+}
+
+"""
 One planted defect, and what the check did about it.
 
 A run is the unit of evidence in this product. Everything a check's status
@@ -63,6 +77,18 @@ type TestRun {
   outcome: Outcome!
   "Anything worth telling the next person. Null when nobody wrote one."
   note: String
+  "Whether a person typed this run in or a replay posted it."
+  source: RunSource!
+  """
+  The commit the plant was replayed against. Null for a run typed in.
+
+  Not the commit that recorded the run, which is a different commit and does
+  not exist until the record has been committed. The published ledger reads
+  that one back out of the history and shows it separately.
+  """
+  sourceCommit: String
+  "The run that produced it, as a link. Null for a run typed in."
+  sourceRunUrl: String
 }
 
 """
@@ -223,6 +249,21 @@ input LogTestRunInput {
   outcome: Outcome!
   "Anything worth telling the next person. A blank note is stored as none."
   note: String
+  """
+  Where the run came from. Required, and deliberately without a default: a
+  write that does not say is refused rather than recorded as somebody's typing.
+  """
+  source: RunSource!
+  """
+  The commit the plant was replayed against. Required for a replay, and refused
+  on a run typed in by hand, which has no commit to name.
+  """
+  sourceCommit: String
+  """
+  A link to the run that produced it, which has to be an https:// address.
+  Required for a replay, and refused on a run typed in by hand.
+  """
+  sourceRunUrl: String
 }
 
 "Evidence, on one day, about whether a check is switched on."
@@ -312,7 +353,9 @@ type Mutation {
   """
   Logs a test run. A field that is blank, too long or holds a character that
   cannot be saved is refused on that field, an unknown check on checkId, and a
-  day after today on runOn.
+  day after today on runOn. A replay without its commit or its run link is
+  refused on whichever is missing, and a run typed in by hand carrying either
+  is refused on the one it carries.
   """
   logTestRun(input: LogTestRunInput!): TestRunResult!
   """

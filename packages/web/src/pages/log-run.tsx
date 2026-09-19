@@ -110,6 +110,11 @@ function checkDraft(draft: Draft, day: string): Checked {
       expected: draft.expected,
       outcome: draft.outcome,
       note: draft.note.trim() === '' ? null : draft.note,
+      // Somebody filling in this form is the hand route, whatever else is
+      // recording runs elsewhere, so the form says so rather than leaving the
+      // API to assume it. There is no control for this and there should not
+      // be: a person cannot type in a run and call it a replay.
+      source: 'HAND',
     },
   };
 }

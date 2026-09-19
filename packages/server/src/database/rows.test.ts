@@ -8,6 +8,7 @@ import {
   selectRows,
   testRunColumns,
   testRunOutcomes,
+  testRunSources,
 } from './rows.ts';
 import type { ArmingObservation, Check, SavedFilter, TestRun } from './rows.ts';
 
@@ -92,9 +93,10 @@ it('reads back a check, selected by its id', async () => {
 it('reads back a test run, with its day as text', async () => {
   const checkId = await insertCheck();
   await database.client().query(
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome, note)
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, note, source)
      VALUES ($1, '2026-01-09', 'A removed semicolon', 'The job fails',
-             'caught', 'Took four minutes to report')`,
+             'caught', 'Took four minutes to report', 'hand')`,
     [checkId],
   );
 
@@ -113,6 +115,9 @@ it('reads back a test run, with its day as text', async () => {
       expected: true,
       outcome: true,
       note: true,
+      source: true,
+      sourceCommit: true,
+      sourceRunUrl: true,
       createdAt: true,
     }),
   );
@@ -126,15 +131,22 @@ it('reads back a test run, with its day as text', async () => {
   expect(testRunOutcomes).toContain(run.outcome);
   expect(run.outcome).toBe('caught');
   expect(run.note).toBe('Took four minutes to report');
+  expect(testRunSources).toContain(run.source);
+  expect(run.source).toBe('hand');
+  // A run somebody typed in has neither, and reads back with neither rather
+  // than with an empty string standing in for a commit nobody named.
+  expect(run.sourceCommit).toBeNull();
+  expect(run.sourceRunUrl).toBeNull();
   expect(run.createdAt).toBeInstanceOf(Date);
 });
 
 it('reads back a test run that has no note', async () => {
   const checkId = await insertCheck();
   await database.client().query(
-    `INSERT INTO test_runs (check_id, run_on, planted, expected, outcome)
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, source)
      VALUES ($1, '2026-01-09', 'A removed semicolon', 'The job fails',
-             'missed')`,
+             'missed', 'hand')`,
     [checkId],
   );
 
@@ -144,6 +156,31 @@ it('reads back a test run that has no note', async () => {
   );
 
   expect(onlyRow(runs).note).toBeNull();
+});
+
+it('reads back a replay with the commit and the run it names', async () => {
+  const checkId = await insertCheck();
+  await database.client().query(
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome,
+        source, source_commit, source_run_url)
+     VALUES ($1, '2026-01-09', 'A removed semicolon', 'The job fails',
+             'caught', 'replay',
+             '1234567890abcdef1234567890abcdef12345678',
+             'https://ci.example.com/runs/91')`,
+    [checkId],
+  );
+
+  const run = onlyRow(
+    await selectRows<TestRun>(
+      database.client(),
+      `SELECT ${testRunColumns} FROM test_runs`,
+    ),
+  );
+
+  expect(run.source).toBe('replay');
+  expect(run.sourceCommit).toBe('1234567890abcdef1234567890abcdef12345678');
+  expect(run.sourceRunUrl).toBe('https://ci.example.com/runs/91');
 });
 
 it('reads back an arming observation', async () => {

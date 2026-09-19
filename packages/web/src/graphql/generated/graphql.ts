@@ -37,6 +37,21 @@ export type LogTestRunInput = {
   planted: string;
   /** The day the defect was planted. Not in the future. */
   runOn: string;
+  /**
+   * Where the run came from. Required, and deliberately without a default: a
+   * write that does not say is refused rather than recorded as somebody's typing.
+   */
+  source: RunSource;
+  /**
+   * The commit the plant was replayed against. Required for a replay, and refused
+   * on a run typed in by hand, which has no commit to name.
+   */
+  sourceCommit?: string | null | undefined;
+  /**
+   * A link to the run that produced it, which has to be an https:// address.
+   * Required for a replay, and refused on a run typed in by hand.
+   */
+  sourceRunUrl?: string | null | undefined;
 };
 
 /** What a check did with the defect that was planted for it. */
@@ -57,6 +72,19 @@ export type RecordArmingObservationInput = {
   /** The day somebody looked. Not in the future. */
   observedOn: string;
 };
+
+/**
+ * Where a run came from.
+ *
+ * The difference between a proof that keeps itself and one somebody remembered to
+ * write down. Nothing in the status rules reads it: a replay and a hand run with
+ * the same outcome leave a check reading the same thing.
+ */
+export type RunSource =
+  /** Somebody planted the defect, watched the check, and typed in what happened. */
+  | 'HAND'
+  /** A replay planted it and posted the result, naming the commit and the run. */
+  | 'REPLAY';
 
 /**
  * The five statuses a check can hold.
@@ -103,6 +131,9 @@ export type CheckDetailQuery = {
       expected: string;
       outcome: Outcome;
       note: string | null;
+      source: RunSource;
+      sourceCommit: string | null;
+      sourceRunUrl: string | null;
     }>;
     armingObservations: Array<{
       id: string;
@@ -291,6 +322,18 @@ export const CheckDetailDocument = {
                         name: { kind: 'Name', value: 'outcome' },
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'note' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'source' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'sourceCommit' },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'sourceRunUrl' },
+                      },
                     ],
                   },
                 },
