@@ -1,0 +1,33 @@
+/**
+ * The adapter: what a replay tool said, turned into runs this ledger records.
+ *
+ * Three steps, each with its own file and its own refusal. report.ts reads the
+ * tool's JSON. plants.ts reads the plant declaration for the check addresses
+ * canfail knows nothing about. adapt.ts maps verdicts to outcomes using the
+ * table #66 pinned, and refuses the lot rather than guessing at one it does not
+ * recognise.
+ *
+ * Nothing here writes anything, reads a file, or knows what a database is. The
+ * writing is the ledger's own recorder, called from
+ * `packages/server/src/scripts/record-replay.ts`, which is where this package
+ * and that one meet.
+ */
+
+export { parseCanfailReport, canfailVerdicts, problemsFrom } from './report.ts';
+export type {
+  CanfailOutcome,
+  CanfailReport,
+  CanfailVerdict,
+  ReplayResult,
+} from './report.ts';
+
+export { parsePlantedChecks } from './plants.ts';
+export type { PlantedCheck, PlantedChecks } from './plants.ts';
+
+export { runsFromReport } from './adapt.ts';
+export type {
+  AdaptOptions,
+  ReplayOutcome,
+  ReplayProvenance,
+  ReplayRun,
+} from './adapt.ts';

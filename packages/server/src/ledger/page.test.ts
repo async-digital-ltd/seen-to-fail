@@ -225,3 +225,73 @@ it('escapes what a record holds rather than letting it close a tag', () => {
   expect(page).not.toMatch(/<script/i);
   expect(page).toContain(escapeHtml('<script>alert(1)'));
 });
+
+/**
+ * Where a replay's free text is allowed to land on the published page.
+ *
+ * `inconclusiveReason` is the one field on a run whose words come from a
+ * program rather than from a person, and #67 hands it canfail's own `detail`
+ * verbatim. `escapeHtml` escapes `& < > " '`, which is enough in a text node
+ * and enough in a quoted attribute, and is not enough in three places that are
+ * not the same as each other: an unquoted attribute, where escaping the quotes
+ * buys nothing; a URL-valued attribute, where escaping never touches the
+ * scheme; and a script or style context, where it does nothing whatever.
+ *
+ * So the property worth holding is structural rather than about characters: the
+ * text reaches the document as a text node and nowhere else. The marker below
+ * is looked for everywhere it appears, and each appearance is required to sit
+ * after a `>` rather than inside a tag. A page that moved the reason into an
+ * attribute would still escape it and would still fail here.
+ */
+const hostileReason =
+  'ZZREASONZZ the anchor said "a" & <b>b</b>\' onmouseover=alert(1) javascript:alert(2)';
+
+/** Every place the marker appears, and whether each sits in a text node. */
+function marksInTextNodes(page: string, marker: string): boolean[] {
+  const places: boolean[] = [];
+  for (
+    let at = page.indexOf(marker);
+    at !== -1;
+    at = page.indexOf(marker, at + 1)
+  ) {
+    const opened = page.lastIndexOf('<', at);
+    const closed = page.lastIndexOf('>', at);
+    places.push(closed > opened);
+  }
+  return places;
+}
+
+it('renders a replay reason as a text node, never inside a tag', () => {
+  const contents = fixtureContentsWithAnUnsettledRun();
+  const unsettled = contents.runs.at(-1);
+  if (unsettled === undefined) {
+    throw new Error('The fixture has no run that settled nothing.');
+  }
+  const page = renderPage(
+    fixtureSnapshot(
+      {
+        ...contents,
+        runs: [
+          ...contents.runs.slice(0, -1),
+          {
+            ...unsettled,
+            record: { ...unsettled.record, inconclusiveReason: hostileReason },
+          },
+        ],
+      },
+      fixtureSummariesWithAnUnsettledRun(),
+    ),
+  );
+
+  // The reason is on the page twice: once in the run's row, once in the note
+  // about the latest run. Both have to be text nodes, and the designed number
+  // is asserted so that a render dropping one of them is a failure rather than
+  // a shorter list that still passes.
+  const places = marksInTextNodes(page, 'ZZREASONZZ');
+  expect(places).toHaveLength(2);
+  expect(places).toEqual([true, true]);
+
+  expect(page).toContain(escapeHtml(hostileReason));
+  expect(page).not.toMatch(/<b>/i);
+  expect(page).not.toMatch(/<script/i);
+});

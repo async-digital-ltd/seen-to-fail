@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@seen-to-fail/filter": "workspace:*",
+    "@seen-to-fail/replay": "workspace:*",
     "graphql": "^17.0.2",
     "graphql-yoga": "^5.23.0",
     "pg": "^8.23.0",
