@@ -365,6 +365,35 @@ describe('the form refusing a submit', () => {
   });
 });
 
+/**
+ * A save under way: the button is disabled and says so, and neither a second
+ * press nor Enter in a field sends a second run. Exactly one LogTestRun is
+ * asserted, not at most one, since the count is what a second send would
+ * change: with the disabled attribute taken off the button this test was
+ * watched count three.
+ */
+describe('a save in flight', () => {
+  it('disables the button, says it is saving, and takes no second submit', async () => {
+    const { user, calls } = renderApp({
+      route: paths.newRun(),
+      answers: [options, pending(LogTestRunDocument)],
+    });
+    await fillIn(user);
+
+    await user.click(screen.getByRole('button', { name: 'Save run' }));
+
+    const busy = await screen.findByRole('button', { name: 'Saving…' });
+    expect(busy).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save run' })).toBeNull();
+
+    await user.click(busy);
+    await user.click(screen.getByLabelText('Date'));
+    await user.keyboard('{Enter}');
+
+    expect(logCalls(calls)).toHaveLength(1);
+  });
+});
+
 describe('a saved run', () => {
   it('sends what was filled in', async () => {
     const { user, calls } = renderApp({

@@ -117,3 +117,28 @@ button {
   background: var(--surface);
   color: var(--primary-hover);
 }
+
+/*
+ * Busy, while a form's save is in flight. The label has already changed to say
+ * so; the pointer says so too, and the colours stay put under the pointer
+ * because there is nothing a press would do. Not dimmed: the label is what the
+ * reader is waiting on, and it has to stay readable.
+ */
+.button:disabled {
+  cursor: progress;
+}
+
+.button:disabled:hover {
+  background: var(--surface);
+}
+
+.button--primary:disabled:hover {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.button--outlined:disabled:hover {
+  border-color: var(--primary);
+  background: var(--bg);
+  color: var(--primary);
+}
