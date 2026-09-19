@@ -119,16 +119,32 @@ AS $$
     FROM test_runs
     WHERE test_runs.check_id = checks.id
   ) AS run_totals
-  -- Latest is by the day it happened, then by the order it was written down,
-  -- because two runs can share a day. The id is a last resort under both: rows
-  -- inserted by one statement share a created_at to the microsecond, and
-  -- without a third key the planner would be free to return either of them, so
-  -- the same rows could read differently from one call to the next.
+  -- Latest is by the day it happened, and then by what the run says: a miss
+  -- outranks a catch on the same day. A run is dated to a day and nothing
+  -- finer, so two runs on one day have no recorded order to read, and picking
+  -- between them by when the row was written down is picking by clerical order
+  -- rather than by anything that happened. A check seen to let a planted defect
+  -- through that day is broken whether or not something else it was asked about
+  -- that day went well, so the miss is the one the status is read from.
+  --
+  -- Written as a comparison against one label because the outcome enum holds
+  -- exactly two at this point in the schema's history, so the key is total over
+  -- every row that can reach it. 0005 adds a third and 0006 writes this
+  -- function again with the rank spelled out in full.
+  --
+  -- The other two keys stay, below the outcome and in that order, as the last
+  -- resorts they always were: within one day and one outcome there is still
+  -- nothing meaningful to order by, and without a deterministic key the planner
+  -- would be free to return either row, so the same rows could read differently
+  -- from one call to the next.
   LEFT JOIN LATERAL (
     SELECT test_runs.run_on, test_runs.outcome
     FROM test_runs
     WHERE test_runs.check_id = checks.id
-    ORDER BY test_runs.run_on DESC, test_runs.created_at DESC, test_runs.id DESC
+    ORDER BY test_runs.run_on DESC,
+             (test_runs.outcome = 'missed') DESC,
+             test_runs.created_at DESC,
+             test_runs.id DESC
     LIMIT 1
   ) AS latest_run ON true
   CROSS JOIN LATERAL (

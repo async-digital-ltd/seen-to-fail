@@ -79,8 +79,19 @@ below is then the only thing that can move it, which is the backstop doing the
 job the replays have stopped doing. An observation dated the same
 day as the latest run counts as the later of the two, because a day is the
 finest grain either fact is recorded at and there is nothing to order them by
-within one. "Latest" otherwise means by the day it happened, then by the order
-it was written down.
+within one.
+
+"Latest" otherwise means by the day it happened, and then by what the run says:
+a miss on a day outranks a catch on the same day. The same reason is behind
+both. A run is dated to a day and nothing finer, so two runs on one day carry no
+record of which came first, and a check seen to let a planted defect through
+that day is broken whether or not something else it was asked about that day
+went well. Ordering the two by when they were typed in would pick by clerical
+order rather than by anything that happened; ordering them by the day alone
+would leave it to the database. A run that settled nothing ranks below both,
+which is consistent with the rules above ignoring it entirely: it sorts last
+within its day, so the first run in a check's log is the run its status was read
+from.
 
 Thirty days is the one judgment in the model, and it is one constant,
 `STALE_AFTER_DAYS`, in one module. A catch exactly thirty days old still reads
