@@ -281,6 +281,70 @@ describe('which checks a change touches', () => {
   });
 
   /**
+   * The subject of the matching is the window, not a commit.
+   *
+   * A cadence puts several commits between one dispatch and the next, so the
+   * question is whether anything in the accumulated set touches a list. The
+   * workflow edit below is the middle commit of three, with a document either
+   * side of it, so a selection reading only `HEAD~1..HEAD` selects nothing and
+   * fails here. Every other case in this file has one commit in the window and
+   * would pass under either reading, which is exactly why this one is here.
+   */
+  it('selects on anything in the window, not only on the last commit', async () => {
+    const { directory, first } = await aRepository();
+    await write(directory, { 'docs/notes.md': 'Notes, once.\n' });
+    await commit(directory, 'Edit a document.');
+    await write(directory, {
+      '.github/workflows/ci.yml': 'name: CI\n# edited\n',
+    });
+    await commit(directory, 'Edit the CI workflow.');
+    await write(directory, { 'docs/notes.md': 'Notes, twice.\n' });
+    await commit(directory, 'Edit the document again.');
+
+    expect(await selectIn(directory, ['--since', first])).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  /** The second criterion, over a window rather than over one commit. */
+  it('exits 3 when no commit in the window touches any list', async () => {
+    const { directory, first } = await aRepository();
+    await write(directory, { 'docs/notes.md': 'Notes, once.\n' });
+    await commit(directory, 'Edit a document.');
+    await write(directory, { 'docs/more-notes.md': 'More notes.\n' });
+    await commit(directory, 'Add another document.');
+
+    expect(await selectIn(directory, ['--since', first])).toBe(nothingIsDue);
+    expect(await dueIn(directory)).toBeNull();
+  });
+
+  /**
+   * The window is the difference between two trees, not the union of every
+   * path the commits in it touched.
+   *
+   * A dependency edited and put back leaves the check's proof standing,
+   * because the proof is about a tree and the tree is the one it was proved
+   * against. The other reading is defensible, so this pins the one the script
+   * makes rather than leaving it to be discovered by whoever reverts a
+   * workflow. The second commit carries a document as well, because a commit
+   * that only put the workflow back would have nothing in it to commit.
+   */
+  it('leaves a check alone when a dependency was changed and changed back', async () => {
+    const { directory, first } = await aRepository();
+    await write(directory, {
+      '.github/workflows/ci.yml': 'name: CI\n# edited\n',
+    });
+    await commit(directory, 'Edit the CI workflow.');
+    await write(directory, {
+      '.github/workflows/ci.yml': 'name: CI\n',
+      'docs/notes.md': 'Notes, edited.\n',
+    });
+    await commit(directory, 'Put the CI workflow back.');
+
+    expect(await selectIn(directory, ['--since', first])).toBe(nothingIsDue);
+    expect(await dueIn(directory)).toBeNull();
+  });
+
+  /**
    * #68's third task. A check whose list is missing is never selected, however
    * plainly the change bears on it, so no replay arrives and the thirty-day
    * backstop takes it Stale rather than leaving it Proven on old evidence.

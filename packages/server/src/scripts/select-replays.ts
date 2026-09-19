@@ -121,6 +121,23 @@ async function changedSince(root: string, anchor: string): Promise<string[]> {
   return output.split('\0').filter((path) => path !== '');
 }
 
+/*
+ * Two things about that range are decisions rather than details.
+ *
+ * It is the whole window since the check was last replayed, not the last
+ * commit. A cadence puts several commits between one dispatch and the next, so
+ * a selection reading `HEAD~1..HEAD` would answer about whichever change
+ * happened to land last and would miss the one that mattered. It would also
+ * pass a fixture with a single commit in it, which is why the tests put three
+ * in the window and assert on the one in the middle.
+ *
+ * And it is the difference between two trees, not the union of every path the
+ * commits in it touched. A dependency edited and put back inside the window
+ * leaves the check's proof standing, because the proof is about a tree and the
+ * tree is the one it was proved against. The other reading is defensible, so
+ * the tests pin this one rather than leaving it to be discovered.
+ */
+
 /**
  * The tree with nothing in it, which is what a check that has never been
  * replayed is compared against.
