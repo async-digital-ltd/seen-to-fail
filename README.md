@@ -560,7 +560,7 @@ for `ci-type-check` and for no other check.
 
 | Checks                                                                       | What their record rests on                                                                                                                                       |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Four of its five runs came from a replay, and the two most recent came from the scheduled one.                 |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Four of its five runs came from a replay.                                                                      |
 | `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | Runs somebody planted, watched and typed in. Nothing replays them, so the thirty-day rule is the only thing that will ever move them.                            |
 | `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet. |
 
@@ -635,14 +635,12 @@ There is also a report of an attempt to enable a site with `public=false` being
 refused with `422 Current plan does not support private GitHub Pages`, dated 18
 September 2026 and recorded on
 [#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Treat it as
-a report rather than as a measurement this repository holds. Nothing in this
-tree, this history or this repository's run record shows a Pages site ever
-existing here, the `pages` endpoint answers 404 today, and the 422's own
-provenance was traced on
-[#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83) to a recalled
-fact rather than to something measured here. It will not be reproduced either,
-because reproducing it means enabling Pages, which is the one thing that must
-not happen before the visibility decision.
+a first-hand record from one session rather than as a measurement anybody can
+repeat. The same record says the enablement was reverted inside the same minute
+and that no build ran, so there is nothing left in this tree, this history or
+this run record to check it against, and that absence is not evidence either
+way. It will not be reproduced, because reproducing it means enabling Pages,
+which is the one thing that must not happen before the visibility decision.
 
 Nothing rests on that 422, and nothing rests on the plan read either. Turning
 Pages on would make the ledger readable by anyone with the URL before the
