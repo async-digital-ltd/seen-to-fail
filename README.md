@@ -499,6 +499,14 @@ it as `f1348f8` is what put the two records in `ledger/runs/`. Both read
 }
 ```
 
+**What that record cannot tell you is that it was scheduled.** Those ten fields
+are the whole of a replay record, and none of them names what started the job.
+`source` has two values, `hand` and `replay`, so it separates a job from a
+person typing, and a replay somebody dispatched is a job too. The cron firing is
+visible on the run `sourceRunUrl` points at, and nowhere in this repository. So
+the paragraph above is checkable from the repository as far as "a job recorded
+this", and the rest of it needs the link followed.
+
 **The same route, walked by hand first.** Run
 [35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
 did all of that on 19 September 2026 against `62e34e9`, dispatched by a person
