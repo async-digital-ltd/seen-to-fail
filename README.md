@@ -620,8 +620,16 @@ Pages is switched off on this repository:
 A Pages site cannot be private on the plan this organisation is on.
 `gh api /orgs/async-digital-ltd --jq .plan.name` returns `team`, re-checked on
 the same day, and private Pages needs Enterprise Cloud, so the conclusion
-follows from the plan alone. That read is the receipt and anybody with access
-can repeat it.
+follows from the plan alone.
+
+That read needs organisation-owner authentication, and saying so is the point of
+this paragraph. Unauthenticated, the same endpoint answers 200 with `login` and
+`type` and no `plan` key at all, measured 22 September 2026. So the plan is the
+best evidence this repository has and it is not a read an outside reader can
+repeat: for that reader it is this file's word. What such a reader can check for
+themselves is the absence of a site rather than the plan behind it, and only
+once this repository is public, because until then a 404 from the `pages`
+endpoint is also what a stranger gets for a repository they cannot see.
 
 There is also a report of an attempt to enable a site with `public=false` being
 refused with `422 Current plan does not support private GitHub Pages`, dated 18
@@ -647,6 +655,10 @@ build needs changing when that happens has not been tested: no Pages site has
 been enabled here and nothing has been deployed, so the most that can be said is
 that the artefact CI already produces on every push is the thing that would be
 served.
+
+Two things in this section are written for today and retire the moment #76
+lands: that nothing is published, and the 404. They are true now and they are
+the first things to reread when Pages is turned on.
 
 ## Tests
 
