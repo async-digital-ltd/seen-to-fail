@@ -296,10 +296,11 @@ The write path is a commit, so a run that is wrong has an author and a diff, and
 can be reverted like anything else in the history. The author and the diff are
 real and you can read them: `git log -- ledger/` is the history of every record
 this project has written about itself: eight commits as of 22 September 2026,
-none of which has removed anything, which is what
-`git log --diff-filter=D -- ledger/` answering with silence means. The revert is
-a property of git rather than something this repository has exercised, so it is
-the part of that sentence to read as untested.
+four that added a file and four that changed one, and none that removed
+anything. That last is what `git log --diff-filter=D -- ledger/` answering with
+silence means. The revert is a property of git rather than something this
+repository has exercised, so it is the part of that sentence to read as
+untested.
 
 What nothing holds is a long-lived token against a running instance, because
 there is no instance to write to. Both workflows below run on the short-lived

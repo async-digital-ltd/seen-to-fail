@@ -146,9 +146,17 @@ jobs:
       # cannot be private on this plan, and the ledger would become
       # world-readable before the owner's decision to make the repository
       # public. Building it as an artefact is what keeps the publishing route
-      # proved and running every day; turning Pages on belongs at the
-      # visibility change, which is #76 and the owner's call. Nothing else in
-      # this file has to change when it happens.
+      # proved, and it runs whenever this workflow runs: every push to main,
+      # every push to a ci-control branch, and every pull request. That is the
+      # trigger block at the top of this file rather than a daily cadence.
+      # There is no cron here and this comment used to claim one.
+      #
+      # Turning Pages on belongs at the visibility change, which is #76 and
+      # the owner's call. Whether anything in this file has to change when it
+      # does is untested: no Pages site has ever been enabled here and nothing
+      # has been deployed, so the most that can be said is that the artefact
+      # this step produces is the thing that would be served. The README says
+      # the same, in the ledger section, and the two have to keep saying it.
       #
       # It loads the records into the development database, which is emptied
       # and rebuilt from them. In CI that database is a service container with
