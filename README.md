@@ -560,15 +560,15 @@ for `ci-type-check` and for no other check.
 
 | Checks                                                                       | What their record rests on                                                                                                                                       |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Four of its five runs came from a replay.                                                                      |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                      |
 | `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | Runs somebody planted, watched and typed in. Nothing replays them, so the thirty-day rule is the only thing that will ever move them.                            |
 | `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet. |
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
 all. Nine checks are on the page and one of them is replayed. Four of the nine
-have any run at all behind them, and one of those four is replayed. Eight runs
-are in `ledger/runs/` and four of them came from a replay, all four against
+have any run at all behind them, and one of those four is replayed. Ten runs
+are in `ledger/runs/` and six of them came from a replay, all six against
 `ci-type-check`, because it is the only check a replay can produce a run for.
 
 None of that is a promise that broke. Epic
