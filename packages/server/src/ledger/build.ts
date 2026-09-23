@@ -72,8 +72,9 @@ export interface BuildResult {
 }
 
 /**
- * Empties the four tables and writes the whole ledger into them, in one
- * transaction.
+ * Empties the three ledger tables, checks, test runs and arming observations,
+ * and writes the whole ledger into them, in one transaction. Saved filters are
+ * left alone: they are not part of the record.
  *
  * The build owns this database. It replaces what is there rather than adding to
  * it, because the ledger is the record in full and a row left over from a
