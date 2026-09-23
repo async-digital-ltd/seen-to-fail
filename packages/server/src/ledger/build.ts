@@ -27,10 +27,12 @@ import type { DatabaseTotals } from './verify.ts';
  * implementation of the one rule this product is about, and the two would
  * disagree the first time either was edited.
  *
- * Nothing is written until the whole thing has been checked against itself. The
- * page and the export are built in memory, compared with the records they came
- * from, and only then put on disk, so a build that disagrees with its own record
- * publishes nothing rather than publishing the disagreement.
+ * Nothing is published until the whole thing has been checked against itself.
+ * The records are checked before the database is touched, then written into it;
+ * the page and the export are built in memory from what the database says,
+ * compared with the records they came from, and only then put on disk. A build
+ * that disagrees with its own record therefore leaves the database replaced and
+ * publishes nothing, rather than publishing the disagreement.
  */
 
 /** The files the build writes, under the output directory. */

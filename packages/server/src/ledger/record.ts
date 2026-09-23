@@ -110,7 +110,7 @@ export async function recordRun(options: RecordOptions): Promise<RecordResult> {
   }
 
   // An address that matches nothing is refused, and nothing is created to
-  // receive the run. The id is the whole of what a job in another repository
+  // receive the run. The id is the whole of what a recording workflow's input
   // says about the check it is recording against, so a misspelt one is far
   // more likely than a check that has yet to be written down, and a recorder
   // that answered it by creating the check would publish a status nobody

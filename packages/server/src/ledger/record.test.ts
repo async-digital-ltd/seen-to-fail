@@ -205,7 +205,7 @@ it('refuses a malformed run and writes nothing', async () => {
 });
 
 /**
- * The address is the one thing a job in another repository writes about a
+ * The address is the one thing a recording workflow's input writes about a
  * check, so the case where it names nothing is the case that matters. The run
  * is refused, the refusal names the address, and no check is brought into
  * being to receive it: a check that appeared because a job misspelled one
