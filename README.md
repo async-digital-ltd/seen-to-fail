@@ -374,7 +374,8 @@ dispatched by hand, which is the route for a declared check wanted back sooner
 than the age floor below would bring it.
 
 What the cron asks for and what the runner does are two different claims, and
-only the second is a measurement. One scheduled run has happened so far.
+only the second is a measurement. As of 23 September 2026 one scheduled run has
+happened.
 [35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
 was created at 09:55:38 UTC on Monday 21 September 2026, five hours and
 thirty-eight minutes after the time it asked for, which is GitHub queueing the
@@ -518,9 +519,15 @@ this", and the rest of it needs the link followed.
 [35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
 did all of that on 19 September 2026 against `62e34e9`, dispatched by a person
 rather than by the schedule, and its two records came in through
-[#103](https://github.com/async-digital-ltd/seen-to-fail/pull/103). Both pairs
-are in `ledger/runs/` and their `sourceRunUrl` is what tells them apart. Nothing
-about the machinery differs between the two runs. What differs is that on the
+[#103](https://github.com/async-digital-ltd/seen-to-fail/pull/103). A second
+dispatched run,
+[35437095049](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35437095049),
+followed the same day against `333dab1` to prove the selection before the
+schedule had ever fired, and its two records came in through
+[#124](https://github.com/async-digital-ltd/seen-to-fail/pull/124) on 23
+September. All three pairs are in `ledger/runs/` and their `sourceRunUrl` is
+what tells them apart. Nothing about the machinery differs between the three
+runs. What differs is that on the
 Monday nobody decided a replay was due, which is the whole of what the automatic
 half was for.
 
@@ -818,10 +825,10 @@ records the result. Nobody opens the app. You write the plant in the format of
 the tool that replays it rather than in one this project invents, and what this
 project adds is the record. That is not a direction any more: it is
 `canfail.json`, `.github/workflows/replay.yml` and the ledger section above, and
-it has been through the whole route on `ci-type-check` twice. Once dispatched by
-a person on 19 September 2026, and once by the schedule on Monday 21 September
-2026, which reached the record as `f1348f8` with nobody having typed anything
-in. The second is the one the epic was for.
+it has been through the whole route on `ci-type-check` three times. Twice
+dispatched by a person on 19 September 2026, and once by the schedule on Monday
+21 September 2026, which reached the record as `f1348f8` with nobody having
+typed anything in. The scheduled one is the one the epic was for.
 
 **What is still only a direction** is the rest of the reach, and it is worth
 being specific about which parts:
