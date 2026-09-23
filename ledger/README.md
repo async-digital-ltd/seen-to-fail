@@ -44,8 +44,8 @@ else, every check and every observation, is written by hand in a pull request.
 and typed in. Given `--source replay` with a commit and a link it writes a
 replay record too, though nothing here calls it that way. `pnpm ledger:replay`
 writes one run per outcome in a replay tool's report, and the `Replay a plant`
-workflow runs it. Both replays with records in `runs/` wrote two runs each, one
-for each break `canfail.json` declares, but the adapter records what the report
+workflow runs it. Each replay with records in `runs/` wrote two runs, one for
+each break `canfail.json` declares, but the adapter records what the report
 lists rather than holding it to the declaration.
 
 The two commands write through the same recorder, `recordRun` in
@@ -89,8 +89,8 @@ until UTC catches up, which is open as
 Every schema is strict: a key nobody reads is refused rather than dropped, in a
 check, a run and an observation alike, because a misspelled field silently
 ignored is a record published without it. A field written in words is trimmed
-of surrounding spaces, and a blank `note`, `inconclusiveReason`, `sourceCommit`
-or `sourceRunUrl` reads as absent.
+of surrounding spaces, and an empty `note`, `inconclusiveReason`,
+`sourceCommit` or `sourceRunUrl` reads as absent.
 
 A run typed in by hand, in the shape `pnpm ledger:record` writes one today:
 every key present, and the empty ones null. The values are made up for the
@@ -165,7 +165,7 @@ sentence into the reason.
 
 The record below is made up for the example: no run in `runs/` has settled
 nothing yet, the commit and the run link are placeholders, and the reason is
-invented. It has the ten keys every replay record has.
+invented. It has the ten keys the recorder writes into every replay record.
 
 ```json
 {
@@ -230,8 +230,8 @@ exactly as it is on disk:
 
 Those ten keys are the whole of a replay record, and none of them names what
 started the job. `source` separates a job from a person typing, and a replay
-somebody dispatched is a job too. The two replays with records in `runs/` show
-it: run
+somebody dispatched is a job too. Two of the replays with records in `runs/`
+show it: run
 [35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
 was dispatched and run
 [35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
@@ -239,10 +239,10 @@ was started by the schedule, and the records each of them wrote carry the same
 ten keys. Which was which is on the run each `sourceRunUrl` links to, and
 nowhere in this directory.
 
-A record that says nothing about its source is read as one typed in by hand. Of
-the eight runs in `runs/` on 23 September 2026, the four typed in by hand are
-all of that kind, with six keys and no `source`, and the four from replays carry
-all ten. That is how the runs recorded before `source` existed stay valid: their
+A record that says nothing about its source is read as one typed in by hand.
+Every run in `runs/` typed in by hand is of that kind, with six keys and no
+`source`, and every run from a replay carries all ten. That is how the runs
+recorded before `source` existed stay valid: their
 filenames are digests of their own contents, so adding a key to them would have
 meant an append-only record rewriting its own past.
 
