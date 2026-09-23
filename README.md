@@ -723,7 +723,10 @@ is what was checked, what was not, and where the evidence for each is.
 
 - **Planted defects, watched being denied.** Tests were trusted once the defect
   they exist for had been planted and seen to fail them. On the story that built
-  the add-check form, 12 defects were planted and all 12 were caught ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
+  the add-check form, 12 defects were planted and all 12 were caught, on that
+  session's own account; the plants were restored, so the record is the comment
+  on [#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24) and
+  nothing in the tree remains to re-check.
 - **The fault none of them could see.** That same branch built only one of the
   two entry points its ticket named. The planted defects, a code review and the
   acceptance check all passed it, because each examined what the branch
@@ -731,13 +734,18 @@ is what was checked, what was not, and where the evidence for each is.
   screenshot, retaken from the branch and expected to show the new link, came
   back byte-identical to the one before
   ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
-- **A scanner trusted only after it fired.** The whole history was scanned for
-  secrets with gitleaks before the repository was made public, and the clean
-  result counted only once the same scan had reported a planted key
-  ([#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29)).
+- **A scanner trusted only after it fired.** The whole history, every branch
+  and every pull request head from the root, is scanned for secrets with
+  gitleaks as the last step before the repository is made public, and the
+  result counts only once the same scan has reported a planted key. The first
+  runs are recorded on
+  [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29), and
+  every later run, with its command and its result, on
+  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55).
 - **A walkthrough by hand.** The run instructions above were followed from a
-  fresh clone. Every command worked, and one sentence led a Homebrew reader into
-  database URLs the server refuses, which CI had no way to notice
+  fresh clone on 16 September 2026, before the ledger commands were added to
+  them. Every command then present worked, and one sentence led a Homebrew
+  reader into database URLs the server refuses, which CI had no way to notice
   ([#27](https://github.com/async-digital-ltd/seen-to-fail/issues/27),
   [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)).
 - **The ledger's own guards, watched refusing.** The two checks the publishing
@@ -768,6 +776,19 @@ Not checked:
 - Nothing automated exercises the client and the server together. That path
   was walked by hand once, over HTTP, on 16 September 2026
   ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
+
+This file is written to one rule. A claim is either checkable from this
+repository or from a run it links to, while GitHub keeps that run's log, or it
+says that it cannot be checked from here. It is checked from where the reader
+stands, not from where the author sat: a fact visible only to somebody with the
+owner's access, or resting only on one session's account of what it saw, is not
+counted as checked, and the text says what a stranger can check instead. The
+ledger section above was audited against that rule on 22 September 2026, after
+two passes over it found claims that were true for whoever wrote them and
+unverifiable for whoever read them
+([#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83));
+[#121](https://github.com/async-digital-ltd/seen-to-fail/issues/121) records
+the pattern. The rest of the file has not been audited against it yet.
 
 ## What shipped, and where it could go
 
