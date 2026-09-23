@@ -159,8 +159,8 @@ it('refuses two checks with the same name and exits 1', async () => {
 
 /**
  * A run logged against a check identified by nothing but its id, which is what
- * a person writes in a file and what a job in another repository quotes. No
- * uuid appears anywhere in the call.
+ * a person writes in a file and what a workflow input quotes. No uuid appears
+ * anywhere in the call.
  */
 it('records a sound run and exits 0', async () => {
   const directory = await writeTemporaryLedger({

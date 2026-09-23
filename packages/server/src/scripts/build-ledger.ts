@@ -5,7 +5,8 @@
 // function the running app reads, renders the page and the export, checks them
 // against the records they came from, and only then writes anything.
 //
-// It replaces what is in that database, exactly as `pnpm db:seed` does. The
+// It replaces the three ledger tables in that database once the records have
+// been checked, and unlike `pnpm db:seed` it leaves saved filters alone. The
 // ledger is the record in full, so a row left over from before would be
 // published as though somebody had recorded it.
 

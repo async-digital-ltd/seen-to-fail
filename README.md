@@ -658,8 +658,8 @@ hold. Serving it is
 [#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Whether the
 build needs changing when that happens has not been tested: no Pages site has
 been enabled here and nothing has been deployed, so the most that can be said is
-that the artefact CI already produces on every push is the thing that would be
-served.
+that the artefact CI already produces, on every pull request and every push to
+`main` or a `ci-control/` branch, is the thing that would be served.
 
 Two things in this section are written for today and retire the moment #76
 lands: that nothing is published, and the 404. They are true now and they are
