@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-type-check",
+  "runOn": "2026-09-19",
+  "planted": "STATUSES loses its as const, so Status widens to string.",
+  "expected": "The type check fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "333dab1f1608f615b1791098d0fca2e712033376",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35437095049"
+}
