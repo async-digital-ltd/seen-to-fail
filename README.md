@@ -292,28 +292,307 @@ pnpm ledger:build      # build dist/ledger from the records
 
 `ledger/README.md` sets the record's shape out in full.
 
-The write path is a commit, so a run that is wrong has an author, a diff and a
-revert. A short-lived workflow token scoped to this repository does write it,
-and what it writes is a commit. What nothing holds is a long-lived token against
-a running instance, because there is no instance to write to. The `Record a run`
-workflow is the job's half of it: it takes a result, refuses a malformed one
-before anything is written, commits the record and pushes a branch. It cannot
-open the pull request itself: GitHub Actions is not permitted to create pull
-requests on this repository, so the run ends red at that last step with the
-record already committed and pushed, and a person opens the pull request from
-the branch it left behind. The required check then runs on its own. Measured on
-18 September 2026, and tracked at
-[#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74), which is
-also where the cost of a red run that has already recorded something is written
-down. The automatic half is not automatic end to end until that is settled. The
-page names the commit that recorded each run, read back out of the history
-rather than stored, so a run cannot claim a commit that did not add it.
+The write path is a commit, so a run that is wrong has an author and a diff, and
+can be reverted like anything else in the history. The author and the diff are
+real and you can read them: `git log -- ledger/` is the history of every record
+this project has written about itself: eight commits as of 22 September 2026,
+four that added a file and four that changed one, and none that removed
+anything. That last is what `git log --diff-filter=D -- ledger/` answering with
+silence means. The revert is a property of git rather than something this
+repository has exercised, so it is the part of that sentence to read as
+untested.
+
+What nothing holds is a long-lived token against a running instance, because
+there is no instance to write to. Both workflows below run on the short-lived
+`GITHUB_TOKEN` the runner is handed and carry no secret of their own, so there
+is nothing here to leak, rotate or scope. Their `permissions:` blocks are the
+whole of what they can do and differ by one line: `Replay a plant` asks for
+`contents: write` and nothing else, and `Record a run` asks for `contents:
+write` and `pull-requests: write`, because it is the one that tries to open its
+own pull request. What either of them writes is a commit on a branch that a
+person then has to merge.
+
+### A run recorded by hand
+
+`Record a run` (`.github/workflows/record-run.yml`) is the job's half of the
+manual route. It takes the result somebody watched, refuses a malformed one
+before anything is written, commits the record and pushes a branch.
+
+The watching has a lane of its own. CI runs on every push to a branch under
+`ci-control/` as well as on `main` and on pull requests, which is where a defect
+gets planted against this repository's own CI: branch, plant it, push under
+`ci-control/`, read the conclusion, delete the branch. Keeping the lane in the
+shipped workflow means what goes red is the workflow that really runs on `main`
+rather than a variant edited to be reachable. The badge at the top of this file
+is pinned to `main`, so a red control run cannot paint it red.
+
+### A replay, start to finish
+
+One check is replayed by a job: `ci-type-check`. `canfail.json` declares exactly
+one check, with two declared breaks under it; `ledger/checks/` holds nine. So
+eight of those nine have no plant for a job to apply, and no replay can ever
+produce a run for them. The next section says plainly what that means for them.
+
+The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
+0.2.1 does it: handed a declaration of planted defects, it runs the check on a
+clean tree first, applies each declared break in turn, runs the check again, and
+scores what happened. The version is pinned in the workflow, because an
+unpinned install would let the scoring change under a ledger that cannot yet see
+which version produced a verdict
+([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
+
+What this project adds is everything after the verdict. `canfail` answers
+whether a check caught a defect just now, and then forgets. The ledger answers
+whether the check has ever been seen to catch one, how long ago, and whether
+anything has changed since: a record per planted defect, a history per check, a
+status read off that history by one SQL function, and a proof that goes stale.
+
+The declaration is `canfail.json` at the root, in `canfail`'s own format. This
+project defines no format of its own. Two keys sit beside each check that
+`canfail` ignores and this project reads:
+
+```json
+{
+  "name": "Type check",
+  "checkId": "ci-type-check",
+  "dependsOn": ["packages", "tsconfig.base.json", "pnpm-lock.yaml"]
+}
+```
+
+`checkId` is the check's address in the ledger and the only way anything outside
+the app names a check. `dependsOn` is the paths that bear on the check's proof,
+spelled as git spells them, relative to the root; an entry matches a changed
+path when it is that path or when the path sits inside it. Both keys sit once on
+the check and not once per break, which is what makes them a statement about the
+check's proof rather than about one plant. The list above is shown short:
+`canfail.json` carries all eight of its entries, `canfail`'s own keys beside
+them, and the two declared breaks.
+
+The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
+`cron: '17 4 * * 1'`, which is 04:17 UTC on a Monday, and it can also be
+dispatched by hand, which is the route for a check that has gone stale with
+nobody having touched anything it depends on.
+
+What the cron asks for and what the runner does are two different claims, and
+only the second is a measurement. One scheduled run has happened so far.
+[35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
+was created at 09:55:38 UTC on Monday 21 September 2026, five hours and
+thirty-eight minutes after the time it asked for, which is GitHub queueing the
+run rather than anything in this repository. So the cadence to plan against is
+about one run a week, and the time of day in the cron is a request.
+
+Weekly rather than on every push for two reasons, and the second is the
+stronger: each replay runs the check once on a clean tree and once per declared
+break, which is three runs of `pnpm typecheck` today and costs runner minutes
+this project has no budget for, and a replay filed on every merge would bury the
+runs that say something under runs that say the same thing again. Weekly also
+sits inside the thirty-day backstop with room to spare: a run that arrives
+notices a change within seven days and leaves twenty-three days of margin, and a
+run the scheduler drops is caught by the backstop rather than by the cadence,
+which is what the backstop is for. The replay is deliberately not part of the CI
+workflow that runs on every pull request: `canfail` edits real source files on
+disk and restores them, which is fine on a runner nobody else is using and is
+not something to put in the path of every contributor's change.
+
+The job does six things:
+
+1. **Works out which checks are due**, with `pnpm replay:select`. It exits 0
+   when something is due, 3 when nothing is, and 1 when it refuses, and the
+   workflow reads that status rather than looking for an output file, because a
+   missing file cannot tell a refusal from an honest empty answer.
+2. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
+   report under the runner's temporary directory rather than into the checkout.
+3. **Checks the tree came back.** `canfail` edits real files and puts them back,
+   and a restore that ran is not a restore that worked: a tree that did not come
+   back leaves every break after the failed one scored against a tree nobody
+   declared, so the job stops instead of recording them.
+4. **Records what the report means**, with `pnpm ledger:replay`. One run per
+   declared break, each carrying `source: replay`, the commit the plants were
+   applied to, and a link to the run that produced it.
+5. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
+   and the hand-recording workflow run, so this job cannot commit a ledger
+   either of them would have refused.
+6. **Pushes `replay/<run id>` and says what is waiting**, printing the
+   `gh pr create` command into the run summary. It does not open the pull
+   request. A green run here means recorded and waiting for a person; it does
+   not mean done.
+
+**What makes a check due.** A check is replayed when a path matching its
+`dependsOn` list has changed since that check was last replayed, and the range
+is worked out per check rather than once for the run. The anchor is the
+`sourceCommit` of that check's newest recorded replay, read back out of the
+ledger, and newest means newest by git's count of commits to `HEAD` rather than
+by the day the run was recorded on, because two replays recorded on one day
+carry no order between them. One shared anchor would be the newest of them all,
+so a check replayed a month ago would have its month of changes hidden behind a
+check replayed yesterday and would quietly stop being replayed.
+
+Two things about that range are decisions rather than details. It is the whole
+window since the check was last proved and not the last commit, because a weekly
+cadence puts several commits between one dispatch and the next and the one that
+matters is rarely the one that happened to land last. And it is the difference
+between two trees rather than the union of every path the commits in it touched,
+so a dependency edited and put back inside the window leaves the check's proof
+standing: the proof is about a tree, and the tree is the one it was proved
+against.
+
+A check that has never been replayed is measured against the empty tree, so
+every tracked file counts as changed and the matching decides from there. A
+check with no `dependsOn`, or one whose list matches nothing, is not selected at
+all, and keeps the behaviour it had before any of this existed: it is proved
+when somebody dispatches the workflow. A dispatch replays every declared check
+unless its `only-due` box is ticked, which is what lets the hand route reach a
+check the matching deliberately does not.
+
+All of that needs the whole history, which is why the job checks out with
+`fetch-depth: 0` and why the selection refuses a shallow clone outright rather
+than answering from one. In a shallow clone every recorded commit is
+unreachable, so every check would fall back to the empty tree and every check
+with a list would be replayed on every run. That is a guard that always says
+yes, which is the failure this repository exists to describe, so it refuses
+instead.
+
+The mapping from a verdict to a record is fixed, and those four verdicts are the
+whole vocabulary of 0.2.1:
+
+| `canfail` verdict | the ledger records | `inconclusiveReason`   |
+| ----------------- | ------------------ | ---------------------- |
+| `catches`         | caught             | none                   |
+| `blind`           | missed             | none                   |
+| `wrong-failure`   | inconclusive       | `canfail`'s own words  |
+| `look`            | inconclusive       | `canfail`'s own words  |
+| anything else     | nothing is written | the whole report stops |
+
+A fifth verdict means the mapping is out of date, which is a refusal naming it
+rather than a guess, and it stops the whole report rather than the one outcome:
+a tool this mapping no longer describes did not produce the other verdicts any
+more reliably. The reason is copied word for word rather than reworded, for the
+reason the status model gives above.
+
+**What that produced.** Run
+[35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
+is the first replay in this record that nobody started. GitHub's scheduler
+created it at 09:55:38 UTC on Monday 21 September 2026, against `81e159c` on
+`main`. Its one job ran eighteen steps and every one of them concluded
+`success`. The selection found one check due, printing
+`Type check (ci-type-check) is measured against 62e34e977f2241cbe33b948cc31afd287b5420ed, where 22 path(s) changed`
+into the log; `canfail` scored both declared breaks and exited 0; the adapter
+wrote two `caught` runs; the job pushed `replay/35585966476` and printed the
+`gh pr create` command into the run summary. A person opened
+[#115](https://github.com/async-digital-ltd/seen-to-fail/pull/115), and merging
+it as `f1348f8` is what put the two records in `ledger/runs/`. Both read
+`"outcome": "caught"` and `"source": "replay"` against a `sourceCommit` of
+`81e159c`. One of the two:
+
+```json
+{
+  "checkId": "ci-type-check",
+  "runOn": "2026-09-21",
+  "planted": "STALE_AFTER_DAYS is written as a string rather than a number.",
+  "expected": "The type check fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "81e159cc56193008c60e83abdbe18b9b45e32a30",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476"
+}
+```
+
+**What that record cannot tell you is that it was scheduled.** Those ten fields
+are the whole of a replay record, and none of them names what started the job.
+`source` has two values, `hand` and `replay`, so it separates a job from a
+person typing, and a replay somebody dispatched is a job too. The cron firing is
+visible on the run `sourceRunUrl` points at, and nowhere in this repository. So
+the paragraph above is checkable from the repository as far as "a job recorded
+this", and the rest of it needs the link followed.
+
+**The same route, walked by hand first.** Run
+[35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
+did all of that on 19 September 2026 against `62e34e9`, dispatched by a person
+rather than by the schedule, and its two records came in through
+[#103](https://github.com/async-digital-ltd/seen-to-fail/pull/103). Both pairs
+are in `ledger/runs/` and their `sourceRunUrl` is what tells them apart. Nothing
+about the machinery differs between the two runs. What differs is that on the
+Monday nobody decided a replay was due, which is the whole of what the automatic
+half was for.
+
+**And the half that matters more.** A route that records a catch is worth
+nothing until the same route has been seen not to record one. Run
+[35431432957](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35431432957)
+ran the same replay against `ci-control/67-red-baseline` at `7d7e24c`, a branch
+where the type check was already failing before anything was planted. That the
+baseline really was red, and red for the declared reason, is CI run
+[35431434499](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35431434499)
+on the same branch, which concluded failure with `Type check` the step that
+failed. `canfail` scored both breaks `look`, the adapter wrote two
+`inconclusive` runs carrying `canfail`'s own sentence as the reason, and no
+`caught` run was written. `canfail` exited 0 in both halves, so the process
+status could not have told the two apart; the records did, which is why the
+observation is the absent `caught` row and not an exit code. Those two records
+describe that control branch rather than `main` and were left on
+`replay/35431432957`, which is why `ledger/runs/` holds no inconclusive run.
+
+**Neither workflow opens its own pull request.** GitHub Actions is not permitted
+to create pull requests on this repository. `Record a run` still tries, so it
+ends red at that last step with the record already committed and pushed:
+measured on 18 September 2026 in run
+[35405970369](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35405970369),
+which failed with `GitHub Actions is not permitted to create or approve pull
+requests (createPullRequest)`. `Replay a plant` does not try, and pushes the
+branch instead. The switch that would allow either of them, "Allow GitHub
+Actions to create and approve pull requests", is off:
+`gh api repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow`
+answers `"can_approve_pull_request_reviews": false`, re-checked on
+22 September 2026. It couples creating to approving, so turning it on to let a
+job open a pull request also lets automation approve one, in a repository whose
+whole subject is whether automated checks can be trusted to have been checked.
+Tracked at
+[#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74), which also
+holds the cost of a red run that has already recorded something. The automatic
+half is not automatic end to end until that is settled.
+
+### How much of this record is automatic
+
+One of the nine checks in `ledger/checks/` is replayed by a job. The other eight
+are not, and the whole difference is one file: `canfail.json` declares a plant
+for `ci-type-check` and for no other check.
+
+| Checks                                                                       | What their record rests on                                                                                                                                       |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Four of its five runs came from a replay.                                                                      |
+| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | Runs somebody planted, watched and typed in. Nothing replays them, so the thirty-day rule is the only thing that will ever move them.                            |
+| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet. |
+
+You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
+canfail.json`, and the arithmetic is the point of showing it, denominators and
+all. Nine checks are on the page and one of them is replayed. Four of the nine
+have any run at all behind them, and one of those four is replayed. Eight runs
+are in `ledger/runs/` and four of them came from a replay, all four against
+`ci-type-check`, because it is the only check a replay can produce a run for.
+
+None of that is a promise that broke. Epic
+[#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) scoped the
+automatic half to adapting an existing runner against real checks here, and
+names writing plants automatically, a runner of this project's own, and checks
+that cannot be broken on purpose at all as out of scope. It is said here rather
+than left to be worked out because a reader who discovers the reach of a thing
+for themselves, after the page implied more, is right to stop believing the rest
+of the page.
+
+### What the build refuses to publish
 
 The build refuses to publish when the records and the output disagree: it
 compares the files on disk with the rows the database ended up holding, with the
 export, and with the rendered page, and writes nothing if any of those disagree.
 A page listing nine runs where the ledger holds ten looks exactly like a page
 listing ten, which is the kind of quiet wrongness this project is about.
+
+The page names the commit that recorded each run, read back out of the history
+rather than stored, so a run cannot claim a commit that did not add it. That is
+a different commit from a replay's `sourceCommit`, which is the tree the plant
+was applied to, and the page names both rather than leaving them to be told
+apart by position.
 
 The published page is read-only and has no filter bar. The filter language
 compiles a filter to SQL, and there is no database behind a published page to
@@ -331,15 +610,53 @@ not write the published ledger. Nothing yet carries a run from a local database
 into `ledger/`
 ([#75](https://github.com/async-digital-ltd/seen-to-fail/issues/75)).
 
-**Nothing is published yet, on purpose.** CI builds the page on every push and
-keeps it as a build artefact, and GitHub Pages is switched off on this
-repository. A Pages site cannot be private on this plan: enabling one and asking
-for `public=false` is refused with `422 Current plan does not support private
-GitHub Pages`, measured on 18 September 2026. Turning it on would make the ledger
-readable by anyone with the URL before the decision to make the repository
-public has been taken, which is the wrong way round. Serving it is
-[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76), and the
-build needs no change when it happens.
+**Nothing is published yet, on purpose.** CI builds the page on every run it
+does, which is every pull request, every push to `main` and every push to a
+`ci-control/` branch, and keeps it as a build artefact for seven days. GitHub
+Pages is switched off on this repository:
+`gh api repos/async-digital-ltd/seen-to-fail/pages` answers 404, re-checked on
+22 September 2026, which is how that can be checked without changing anything.
+
+A Pages site cannot be private on the plan this organisation is on.
+`gh api /orgs/async-digital-ltd --jq .plan.name` returns `team`, re-checked on
+the same day, and private Pages needs Enterprise Cloud, so the conclusion
+follows from the plan alone.
+
+That read needs organisation-owner authentication, and saying so is the point of
+this paragraph. Unauthenticated, the same endpoint answers 200 with `login` and
+`type` and no `plan` key at all, measured 22 September 2026. So the plan is the
+best evidence this repository has and it is not a read an outside reader can
+repeat: for that reader it is this file's word. What such a reader can check for
+themselves is the absence of a site rather than the plan behind it, and only
+once this repository is public, because until then a 404 from the `pages`
+endpoint is also what a stranger gets for a repository they cannot see.
+
+There is also a report of an attempt to enable a site with `public=false` being
+refused with `422 Current plan does not support private GitHub Pages`, dated 18
+September 2026 and recorded on
+[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Treat it as
+a first-hand record from one session rather than as a measurement anybody can
+repeat. The same record says the enablement was reverted inside the same minute
+and that no build ran, so there is nothing left in this tree, this history or
+this run record to check it against, and that absence is not evidence either
+way. It will not be reproduced, because reproducing it means enabling Pages,
+which is the one thing that must not happen before the visibility decision.
+
+Nothing rests on that 422, and nothing rests on the plan read either. Turning
+Pages on would make the ledger readable by anyone with the URL before the
+decision to make the repository public has been taken, and it would put the
+output outside the history review that
+[#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55) exists to
+hold. Serving it is
+[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Whether the
+build needs changing when that happens has not been tested: no Pages site has
+been enabled here and nothing has been deployed, so the most that can be said is
+that the artefact CI already produces on every push is the thing that would be
+served.
+
+Two things in this section are written for today and retire the moment #76
+lands: that nothing is published, and the 404. They are true now and they are
+the first things to reread when Pages is turned on.
 
 ## Tests
 
@@ -350,12 +667,14 @@ pnpm format:check
 pnpm test
 ```
 
-The repository is a pnpm workspace with three packages:
+The repository is a pnpm workspace with four packages:
 
 - `packages/server`, the GraphQL API,
 - `packages/web`, the React client,
 - `packages/filter`, the filter language, imported by both sides so that
-  neither one depends on the other.
+  neither one depends on the other,
+- `packages/replay`, which reads a replay tool's report and says what runs it
+  means. It writes nothing, reads no files and knows nothing about a database.
 
 `typecheck` and `test` run inside every package. `lint` and `format:check` run
 once over the whole tree from the repository root. `pnpm format` rewrites files
@@ -443,20 +762,19 @@ Not checked:
   was walked by hand once, over HTTP, on 16 September 2026
   ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
 
-## Where it could go
+## What shipped, and where it could go
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
-  <img alt="A timeline with two points. A filled circle, version 1, now, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a hollow circle, a future version, automatic: replayed for you, where you write the breaking change once and CI applies it, runs the check, removes it and records the result whenever something the check depends on changes." src="docs/roadmap-light.svg">
+  <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, one check so far, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
 </picture>
 
-Nothing past version 1 is decided. This is a direction, not a plan.
-
-**Version 1 is manual, all of it.** Proving one check means making a throwaway
-branch, breaking the code in the way that check exists to catch, running the
-check, confirming it failed for that reason and not another, deleting the
-branch, and then writing down what happened. The app holds the record. Every
-step that produces the record is yours.
+**Version 1 is manual, and eight of the nine checks recorded here still are.**
+Proving one check means making a throwaway branch, breaking the code in the way
+that check exists to catch, running the check, confirming it failed for that
+reason and not another, deleting the branch, and then writing down what
+happened. The app holds the record. Every step that produces the record is
+yours.
 
 That is the weakness, and it is the one the app exists to show in checks: a
 record made that way goes stale as soon as people stop doing all of it. Thirty
@@ -464,16 +782,44 @@ days is only a stand-in for what actually voids a proof, which is a change to
 something the check depends on: its workflow, its configuration, the version of
 its tool.
 
-**A future version would automate all of that except deciding what to break.**
-You write the breaking change once and keep it beside the code, with the list of
-things its check depends on. When a change touches any of them, CI applies the
-change, runs the check, confirms it failed for that reason, removes it again and
-records the result. Nobody opens the app. The work left to a person is the
-judgment: what counts as a defect for this check, which is different every time.
-You write it in the format of whatever tool replays it, rather than in one this
-project invents. What this project adds is the record.
+**Version 2 automates all of that except deciding what to break, for a check
+that has a plant declared.** You write the breaking change once and keep it
+beside the code, with the list of things its check depends on. A job applies it,
+runs the check, confirms it failed for that reason, puts the code back and
+records the result. Nobody opens the app. You write the plant in the format of
+the tool that replays it rather than in one this project invents, and what this
+project adds is the record. That is not a direction any more: it is
+`canfail.json`, `.github/workflows/replay.yml` and the ledger section above, and
+it has been through the whole route on `ci-type-check` twice. Once dispatched by
+a person on 19 September 2026, and once by the schedule on Monday 21 September
+2026, which reached the record as `f1348f8` with nobody having typed anything
+in. The second is the one the epic was for.
 
-Some checks cannot be broken on purpose this way, a review bot or branch
-protection among them. Those stay manual. Thirty days stays too, as a backstop
-for changes nobody thought to list, so if the automatic runs stop arriving,
-Proven checks still drift to Stale.
+**What is still only a direction** is the rest of the reach, and it is worth
+being specific about which parts:
+
+- **The other eight checks.** A plant is written once, by a person, and nothing
+  writes one for you. Epic
+  [#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) names
+  writing plants automatically as out of scope, so until somebody writes them,
+  eight of the nine are proved by hand or not at all.
+- **A runner of this project's own.** An existing one was adapted rather than
+  written, and writing one is only worth it if the adapter shows the ledger
+  earns its keep and the tool cannot be made to fit.
+- **A record that knows which tool produced a verdict.** The version is pinned
+  in the workflow and named in this file, which is prose rather than record: the
+  ledger cannot yet tell you that a run was scored by `canfail` 0.2.1
+  ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
+- **End to end without a person.** Neither recording workflow lands its own
+  record. `Replay a plant` pushes a branch and does not try to open a pull
+  request; `Record a run` does try, and goes red at that step with the record
+  already pushed
+  ([#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74)).
+- **Plants that need a branch pushed and another workflow's verdict awaited.**
+  Everything here replays in place, on one runner, in one job. Anything else is
+  a later epic if in-place replays prove useful.
+
+Some checks cannot be broken on purpose in any of those ways, a review bot or
+branch protection among them. Those stay manual. Thirty days stays too, as a
+backstop for changes nobody thought to list, so if the automatic runs stop
+arriving, Proven checks still drift to Stale.
