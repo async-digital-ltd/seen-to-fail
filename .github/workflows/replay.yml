@@ -76,10 +76,20 @@ name: Replay a plant
 #
 # The floor cannot rescue a check with no plant in `canfail.json`, because that
 # file is the whole of what the selection reads checks from. Of the four checks
-# that carry runs here, three are in that position today. They are replayed by
-# hand from the dispatch below, and they go Stale on the backstop until somebody
-# writes them a plant. The ledger's other five checks carry an observation and
-# no run, so they read Unproven and have no proof for a floor to keep alive.
+# that carry runs here, three are in that position today. The dispatch below
+# cannot reach them either, since it hands the same declaration to the tool and
+# the record step refuses a check the declaration does not declare; their runs
+# are recorded by hand through the `Record a run` workflow, and they go Stale on
+# the backstop until somebody writes them a plant. The ledger's other five
+# checks carry an observation and no run, so they read Unproven and have no
+# proof for a floor to keep alive.
+#
+# The floor keeps a proof alive only while two other things hold, and neither is
+# its doing. A person has to merge the branch each replay pushes, because the
+# ledger's newest settled run does not move until then and the page reads Stale
+# from day thirty-one regardless of how many branches are waiting. And the
+# schedule has to stay enabled: in a public repository GitHub disables scheduled
+# workflows after sixty days without repository activity, recorded on #111.
 #
 # The replay is NOT added to the CI workflow that runs on every pull request.
 # canfail edits real source files on disk and restores them afterwards, which is
@@ -169,9 +179,10 @@ jobs:
         env:
           # A dispatch replays every declared check unless it is asked not to.
           # That is the behaviour this workflow had before the schedule existed,
-          # and it is still the route to a check the selection cannot reach: one
-          # with no plant in canfail.json, or one wanted back sooner than the
-          # floor would bring it.
+          # and it is still the route to a declared check wanted back sooner
+          # than the floor would bring it. It reaches nothing outside
+          # canfail.json: a check with no plant there is recorded by hand
+          # through the `Record a run` workflow, not here.
           MATCHING: ${{ github.event_name == 'schedule' || inputs.only-due }}
         run: |
           set -euo pipefail

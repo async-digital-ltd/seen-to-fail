@@ -134,6 +134,15 @@ whole of what the selection reads checks from, so a check the ledger holds and
 the declaration does not is not selectable by either route, however old its
 proof is. Writing it a plant is the only thing that changes that.
 
+Two things outside the floor decide whether it keeps a proof alive, and it is
+worth saying both beside it. A person has to merge the branch each replay
+pushes: the ledger's newest settled run does not move until that happens, so
+the floor selects the same check again at every dispatch and the page still
+reads Stale from day thirty-one. And the schedule has to stay enabled, which in
+a public repository GitHub stops doing after sixty days without repository
+activity (recorded on #111). The floor answers a quiet repository only as far as
+those two hold.
+
 **Which checks this covers: one of the four checks that carry runs.** The ledger
 holds nine checks. Four of them carry runs, and so have a status the backstop
 can age; the other five carry an arming observation and no run at all, so they

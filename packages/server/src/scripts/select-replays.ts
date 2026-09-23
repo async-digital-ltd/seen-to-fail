@@ -33,8 +33,8 @@
 //
 // The floor is set well below the backstop so that a weekly cadence gets more
 // than one attempt at a refresh before the backstop bites, and well above the
-// cadence so that a quiet check is replayed about once a fortnight rather than
-// most weeks. The arithmetic for both is on REPLAY_AFTER_DAYS in
+// cadence so that a quiet check is replayed about once every three weeks rather
+// than every second week. The arithmetic for both is on REPLAY_AFTER_DAYS in
 // ../staleness.ts, and the relationship is asserted in staleness.test.ts.
 //
 // The floor can only rescue a check that has a plant in canfail.json, because

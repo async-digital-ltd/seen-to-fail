@@ -39,21 +39,24 @@ export const STALE_AFTER_DAYS = 30;
  * chosen over it because it is two whole cadence periods and leaves the spare
  * two days as margin rather than spending them.
  *
- * Slower was rejected for that reason and faster for the opposite one. At seven
- * a check nothing has touched would be replayed on most dispatches, and the
- * `Replay a plant` workflow's own header objects to exactly that: a replay is a
- * dated observation, and filing a near identical proof over and over buries the
- * runs that say something under runs that say the same thing again. At fourteen
- * such a check is replayed about once a fortnight.
+ * Slower was rejected for that reason and faster for the opposite one. How often
+ * a quiet check is replayed follows from the boundary being strict: a replay's
+ * run is dated the day the job runs, so the check is seven days old at the next
+ * weekly dispatch and fourteen at the one after, and it is selected only once
+ * it is older than fourteen, at the third. At fourteen a check nothing has
+ * touched is therefore replayed about once every three weeks; at seven it would
+ * be replayed at every second dispatch, and the `Replay a plant` workflow's own
+ * header objects to exactly that: a replay is a dated observation, and filing a
+ * near identical proof over and over buries the runs that say something under
+ * runs that say the same thing again. Fourteen files half as many of those rows
+ * as seven and still buys the second attempt, which is why it won.
  *
- * It costs nothing measurable in Actions minutes, and that is arithmetic too.
- * The floor adds no dispatch: the schedule fires weekly either way, and the
- * floor only changes whether a dispatch that would have stopped at the
- * selection goes on to replay. Actions bills a job rounded up to the minute,
- * and the one full replay on record, run 35429662430, took 58 seconds, so a
- * dispatch is one billed minute whether it replays or not. The whole lane stays
- * at about five billed minutes a month against the 2,000 a private repository
- * gets free, which is the quarter of one percent #68 already measured.
+ * It costs nothing extra in Actions minutes. The floor adds no dispatch: the
+ * schedule fires weekly either way, and the floor only changes whether a
+ * dispatch that would have stopped at the selection goes on to replay. The
+ * measured durations, and what is and is not known about the allowance they
+ * count against, are in the header of `.github/workflows/replay.yml` and are
+ * not restated here.
  *
  * The relationship above is asserted in `staleness.test.ts` rather than left in
  * this comment, because a comment cannot notice the backstop or the cadence
