@@ -727,14 +727,14 @@ is what was checked, what was not, and where the evidence for each is.
   screenshot, retaken from the branch and expected to show the new link, came
   back byte-identical to the one before
   ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
-- **A scanner trusted only after it fired.** The history was scanned for
-  secrets with gitleaks before the repository was made public, and the clean
-  result counted only once the same scan had reported a planted key. The first
-  run is recorded on
-  [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29); every
-  later run, each over the root to the head of `main` at the time, is recorded on
-  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55), and the
-  last of those is the one the visibility change rested on.
+- **A scanner trusted only after it fired.** The whole history is scanned for
+  secrets with gitleaks as the last step before the repository is made public,
+  and the result counts only once the same scan has reported a planted key. The
+  first run is recorded on
+  [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29); the
+  command and the result of every later run, each over the root to the head of
+  `main` at the time, are recorded on
+  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55).
 - **A walkthrough by hand.** The run instructions above were followed from a
   fresh clone on 16 September 2026, before the ledger commands were added to
   them. Every command then present worked, and one sentence led a Homebrew
