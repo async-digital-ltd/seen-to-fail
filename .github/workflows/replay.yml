@@ -72,7 +72,7 @@ name: Replay a plant
 # It costs nothing extra to bill. The floor adds no dispatch, since the schedule
 # fires weekly either way, and Actions bills a job rounded up to the minute, so
 # a dispatch is one billed minute whether it replays or stops at the selection.
-# The five billed minutes a month measured above is still the ceiling.
+# The five to nine billed minutes a month measured above are still the ceiling.
 #
 # The floor cannot rescue a check with no plant in `canfail.json`, because that
 # file is the whole of what the selection reads checks from. Of the four checks
