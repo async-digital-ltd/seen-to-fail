@@ -48,8 +48,8 @@ export const STALE_AFTER_DAYS = 30;
  * be replayed at every second dispatch, and the `Replay a plant` workflow's own
  * header objects to exactly that: a replay is a dated observation, and filing a
  * near identical proof over and over buries the runs that say something under
- * runs that say the same thing again. Fourteen files half as many of those rows
- * as seven and still buys the second attempt, which is why it won.
+ * runs that say the same thing again. Fourteen files two thirds as many of those
+ * rows as seven and still buys the second attempt, which is why it won.
  *
  * It costs nothing extra in Actions minutes. The floor adds no dispatch: the
  * schedule fires weekly either way, and the floor only changes whether a
