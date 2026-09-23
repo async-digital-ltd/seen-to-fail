@@ -714,6 +714,16 @@ The sample data is invented.
 Code written that way is only as trustworthy as the checking behind it, so here
 is what was checked, what was not, and where the evidence for each is.
 
+One rule holds for every sentence in this file. A claim is either checkable
+from this repository or from a run it links to, or it says that it cannot be
+checked from here. And it is checked from where the reader stands, not from
+where the author sat: a fact visible only to somebody with the owner's access is
+not counted as checked, and the text says what a stranger can check instead.
+The rule is written down because two passes over this file found claims that
+were true for whoever wrote them and unverifiable for whoever read them
+([#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83),
+[#121](https://github.com/async-digital-ltd/seen-to-fail/issues/121)).
+
 - **Planted defects, watched being denied.** Tests were trusted once the defect
   they exist for had been planted and seen to fail them. On the story that built
   the add-check form, 12 defects were planted and all 12 were caught ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
