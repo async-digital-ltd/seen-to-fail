@@ -185,7 +185,7 @@ async function countRows(client: Client): Promise<DatabaseTotals> {
  *
  * The client is passed in rather than opened here, so the tests can hand it the
  * test database and the script can hand it the development one. Whichever it
- * is, its four tables are emptied.
+ * is, its three ledger tables are emptied.
  */
 export async function buildLedger(
   client: Client,
