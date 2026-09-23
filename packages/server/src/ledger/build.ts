@@ -27,10 +27,12 @@ import type { DatabaseTotals } from './verify.ts';
  * implementation of the one rule this product is about, and the two would
  * disagree the first time either was edited.
  *
- * Nothing is written until the whole thing has been checked against itself. The
- * page and the export are built in memory, compared with the records they came
- * from, and only then put on disk, so a build that disagrees with its own record
- * publishes nothing rather than publishing the disagreement.
+ * Nothing is published until the whole thing has been checked against itself.
+ * The records are checked before the database is touched, then written into it;
+ * the page and the export are built in memory from what the database says,
+ * compared with the records they came from, and only then put on disk. A build
+ * that disagrees with its own record therefore leaves the database replaced and
+ * publishes nothing, rather than publishing the disagreement.
  */
 
 /** The files the build writes, under the output directory. */
@@ -72,8 +74,9 @@ export interface BuildResult {
 }
 
 /**
- * Empties the four tables and writes the whole ledger into them, in one
- * transaction.
+ * Empties the three ledger tables, checks, test runs and arming observations,
+ * and writes the whole ledger into them, in one transaction. Saved filters are
+ * left alone: they are not part of the record.
  *
  * The build owns this database. It replaces what is there rather than adding to
  * it, because the ledger is the record in full and a row left over from a
@@ -184,7 +187,7 @@ async function countRows(client: Client): Promise<DatabaseTotals> {
  *
  * The client is passed in rather than opened here, so the tests can hand it the
  * test database and the script can hand it the development one. Whichever it
- * is, its four tables are emptied.
+ * is, its three ledger tables are emptied.
  */
 export async function buildLedger(
   client: Client,
