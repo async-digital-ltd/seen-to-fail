@@ -257,10 +257,10 @@ export async function loadLedger(options: LoadOptions): Promise<LoadResult> {
   }
 
   // The refusal names the address that matched nothing. It is the one thing a
-  // workflow input or a plant file wrote about the check, so it is the one thing
-  // in the message that tells its author which file to look at. It is safe to
-  // echo: an id reaches this loop only after the schema has held it to lower
-  // case letters, digits and hyphens.
+  // workflow input or canfail.json wrote about the check, so it is the one
+  // thing in the message that tells its author which file to look at. It is
+  // safe to echo: an id reaches this loop only after the schema has held it to
+  // lower case letters, digits and hyphens.
   for (const entry of [...runs, ...observations]) {
     if (!knownIds.has(entry.record.checkId)) {
       issues.push({

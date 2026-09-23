@@ -110,12 +110,13 @@ export async function recordRun(options: RecordOptions): Promise<RecordResult> {
   }
 
   // An address that matches nothing is refused, and nothing is created to
-  // receive the run. The id is the whole of what a recording workflow's input
-  // says about the check it is recording against, so a misspelt one is far
-  // more likely than a check that has yet to be written down, and a recorder
-  // that answered it by creating the check would publish a status nobody
-  // recorded. The refusal names the id, which has already been held to lower
-  // case letters, digits and hyphens by the schema, so echoing it is safe.
+  // receive the run. The id is the whole of what a workflow input or
+  // canfail.json says about the check being recorded against, so a misspelt
+  // one is far more likely than a check that has yet to be written down, and
+  // a recorder that answered it by creating the check would publish a status
+  // nobody recorded. The refusal names the id, which has already been held to
+  // lower case letters, digits and hyphens by the schema, so echoing it is
+  // safe.
   const known = loaded.contents.checks.some(
     (entry) => entry.record.id === parsed.value.checkId,
   );
