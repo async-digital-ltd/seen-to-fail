@@ -370,8 +370,8 @@ them, and the two declared breaks.
 
 The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
 `cron: '17 4 * * 1'`, which is 04:17 UTC on a Monday, and it can also be
-dispatched by hand, which is the route for a check that has gone stale with
-nobody having touched anything it depends on.
+dispatched by hand, which is the route for a declared check wanted back sooner
+than the age floor below would bring it.
 
 What the cron asks for and what the runner does are two different claims, and
 only the second is a measurement. One scheduled run has happened so far.
@@ -417,9 +417,15 @@ The job does six things:
    request. A green run here means recorded and waiting for a person; it does
    not mean done.
 
-**What makes a check due.** A check is replayed when a path matching its
-`dependsOn` list has changed since that check was last replayed, and the range
-is worked out per check rather than once for the run. The anchor is the
+**What makes a check due.** A check is replayed when either of two things
+holds: a path matching its `dependsOn` list has changed since that check was
+last replayed, or its newest settled run is older than an age floor,
+`REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
+days, chosen so that the weekly schedule gets two attempts at a refresh before
+the thirty-day rule takes a proof Stale. Either route can select only a check
+that has a plant in `canfail.json`, so today both reach `ci-type-check` and
+nothing else. For the dependency route, the range is worked out per check
+rather than once for the run. The anchor is the
 `sourceCommit` of that check's newest recorded replay, read back out of the
 ledger, and newest means newest by git's count of commits to `HEAD` rather than
 by the day the run was recorded on, because two replays recorded on one day
@@ -438,11 +444,12 @@ against.
 
 A check that has never been replayed is measured against the empty tree, so
 every tracked file counts as changed and the matching decides from there. A
-check with no `dependsOn`, or one whose list matches nothing, is not selected at
-all, and keeps the behaviour it had before any of this existed: it is proved
-when somebody dispatches the workflow. A dispatch replays every declared check
-unless its `only-due` box is ticked, which is what lets the hand route reach a
-check the matching deliberately does not.
+check with no `dependsOn`, or one whose list matches nothing, is never selected
+by dependency. It is selected by the floor once its proof has aged, because a
+list nobody has written says nobody has worked out what voids that check's
+proof, which is a reason to keep proving it rather than to stop. A dispatch
+replays every declared check unless its `only-due` box is ticked, which is what
+lets the hand route reach a check sooner than either route would.
 
 All of that needs the whole history, which is why the job checks out with
 `fetch-depth: 0` and why the selection refuses a shallow clone outright rather

@@ -7,8 +7,12 @@ import type { ReplayResult } from './report.ts';
  * Which checks a change touches.
  *
  * A replay that runs on every commit says nothing and costs money, so each
- * check declares what it depends on and is replayed only when a changed file
- * matches that list (#68). The list lives beside the plant in `canfail.json`,
+ * check declares what it depends on and a changed file matching that list is
+ * one of the two reasons a replay is owed for it (#68). The other is the age
+ * floor, which is not this file's business: it needs no paths and no matching,
+ * so it is answered where the ledger is read, in
+ * `packages/server/src/scripts/select-replays.ts`. The list lives beside the
+ * plant in `canfail.json`,
  * under a key canfail ignores, which is where #66 put it: a check's plant and
  * the things that void its proof are read and edited together. Measured against
  * canfail 0.2.1, `run_check` reads `name`, `run`, `breaks`, `timeout` and
@@ -39,9 +43,11 @@ import type { ReplayResult } from './report.ts';
  * Both directions a list can be wrong are safe, which is what makes the plainer
  * matcher affordable. Too broad replays a check that did not need it, which
  * costs a minute of a runner and files a record that is true. Too narrow means
- * no replay arrives, and the thirty-day backstop takes the check Stale rather
- * than leaving it Proven on evidence that has aged out. Neither direction can
- * produce a false Proven, because nothing on this path writes a run.
+ * no replay arrives on this route, and the check waits for the age floor and
+ * then for the thirty-day backstop, so what a missed dependency costs is
+ * timeliness rather than truth: the proof is refreshed later than it should
+ * have been, or it goes Stale. Neither direction can produce a false Proven,
+ * because nothing on this path writes a run.
  *
  * A trailing slash is taken off rather than refused, so `packages/` and
  * `packages` are the same dependency. Everything else about the shape is
@@ -86,8 +92,11 @@ const dependencyPath = z
  * them would mean this file could only read a config canfail cannot run.
  *
  * `dependsOn` is optional because a check that declares none is a case #68
- * names rather than a mistake: it is never replayed automatically, which is the
- * manual behaviour it had before this existed.
+ * names rather than a mistake. It is never selected by this matching, which is
+ * what a missing list has always meant here. It is still selected by the age
+ * floor, because a list nobody has written says nobody has worked out what
+ * voids the check's proof, which is a reason to keep proving it rather than a
+ * reason to stop.
  */
 const declaredCheckSchema = z.object({
   name: z
@@ -204,9 +213,11 @@ export interface TouchedOptions {
  *
  * A check with no dependency list is never returned, and neither is one whose
  * list matches nothing. Both are the same answer as far as this function is
- * concerned, and #68 asks for the same behaviour from both: the check is not
- * replayed, nothing is recorded, and it degrades to being replayed by hand
- * rather than to a proof nobody watched.
+ * concerned, and #68 asks for the same behaviour from both: this matching does
+ * not select the check and nothing is recorded on its account. What happens to
+ * such a check afterwards is not decided here. The age floor may still select
+ * it in the caller, and either way it degrades to a proof that ages out rather
+ * than to a proof nobody watched.
  */
 export function checksTouchedBy(
   options: TouchedOptions,

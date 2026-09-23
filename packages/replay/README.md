@@ -85,14 +85,16 @@ whose subject is guards nobody has watched fail. A path can be checked with
 
 Both ways a list can be wrong are safe, which is what makes the plainer matcher
 affordable. Too broad replays a check that did not need it, which costs a minute
-of a runner and files a record that is true. Too narrow means no replay arrives,
-and the thirty-day backstop takes the check Stale rather than leaving it Proven
-on evidence that has aged out. Neither can produce a false Proven, because
-nothing on this path writes a run.
+of a runner and files a record that is true. Too narrow means no replay arrives
+on this route, and the check waits for the age floor below and then for the
+thirty-day backstop. What a missed dependency costs is timeliness, not truth.
+Neither can produce a false Proven, because nothing on this path writes a run.
 
 **A check with no `dependsOn`, or one whose list matches nothing, is never
-replayed automatically.** It keeps the behaviour it had before any of this
-existed: a person dispatches the workflow when they want it proved.
+selected by this matching.** It is still selected by the age floor once its
+proof has aged, because a list nobody has written says nobody has worked out
+what voids the check's proof, which is a reason to keep proving it rather than a
+reason to stop.
 
 ## What a check is measured against
 
@@ -107,6 +109,54 @@ the newest of them: a check replayed a month ago would have its month of
 changes hidden behind a check replayed yesterday, and would quietly stop being
 replayed. And from the ledger rather than from a window of days, because a
 window loses whatever changed inside a scheduled run that GitHub dropped.
+
+## The age floor
+
+A check is also due when its newest settled run is older than
+`REPLAY_AFTER_DAYS`, which is fourteen days and lives beside the thirty-day
+staleness threshold in `packages/server/src/staleness.ts`. That reverses what
+#68 ruled, and it is a reversal rather than an addition: #68 said the schedule
+deliberately does not refresh a proof that is merely old. The consequence is
+what overturned it. Once a repository goes quiet nothing changes, so no check is
+ever selected, so every proof ages out on the backstop with no automatic route
+back, and a check does not stay Proven for as long as it keeps catching its
+defect.
+
+Newest **settled** run, and from any source. Settled because a replay that
+came back inconclusive is not evidence about the check and the status rules
+skip it, so reading it as freshness would hold the floor off while the last real
+catch aged quietly past the backstop. From any source because what takes a check
+Stale is the age of its latest settled run however it was recorded, so a check
+somebody proved by hand this morning needs no replay for another month.
+
+The floor cannot reach a check with no plant in `canfail.json`. That file is the
+whole of what the selection reads checks from, so a check the ledger holds and
+the declaration does not is not selectable by either route, however old its
+proof is. Writing it a plant is the only thing that changes that.
+
+Two things outside the floor decide whether it keeps a proof alive, and it is
+worth saying both beside it. A person has to merge the branch each replay
+pushes: the ledger's newest settled run does not move until that happens, so
+the floor selects the same check again at every dispatch and the page still
+reads Stale from day thirty-one. And the schedule has to stay enabled, which in
+a public repository GitHub stops doing after sixty days without repository
+activity (recorded on #111). The floor answers a quiet repository only as far as
+those two hold.
+
+**Which checks this covers: one of the four checks that carry runs.** The ledger
+holds nine checks. Four of them carry runs, and so have a status the backstop
+can age; the other five carry an arming observation and no run at all, so they
+read Unproven and there is no proof for a floor to keep alive.
+
+Of those four, `canfail.json` declares `ci-type-check` and nothing else, so that
+is the only check either route can select. `ci-published-output`,
+`ledger-export-agreement` and `ledger-record-validation` have no declared break,
+so no replay can produce a run for them at all and the floor does nothing
+whatever for them. Read as a general answer to a page ageing to Stale, this
+covers one of those four and misses three; #110 has the dates and names bringing
+those three into `canfail.json` as one of its alternatives.
+
+## The statuses it exits with
 
 It exits 0 when something is due, 3 when nothing is, and 1 when it refuses. The
 workflow reads that status to decide whether to install the replay tool at all.

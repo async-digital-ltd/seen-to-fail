@@ -49,10 +49,47 @@ name: Replay a plant
 # arrives notices a change within seven days, which leaves twenty-three days of
 # margin, and a run the scheduler drops is what the backstop is there for.
 #
-# The schedule does not refresh a proof that is merely old, and that is #68's
-# second criterion rather than an omission. Only a change to something a check
-# declares it depends on posts a run, so a check nothing has touched still goes
-# Stale at thirty days and is replayed by hand from the dispatch below.
+# The schedule does refresh a proof that is merely old, and that is a reversal.
+# #68 ruled the opposite and this header said so: only a change to something a
+# check declared could post a run, so a check nothing had touched went Stale at
+# thirty days and waited for somebody to dispatch this by hand. The consequence
+# is what overturned it. Once the repository goes quiet nothing changes, so
+# nothing is ever selected, so every proof ages out on the backstop with no
+# automatic route back, and epic #62's goal clause, that a check stays Proven
+# for as long as it keeps catching that defect, is false. Measured on 19 September
+# 2026, every check carrying a proof was due to read Stale within about four
+# weeks.
+#
+# So a check is also selected when its newest settled run is older than an age
+# floor, `REPLAY_AFTER_DAYS` in packages/server/src/staleness.ts, which is
+# fourteen days. Fourteen is chosen against this cadence and that backstop: a
+# check crosses the floor on day fourteen, the next weekly dispatch is at most
+# day twenty-one, and the one after it is day twenty-eight, so the schedule gets
+# two attempts at a refresh before the backstop bites on day thirty-one. A
+# faster floor would file the near identical runs this header objects to above;
+# a slower one would not survive GitHub dropping a scheduled run.
+#
+# It costs nothing extra to bill. The floor adds no dispatch, since the schedule
+# fires weekly either way, and Actions bills a job rounded up to the minute, so
+# a dispatch is one billed minute whether it replays or stops at the selection.
+# The five to nine billed minutes a month measured above are still the ceiling.
+#
+# The floor cannot rescue a check with no plant in `canfail.json`, because that
+# file is the whole of what the selection reads checks from. Of the four checks
+# that carry runs here, three are in that position today. The dispatch below
+# cannot reach them either, since it hands the same declaration to the tool and
+# the record step refuses a check the declaration does not declare; their runs
+# are recorded by hand through the `Record a run` workflow, and they go Stale on
+# the backstop until somebody writes them a plant. The ledger's other five
+# checks carry an observation and no run, so they read Unproven and have no
+# proof for a floor to keep alive.
+#
+# The floor keeps a proof alive only while two other things hold, and neither is
+# its doing. A person has to merge the branch each replay pushes, because the
+# ledger's newest settled run does not move until then and the page reads Stale
+# from day thirty-one regardless of how many branches are waiting. And the
+# schedule has to stay enabled: in a public repository GitHub disables scheduled
+# workflows after sixty days without repository activity, recorded on #111.
 #
 # The replay is NOT added to the CI workflow that runs on every pull request.
 # canfail edits real source files on disk and restores them afterwards, which is
@@ -71,7 +108,7 @@ on:
   workflow_dispatch:
     inputs:
       only-due:
-        description: Replay only the checks a change has touched, as the schedule does.
+        description: Replay only the checks that are due, as the schedule does.
         type: boolean
         default: false
 
@@ -123,10 +160,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Which checks a change touches (#68), and the step that decides whether
-      # anything below it runs at all. Ahead of Python and of the replay tool on
-      # purpose: the whole point of asking is to spend nothing when the answer
-      # is nothing.
+      # Which checks are due, and the step that decides whether anything below
+      # it runs at all. Ahead of Python and of the replay tool on purpose: the
+      # whole point of asking is to spend nothing when the answer is nothing.
+      #
+      # Due means either of two things: something the check declares it depends
+      # on changed (#68), or its newest settled run is older than the age floor.
       #
       # Three statuses, each meaning something different here. 0 is work to do,
       # and the declaration naming it is written under RUNNER_TEMP. 3 is nothing
@@ -140,9 +179,10 @@ jobs:
         env:
           # A dispatch replays every declared check unless it is asked not to.
           # That is the behaviour this workflow had before the schedule existed,
-          # and it is the route a person takes when a check has gone Stale with
-          # nobody having touched anything it depends on, which the matching
-          # deliberately does not catch.
+          # and it is still the route to a declared check wanted back sooner
+          # than the floor would bring it. It reaches nothing outside
+          # canfail.json: a check with no plant there is recorded by hand
+          # through the `Record a run` workflow, not here.
           MATCHING: ${{ github.event_name == 'schedule' || inputs.only-due }}
         run: |
           set -euo pipefail
@@ -159,7 +199,7 @@ jobs:
             {
               echo "## Nothing to replay"
               echo
-              echo "Nothing a declared check depends on has changed since that check was last replayed."
+              echo "Nothing a declared check depends on has changed since that check was last replayed, and no declared check's proof has aged past the floor."
               echo "No plant was applied and nothing was recorded."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0

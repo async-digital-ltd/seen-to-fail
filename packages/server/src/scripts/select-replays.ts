@@ -2,14 +2,45 @@
 //   --config <canfail.json> --out <where to write the checks that are due> \
 //   [--since <a commit>] [--directory <a ledger>] [--repository <a checkout>]
 //
-// Which checks a change touches (#68). Each check declares what it depends on
-// beside its plant, and this script answers with the ones a replay is owed for,
-// written out as a plant declaration canfail can be handed directly.
+// Which checks a replay is owed for. Each check declares what it depends on
+// beside its plant, and this script answers with the ones that are due, written
+// out as a plant declaration canfail can be handed directly.
 //
 // It exists because of what the workflow has to decide before it spends
 // anything. A replay on every commit says nothing and costs money, so the
 // scheduled lane asks this first and installs the replay tool only if the
 // answer is yes.
+//
+// Two reasons a check is due, and a check is selected on either.
+//
+//   1. A dependency changed. Something the check declares it depends on is
+//      different between the tree its proof was made against and HEAD (#68).
+//   2. Its proof has aged. The check's newest settled run is older than
+//      REPLAY_AFTER_DAYS, whatever has or has not changed.
+//
+// The second contradicts #68, which ruled that the schedule deliberately does
+// not refresh a proof that is merely old. That ruling is superseded rather than
+// bent, and this is the sentence that supersedes it. #68's reasoning was about
+// cost and about the record: a replay is a dated observation, and refreshing
+// one on a timer files near identical proofs that bury the runs saying
+// something. Both hold. What #68 did not account for is what happens when the
+// repository goes quiet. Nothing changes, so nothing is ever selected, so every
+// proof ages out on the thirty-day backstop and the published page reads Stale
+// across the board. Epic #62's goal clause, "a check stays Proven for as long
+// as it keeps catching that defect", is false while that holds, and it was
+// measured to be about to happen: on 19 September 2026 every check in the
+// record was due to read Stale within about four weeks with no route back.
+//
+// The floor is set well below the backstop so that a weekly cadence gets more
+// than one attempt at a refresh before the backstop bites, and well above the
+// cadence so that a quiet check is replayed about once every three weeks rather
+// than every second week. The arithmetic for both is on REPLAY_AFTER_DAYS in
+// ../staleness.ts, and the relationship is asserted in staleness.test.ts.
+//
+// The floor can only rescue a check that has a plant in canfail.json, because
+// that file is the whole of what this script reads checks from. A check the
+// ledger holds and the declaration does not is not selectable here by either
+// route, and no amount of ageing changes that.
 //
 // Three exit codes, because a workflow step reads a status and nothing else:
 //
@@ -39,9 +70,13 @@ import {
 } from '@seen-to-fail/replay';
 import type { DeclaredCheck } from '@seen-to-fail/replay';
 
+import { outcomeSettlesSomething } from '../database/rows.ts';
+import type { IsoDate } from '../database/rows.ts';
+import { todayInUtc } from '../day.ts';
 import { isShallowRepository } from '../ledger/commits.ts';
 import { loadLedger } from '../ledger/load.ts';
 import { ledgerDirectory, repositoryRoot } from '../ledger/location.ts';
+import { REPLAY_AFTER_DAYS } from '../staleness.ts';
 import { forwardedArguments } from './arguments.ts';
 
 /** What this script exits with when no check is due. */
@@ -55,6 +90,10 @@ const { values } = parseArgs({
     // One anchor for every check, in place of the ledger's own. It is how a
     // person asks "what would a change since here replay?" without waiting for
     // the schedule, and how the tests pin a range.
+    //
+    // It replaces the anchor a dependency is measured from and nothing else.
+    // The age floor is still read from the ledger, because how old a check's
+    // proof is has no answer a commit could give.
     since: { type: 'string' },
     // A ledger other than this repository's own, and a checkout other than the
     // one this file sits in, which is how the tests run this over a temporary
@@ -190,10 +229,42 @@ async function newestReachable(
   return newest;
 }
 
-/** The commits a replay of each check has already run against, by check id. */
-async function replayedCommits(
-  directory: string,
-): Promise<ReadonlyMap<string, string[]>> {
+/** What this script needs out of the ledger, per check. */
+interface LedgerReading {
+  /** The commits a replay of each check has already run against, by check id. */
+  readonly replayedCommits: ReadonlyMap<string, string[]>;
+  /**
+   * The day of each check's newest settled run, by check id, however that run
+   * was recorded.
+   *
+   * Newest settled, and not newest replay, because this is the number the floor
+   * is measured against and the floor exists to beat the backstop. The backstop
+   * reads the latest run the status rules read, which is the latest run that
+   * caught or missed, from whatever source. Two cases separate the two readings
+   * and both favour this one. A check somebody typed a run in for yesterday is
+   * Proven for another month, and selecting it because its last replay was old
+   * would file exactly the near identical run the cadence was chosen to avoid.
+   * And a replay that came back inconclusive settles nothing: reading it as the
+   * check's freshness would hold the floor off while the last real catch aged
+   * quietly past the backstop, which is the failure this floor is here to stop.
+   *
+   * Whether an outcome settles anything is read from the same map the status
+   * SQL mirrors rather than from a list spelled again here.
+   */
+  readonly newestSettledRun: ReadonlyMap<string, IsoDate>;
+}
+
+/**
+ * The ledger, read once, for both of the questions asked of it.
+ *
+ * Read whatever `--since` says, because `--since` replaces the anchor a
+ * dependency is measured from and nothing else. The floor is a different
+ * question, how old this check's proof is, and a commit handed in on the
+ * command line is no answer to it. So a ledger that does not read is a refusal
+ * on both lanes, for the reason it always was on one: falling back would let a
+ * broken record quietly replay everything.
+ */
+async function readLedger(directory: string): Promise<LedgerReading> {
   const ledger = await loadLedger({ directory });
   if (!ledger.ok) {
     refuse([
@@ -203,15 +274,38 @@ async function replayedCommits(
   }
 
   const commits = new Map<string, string[]>();
+  const settled = new Map<string, IsoDate>();
   for (const { record } of ledger.contents.runs) {
-    if (record.source !== 'replay' || record.sourceCommit === null) {
+    if (record.source === 'replay' && record.sourceCommit !== null) {
+      const seen = commits.get(record.checkId) ?? [];
+      seen.push(record.sourceCommit);
+      commits.set(record.checkId, seen);
+    }
+    if (!outcomeSettlesSomething[record.outcome]) {
       continue;
     }
-    const seen = commits.get(record.checkId) ?? [];
-    seen.push(record.sourceCommit);
-    commits.set(record.checkId, seen);
+    const newest = settled.get(record.checkId);
+    if (newest === undefined || record.runOn > newest) {
+      settled.set(record.checkId, record.runOn);
+    }
   }
-  return commits;
+  return { replayedCommits: commits, newestSettledRun: settled };
+}
+
+/**
+ * Whole days from one day to a later one.
+ *
+ * Both are days rather than instants and both are UTC, so there is no zone and
+ * no hour to lose: the subtraction is exact and the rounding is there only
+ * because a millisecond count is a float. The ledger refuses a run dated after
+ * today, so the answer is never negative.
+ */
+function daysBetween(earlier: IsoDate, later: IsoDate): number {
+  const day = 24 * 60 * 60 * 1000;
+  return Math.round(
+    (Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) /
+      day,
+  );
 }
 
 const configPath = required(values.config, '--config');
@@ -259,10 +353,7 @@ if (
   refuse([`--since names ${since}, which is not a commit in this checkout.`]);
 }
 
-const alreadyReplayed =
-  since === undefined
-    ? await replayedCommits(values.directory ?? ledgerDirectory)
-    : new Map<string, string[]>();
+const ledger = await readLedger(values.directory ?? ledgerDirectory);
 
 // Grouped by anchor rather than asked per check, because the common case is
 // every check sharing one: a diff is a process, and the number of them should
@@ -271,7 +362,10 @@ const grouped = new Map<string, DeclaredCheck[]>();
 for (const check of declared.value) {
   const anchor =
     since ??
-    (await newestReachable(root, alreadyReplayed.get(check.checkId) ?? [])) ??
+    (await newestReachable(
+      root,
+      ledger.replayedCommits.get(check.checkId) ?? [],
+    )) ??
     (await emptyTree(root));
   const group = grouped.get(anchor) ?? [];
   group.push(check);
@@ -291,6 +385,39 @@ for (const [anchor, checks] of grouped) {
   }
 }
 
+// The age floor, applied after the matching and on its own terms.
+//
+// Every declared check, including one with no dependency list and one whose
+// list matches nothing. #68 left both of those to be replayed by hand, and this
+// is where that changes: a missing list says nobody has worked out what voids
+// this check's proof, which is a reason to keep proving it rather than a reason
+// to stop. The dependency lane still never selects either of them, and the
+// tests still hold it to that.
+//
+// A check with no settled run at all is passed over, and that is not the floor
+// declining to act. Such a check is Unproven rather than Proven, so there is no
+// proof for the backstop to void and nothing for the floor to keep alive. The
+// dependency lane already measures it against the empty tree, which is where a
+// check that has never been proved gets its first replay from.
+//
+// Strictly older than the floor, which is the boundary the backstop uses: there
+// it is a catch exactly thirty days old that still reads Proven, and here it is
+// a run exactly REPLAY_AFTER_DAYS old that is not yet owed a replay.
+const today = todayInUtc();
+for (const check of declared.value) {
+  const newest = ledger.newestSettledRun.get(check.checkId);
+  if (newest === undefined) {
+    continue;
+  }
+  const age = daysBetween(newest, today);
+  if (age > REPLAY_AFTER_DAYS) {
+    due.add(check);
+    console.log(
+      `${check.name} (${check.checkId}) was last settled on ${newest}, ${String(age)} day(s) ago, which is past the ${String(REPLAY_AFTER_DAYS)}-day floor.`,
+    );
+  }
+}
+
 // In the order the declaration lists them, which is the order a person reading
 // canfail.json expects to see them replayed in. The set above is keyed on the
 // check itself, so a declaration with two checks sharing an id still selects
@@ -299,7 +426,7 @@ const selected = declared.value.filter((check) => due.has(check));
 
 if (selected.length === 0) {
   console.log(
-    '\nNothing a declared check depends on has changed since it was last replayed. Nothing to replay.',
+    `\nNothing a declared check depends on has changed since it was last replayed, and no declared check's newest settled run is more than ${String(REPLAY_AFTER_DAYS)} days old. Nothing to replay.`,
   );
   process.exit(nothingIsDue);
 }
