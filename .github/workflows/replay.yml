@@ -2,7 +2,11 @@ name: Replay a plant
 
 # The automatic half: a job plants a declared defect, watches what the check
 # does, and records one run per break through the same recorder a person's run
-# goes through. Nothing is typed in and no verdict is guessed at.
+# goes through. Nothing is typed in and no verdict is guessed at. "The same
+# recorder" is checkable rather than a turn of phrase: `pnpm ledger:replay` and
+# the hand route's `pnpm ledger:record` are two entry scripts that both write
+# through `recordRun` in packages/server/src/ledger/record.ts, so a rule one of
+# them is held to is a rule the other is held to.
 #
 # On a schedule, and never on a push. Two reasons, and the second is the
 # stronger one. Each replay runs the check once on a clean tree and once per
@@ -15,22 +19,35 @@ name: Replay a plant
 # those are arguments against a per-push cadence rather than against a cadence,
 # and the one chosen here is weekly.
 #
-# The arithmetic, measured rather than estimated. Run 35429662430, the only full
-# replay this repository has on record, ran from 07:33:51 to 07:34:49 on 19
-# September 2026: 58 seconds, billed as one minute, because Actions bills a job
-# rounded up. Weekly is about 4.3 runs a month, so about five billed minutes
-# against the 2,000 a private repository gets free, a quarter of one percent.
-# Daily would be about thirty billed minutes a month for a record whose inputs
-# change a few times a week, and it would queue up to thirty branches a month
-# for a person to open a pull request on, which is the handoff #74 ruled on and
-# the real bound on how often this can usefully run.
+# The arithmetic, measured rather than estimated, and re-measured on 22
+# September 2026 across every replay this repository has on record rather than
+# across the one it had when this comment was first written. Four replay jobs
+# have completed here: 35429662430 took 58 seconds, 35431432957 took 36,
+# 35437095049 took 43, and the scheduled 35585966476 took 72. Actions bills a
+# job rounded up to the whole minute, so that is one billed minute each for the
+# first three and two for the last. Weekly is about 4.3 runs a month, so five to
+# nine billed minutes a month at those durations.
+#
+# What fraction of the allowance that is, this comment does not say. The
+# organisation is on the `team` plan, which `gh api /orgs/async-digital-ltd
+# --jq .plan.name` will confirm, and reading the minutes that plan includes
+# needs the organisation billing API and an `admin:org` scope nothing here
+# holds. An unread number is not a measurement, and the choice below does not
+# turn on one: it turns on the ratio between weekly and daily, which is measured
+# above.
+#
+# Daily would be about thirty runs a month for a record whose inputs change a
+# few times a week, and it would queue up to thirty branches a month for a
+# person to open a pull request on, which is the handoff #74 ruled on and the
+# real bound on how often this can usefully run.
 #
 # Weekly against the thirty-day backstop is the other half of the choice. The
 # backstop is what voids a proof when no replay arrives, so a cadence has to sit
 # well inside it or it does nothing the backstop was not already doing: at
 # monthly, something a check depends on could change the day after a run and the
-# check would be Stale before the next run ever looked. Weekly notices a change
-# within seven days, which leaves twenty-three days of margin.
+# check would be Stale before the next run ever looked. A weekly run that
+# arrives notices a change within seven days, which leaves twenty-three days of
+# margin, and a run the scheduler drops is what the backstop is there for.
 #
 # The schedule does refresh a proof that is merely old, and that is a reversal.
 # #68 ruled the opposite and this header said so: only a change to something a
@@ -70,8 +87,13 @@ name: Replay a plant
 # of every contributor's change.
 on:
   schedule:
-    # Mondays, 04:17 UTC. Not on the hour: GitHub queues scheduled runs, and the
-    # top of the hour is where everybody else's are.
+    # Mondays, 04:17 UTC. Off the hour because the top of the hour is where
+    # everybody else's scheduled runs are, and that bought less than it looks
+    # like it should: the one scheduled run on record, 35585966476, was created
+    # at 09:55:38 UTC on Monday 21 September 2026, five hours and thirty-eight
+    # minutes after the time asked for. A cron is a request GitHub queues, not a
+    # start time. What this reliably buys is about one run a week; the hour and
+    # the minute are a preference.
     - cron: '17 4 * * 1'
   workflow_dispatch:
     inputs:
