@@ -1,7 +1,7 @@
 {
   "id": "ci-type-check",
   "name": "Type check",
-  "area": "CI",
+  "area": "Code",
   "protects": "A type error reaching main.",
   "howToTellArmed": "The \"Type check\" step appears in every run of the CI workflow."
 }

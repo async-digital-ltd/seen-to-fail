@@ -1,7 +1,7 @@
 {
   "id": "ci-codegen-check",
   "name": "Generated types are current",
-  "area": "CI",
+  "area": "Code",
   "protects": "A schema or query edited without regenerating the types both sides read.",
   "howToTellArmed": "The \"Check the generated types are current\" step appears in every run of the CI workflow."
 }

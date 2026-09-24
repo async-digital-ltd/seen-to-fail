@@ -185,9 +185,9 @@ invented. It has the ten keys the recorder writes into every replay record.
 Nothing in the status rules reads one. A check's status is read from its latest
 run that settled something, with the calendar and the arming observations still
 applying, so a catch still goes Stale once it is more than thirty days old,
-however many runs since have settled nothing. The published page shows that day
-beside the status as "Last settled", so the status can be seen for how old it
-is. A check that nothing has ever settled is read as though it had no runs at
+however many runs since have settled nothing. When a check's latest run settled
+nothing, the published page says so inside that check and names the day its
+status is read from, so the status can be seen for how old it is. A check that nothing has ever settled is read as though it had no runs at
 all.
 
 A record that says nothing about a reason reads as having none, which is what a

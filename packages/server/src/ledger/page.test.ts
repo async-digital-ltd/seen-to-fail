@@ -13,7 +13,12 @@ import {
   fixtureSummariesWithAnUnsettledRun,
   fixtureUnsettledReason,
 } from '../testing/ledger.ts';
-import { escapeHtml, publishedStatusOrder, renderPage } from './page.ts';
+import {
+  escapeHtml,
+  publishedStatusOrder,
+  readableDay,
+  renderPage,
+} from './page.ts';
 import { buildSnapshot } from './snapshot.ts';
 
 /**
@@ -30,12 +35,23 @@ it('shows the reading order, and holds the same statuses the filter knows', () =
   expect([...publishedStatusOrder].sort()).toEqual([...STATUSES].sort());
 });
 
-it('names every check, and counts them on the tiles', () => {
+it('names every check, and counts each status beside its word', () => {
   const page = renderPage(fixtureSnapshot());
   expect(page).toContain('A check with a catch behind it');
   expect(page).toContain('A check nobody has planted anything for');
-  expect(page).toContain(
-    '<span class="count">1</span><span class="label">Proven</span>',
+  expect(page).toContain('✓ Proven 1');
+  expect(page).toContain('? Unproven 1');
+  expect(page).toContain('✕ Broken 0');
+});
+
+/**
+ * The first thing a reader is told is the result, so the headline is worked
+ * out from the tally rather than written, and a page with fewer proven checks
+ * says fewer.
+ */
+it('leads with how many checks have been seen to catch a planted defect', () => {
+  expect(renderPage(fixtureSnapshot())).toContain(
+    '<span class="result">1 of 2</span> checks have been seen to catch a planted defect',
   );
 });
 
@@ -43,7 +59,66 @@ it('shows a run with what was planted and what was expected', () => {
   const page = renderPage(fixtureSnapshot());
   expect(page).toContain('A type error.');
   expect(page).toContain('The type check fails.');
-  expect(page).toContain('2026-09-10');
+  expect(page).toContain('10 Sep 2026');
+});
+
+it('prints a day as a reader says it, without a time zone moving it', () => {
+  expect(readableDay('2026-09-01')).toBe('1 Sep 2026');
+  expect(readableDay('2026-12-31')).toBe('31 Dec 2026');
+  expect(() => readableDay('not a day')).toThrow();
+});
+
+/**
+ * A status is explained by tapping it rather than by a legend, so every status
+ * has its explanation on the page, and every pill that shows a status opens
+ * that status's explanation and no other. Stale's sentence carries the
+ * threshold the build used, not a number written into the page.
+ */
+it('explains every status from the pill that shows it', () => {
+  const page = renderPage(fixtureSnapshot());
+  for (const status of publishedStatusOrder) {
+    expect(page).toContain(`<div popover id="means-${status}"`);
+    expect(page).toContain(`popovertarget="means-${status}"`);
+  }
+  expect(page).toContain(
+    `Its last proof is older than ${String(fixtureSnapshot().staleAfterDays)} days.`,
+  );
+  const targets = [...page.matchAll(/popovertarget="([^"]+)"/g)].map(
+    (match) => match[1],
+  );
+  const popovers = new Set(
+    [...page.matchAll(/<div popover id="([^"]+)"/g)].map((match) => match[1]),
+  );
+  for (const target of targets) {
+    expect(popovers.has(target)).toBe(true);
+  }
+});
+
+/**
+ * Checks are grouped by their area, and the areas are read proof first: the
+ * area with the larger share of its checks proven comes before the one with
+ * less, whatever their names.
+ */
+it('groups checks by area, the best proven area first', () => {
+  const snapshot = fixtureSnapshot();
+  const proven = snapshot.checks.find((check) => check.status === 'Proven');
+  const unproven = snapshot.checks.find((check) => check.status === 'Unproven');
+  if (proven === undefined || unproven === undefined) {
+    throw new Error('The fixture holds two checks.');
+  }
+  const page = renderPage({
+    ...snapshot,
+    checks: [
+      { ...unproven, area: 'A first by name' },
+      { ...proven, area: 'Z last by name' },
+    ],
+  });
+  expect(page.indexOf('Z last by name')).toBeGreaterThan(-1);
+  expect(page.indexOf('Z last by name')).toBeLessThan(
+    page.indexOf('A first by name'),
+  );
+  expect(page).toContain('1 of 1 proven');
+  expect(page).toContain('0 of 1 proven');
 });
 
 /**
@@ -87,11 +162,11 @@ it('carries no script at all', () => {
 });
 
 /**
- * Three destinations and no fourth: a commit in this repository, the run a
- * replay named, and the export beside the page. Nothing here is fetched; these
- * are places a reader can go, and the list is closed so that a page which
- * started reaching somewhere else would fail rather than be noticed by
- * somebody reading the HTML.
+ * Five destinations and no sixth: a commit in this repository, the run a
+ * replay named, the export beside the page, the repository itself, and the
+ * studio that built it. Nothing here is fetched; these are places a reader can
+ * go, and the list is closed so that a page which started reaching somewhere
+ * else would fail rather than be noticed by somebody reading the HTML.
  *
  * The replay's ledger is the one rendered, because it is the one with a link
  * that is not a commit. Rendering the other would let a page that dropped the
@@ -103,9 +178,18 @@ it('links only to a commit, to a run a record named, or to the export', () => {
     (match) => match[0],
   );
 
+  const repository = 'https://github.com/async-digital-ltd/seen-to-fail';
+  const studio = 'https://async-digital.com';
   expect(urls).toContain(fixtureReplayRunUrl);
+  expect(urls).toContain(repository);
+  expect(urls).toContain(studio);
   for (const url of urls) {
-    if (url === fixtureReplayRunUrl) {
+    if (
+      url === fixtureReplayRunUrl ||
+      url === repository ||
+      url === studio ||
+      url === 'http://www.w3.org/2000/svg'
+    ) {
       continue;
     }
     expect(url).toMatch(
@@ -139,7 +223,7 @@ it('names the commit a replay ran against apart from the one that recorded it', 
 
   expect(page).toContain(`/commit/${fixtureReplayCommit}`);
   expect(page).toContain('/commit/1234567890abcdef1234567890abcdef12345678');
-  expect(page).toContain('Came from');
+  expect(page).toContain('Ran against');
   expect(page).toContain('Recorded in');
 });
 
@@ -162,23 +246,26 @@ it('shows a run that settled nothing, its reason, and the day the status is read
 
   expect(page).toContain('settled nothing');
   expect(page).toContain(escapeHtml(fixtureUnsettledReason));
-  expect(page).toContain('<dt>Last settled</dt><dd>2026-09-10</dd>');
-  expect(page).toContain('<dt>Last run</dt><dd>2026-09-16</dd>');
+  expect(page).toContain(
+    'Its status is read from 10 Sep 2026, the last run that settled anything.',
+  );
+  expect(page).toContain('<span class="run-day">16 Sep 2026</span>');
   // Read from the catch, not from the run that settled nothing.
   expect(page).toContain('1 settled nothing');
-  expect(page).toContain('<span class="status status-Proven">Proven</span>');
+  expect(page).toContain('<span class="pill pill-Proven">✓ Proven</span>');
 });
 
 /**
- * The counts under a check's name say what they leave out.
+ * The fact beside a check's name says what it leaves out.
  *
- * On a check where nothing settled nothing the third figure is absent, and
- * that is safe only because the other two add up to the run count beside
- * them. Both sides are asserted so the absence is a decision rather than a
- * figure that got lost.
+ * On a check where nothing settled nothing the figure is absent, and that is
+ * safe only because the catches and the run count are both shown, so a reader
+ * can see nothing is held back. Both sides are asserted so the absence is a
+ * decision rather than a figure that got lost.
  */
 it('names the runs that settled nothing only when there are some', () => {
-  expect(renderPage(fixtureSnapshot())).toContain('1 run, 1 caught, 0 missed');
+  expect(renderPage(fixtureSnapshot())).toContain('Caught 1 of 1');
+  expect(renderPage(fixtureSnapshot())).toContain('Never planted');
   // The footer explains the outcome whatever is recorded, so what is absent
   // from a page with none of them is the figure rather than the words.
   expect(renderPage(fixtureSnapshot())).not.toContain('0 settled nothing');
@@ -190,7 +277,7 @@ it('names the runs that settled nothing only when there are some', () => {
         fixtureSummariesWithAnUnsettledRun(),
       ),
     ),
-  ).toContain('2 runs, 1 caught, 0 missed, 1 settled nothing');
+  ).toContain('Caught 1 of 2, 1 settled nothing');
 });
 
 /**
