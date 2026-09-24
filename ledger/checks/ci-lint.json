@@ -1,7 +1,7 @@
 {
   "id": "ci-lint",
   "name": "Lint",
-  "area": "CI",
+  "area": "Code",
   "protects": "A lint rule being broken on main.",
   "howToTellArmed": "The \"Lint\" step appears in every run of the CI workflow."
 }

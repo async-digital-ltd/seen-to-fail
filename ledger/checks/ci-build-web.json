@@ -1,7 +1,7 @@
 {
   "id": "ci-build-web",
   "name": "The client builds",
-  "area": "CI",
+  "area": "Build",
   "protects": "A client that type checks and cannot be bundled, which the tests cannot see because they import modules rather than the page.",
   "howToTellArmed": "The \"Build the client\" step appears in every run of the CI workflow."
 }
