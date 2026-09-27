@@ -129,6 +129,15 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # The tests answer requests through the handler and never run the entry
+      # point, so without this step nothing in the build would notice the
+      # server failing to load. It starts `pnpm dev:server` against the
+      # development database above, waits a bounded time for `/health` and one
+      # GraphQL query to answer, and stops it again. A script rather than lines
+      # here, so a local run is the same check (#35).
+      - name: Check the server starts
+        run: bash scripts/check-server-starts.sh
+
       # The client's entry is index.html, and the tests reach the code through
       # modules, never through the page. Bundling is what proves the page
       # resolves its script, and that the whole client compiles for a browser
