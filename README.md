@@ -275,7 +275,7 @@ A check is added through a form of its own.
 
 ## The published ledger
 
-Nothing is hosted. The app above is for running locally; what gets published is
+No service is hosted. The app above is for running locally; what gets published is
 a record rather than a service.
 
 A run reaches that record by being committed. `ledger/` holds one JSON file per
@@ -639,11 +639,12 @@ change or a planted defect cannot alter what a reader sees until it is on
 
 Pages stayed switched off until this repository was made public, on 27
 September 2026. A Pages site cannot be private on the plan this organisation is
-on, so turning it on earlier would have made the ledger readable by anyone with
-the URL before the history review on
+on, as measured on 18 September 2026, so turning it on earlier would have made
+the ledger readable by anyone with the URL before the history review on
 [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55) had cleared
 the rest of the repository to be read. What was and was not measured about the
-plan is recorded on #76.
+plan is recorded on
+[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76).
 
 ## Tests
 
@@ -715,9 +716,10 @@ is what was checked, what was not, and where the evidence for each is.
   back byte-identical to the one before
   ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
 - **A scanner trusted only after it fired.** The whole history, every branch
-  and every pull request head from the root, is scanned for secrets with
-  gitleaks as the last step before the repository is made public, and the
-  result counts only once the same scan has reported a planted key. The first
+  and every pull request head from the root, was scanned for secrets with
+  gitleaks as the last step before the repository was made public on 27
+  September 2026, and the result counted only once the same scan had reported
+  a planted key. The first
   runs are recorded on
   [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29), and
   every later run, with its command and its result, on
