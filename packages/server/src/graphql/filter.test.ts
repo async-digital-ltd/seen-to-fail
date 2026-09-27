@@ -168,8 +168,9 @@ it('selects the checks a filter matches, and counts the rest as hidden', async (
  * The root README's worked example, read off the README rather than restated
  * here, so an edit to the example fails this test instead of leaving a test
  * named for it pinning something else (#59). The README gives the example as
- * the link the list opens at, and says it picks two of the eight checks in the
- * sample workspace. Both are checked against the seed as it stands.
+ * the link the list opens at. The link is read and checked against the seed as
+ * it stands; the README also says how many checks it picks, and that count is
+ * not read here: the two below is written into this test.
  */
 const readme = readFileSync(
   new URL('../../../../README.md', import.meta.url),
@@ -185,7 +186,7 @@ function readmeExampleLink(): string {
   return found[1];
 }
 
-it("reads the README's example link as the Git filter, and finds the two checks it says it picks", async () => {
+it("reads the README's example link as the Git filter, which matches two seeded checks", async () => {
   const parsed = parseFilterString(readmeExampleLink());
   if (!parsed.ok) {
     throw new Error(
