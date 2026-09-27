@@ -267,11 +267,12 @@ it('reads back a saved filter with its tree intact', async () => {
  * The rank in outcomePrecedence and the rank the database sorts by, read off
  * each other.
  *
- * An ORDER BY cannot read a TypeScript map, so the same rule is written a
- * second time in SQL, in listRunsForChecks and in the migrations. Two copies of
- * one rule drift, and this is the only thing that would say so: one run per
- * outcome, all on one day, so the day decides nothing and the outcome is the
- * only key left with anything to say.
+ * listRunsForChecks builds its ORDER BY from the map through
+ * newestRunFirstSql, so this holds the generated SQL to the map it was
+ * generated from: one run per outcome, all on one day, so the day decides
+ * nothing and the outcome is the only key left with anything to say. The
+ * derivation's own spelling of the rank, in the migrations, is held by the
+ * test after the next one.
  *
  * The three are given ids that ascend in the order they are expected back, so
  * the id, which is the only key below the outcome, puts them in the reverse
@@ -378,4 +379,29 @@ it('breaks a tie on the day and the outcome by the id, in the app and the deriva
 
   const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
   expect(summary?.latestSettledRunId).toBe(expected[0]);
+});
+
+/**
+ * The run the derivation picks on a day with a miss and a catch, held to
+ * newestRunFirst.
+ *
+ * check_summaries spells the outcome rank in its own ORDER BY, in the
+ * migrations, rather than reading it from outcomePrecedence, so it is a second
+ * copy of the rule and this is what would say the copies had drifted. The
+ * catch is given the larger id, so the id alone would pick it: only the
+ * outcome rank can make the miss the run the status was read from.
+ */
+it('picks the run newestRunFirst puts first when a miss and a catch share a day', async () => {
+  const checkId = await insertCheck();
+  const caught = runIdEndingIn(2);
+  const missed = runIdEndingIn(1);
+  await insertRun(checkId, caught, '2026-09-19', 'caught');
+  await insertRun(checkId, missed, '2026-09-19', 'missed');
+
+  const runs = await listRunsForChecks(database.client(), [checkId]);
+  const [first] = [...runs].sort(newestRunFirst);
+  expect(first?.id).toBe(missed);
+
+  const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
+  expect(summary?.latestSettledRunId).toBe(first?.id);
 });
