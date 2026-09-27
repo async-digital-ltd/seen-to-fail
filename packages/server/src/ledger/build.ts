@@ -205,9 +205,14 @@ export async function buildLedger(
 
   await writeLedgerToDatabase(client, options.ledgerPath, loaded.contents);
 
+  const summaries = await listCheckSummaries(
+    client,
+    options.asOf,
+    staleAfterDays,
+  );
   const snapshot = buildSnapshot({
     contents: loaded.contents,
-    summaries: await listCheckSummaries(client, options.asOf, staleAfterDays),
+    summaries,
     ledgerPath: options.ledgerPath,
     repository: options.repository,
     builtFrom: options.builtFrom,
@@ -228,6 +233,7 @@ export async function buildLedger(
       options.asOf,
       staleAfterDays,
     ),
+    summaries,
   });
   if (found.length > 0) {
     throw new LedgerDisagreementError(found);

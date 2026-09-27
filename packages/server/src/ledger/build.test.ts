@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { expect, it } from 'vitest';
 
+import { listRunsForChecks } from '../database/checks.ts';
 import { listCheckSummaries } from '../database/summaries.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { writeTemporaryLedger } from '../testing/ledger.ts';
@@ -182,6 +183,62 @@ it('publishes the miss when one day holds a miss and a catch', async () => {
     'caught',
   ]);
   expect(page).toContain('Broken');
+});
+
+/**
+ * Two runs sharing a day and an outcome, which nothing recorded about them can
+ * order, headed the same way on the published page, in the app, and in the
+ * derivation.
+ *
+ * The status is the same whichever of them wins, so what is tested is which
+ * row heads the table. The page used to break this tie by filename and the app
+ * by id, and the two surfaces then listed the same rows in different orders.
+ * The two filenames are chosen so that those keys disagree: the later filename
+ * has the smaller uuid. The control asserts that before the build runs, so a
+ * fixture that has stopped discriminating says so rather than passing whatever
+ * the tie-break does.
+ */
+const tiedLaterFile = runFile(oneDay, 'cccccccccccc');
+const tiedEarlierFile = runFile(oneDay, 'aaaaaaaaaaaa');
+
+it('heads the page, the app and the status with the same run when two runs tie', async () => {
+  expect(tiedLaterFile > tiedEarlierFile).toBe(true);
+  expect(
+    ledgerFileUuid(`ledger/${tiedLaterFile}`) <
+      ledgerFileUuid(`ledger/${tiedEarlierFile}`),
+  ).toBe(true);
+
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    [tiedLaterFile]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+    [tiedEarlierFile]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A second rule violation.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+  });
+
+  const { ledger } = await build(directory);
+  const published = ledger.checks[0]?.runs.map((run) => run.id);
+  const inTheApp = (
+    await listRunsForChecks(database.client(), [ledgerCheckUuid('ci-lint')])
+  ).map((run) => run.id);
+  const [summary] = await listCheckSummaries(database.client(), asOf);
+
+  expect(published).toEqual(inTheApp);
+  expect(published).toEqual([
+    ledgerFileUuid(`ledger/${tiedEarlierFile}`),
+    ledgerFileUuid(`ledger/${tiedLaterFile}`),
+  ]);
+  expect(summary?.latestSettledRunId).toBe(published?.[0]);
 });
 
 /**
