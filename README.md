@@ -382,11 +382,12 @@ thirty-eight minutes after the time it asked for, which is GitHub queueing the
 run rather than anything in this repository. So the cadence to plan against is
 about one run a week, and the time of day in the cron is a request.
 
-Weekly rather than on every push for two reasons, and the second is the
-stronger: each replay runs the check once on a clean tree and once per declared
-break, which is three runs of `pnpm typecheck` today and costs runner minutes
-this project has no budget for, and a replay filed on every merge would bury the
-runs that say something under runs that say the same thing again. Weekly also
+Weekly rather than on every push, because a replay filed on every merge would
+bury the runs that say something under runs that say the same thing again. Each
+replay runs the check once on a clean tree and once per declared break, which is
+three runs of `pnpm typecheck` today. While the repository was private those
+runs also spent a finite allowance of runner minutes; that reason lapsed when it
+was made public on 27 September 2026, and the cadence rests on the record alone. Weekly also
 sits inside the thirty-day backstop with room to spare: a run that arrives
 notices a change within seven days and leaves twenty-three days of margin, and a
 run the scheduler drops is caught by the backstop rather than by the cadence,
