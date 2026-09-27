@@ -8,9 +8,13 @@ name: Replay a plant
 # through `recordRun` in packages/server/src/ledger/record.ts, so a rule one of
 # them is held to is a rule the other is held to.
 #
-# On a schedule, and never on a push. Each replay runs the check once on a
-# clean tree and once per declared break, which is three runs of `pnpm
-# typecheck` today. While the repository was private, Actions minutes were a
+# On a schedule, and never on a push. Each replay runs a check once on a clean
+# tree and once per declared break. `canfail.json` declares four checks and
+# seven breaks, so a dispatch that replays every one of them runs eleven
+# checks: three of `pnpm typecheck`, three of the build, two of the build
+# followed by the published-output script, and three of `pnpm ledger:validate`.
+# The scheduled lane runs only the checks that are due, which is usually
+# fewer. While the repository was private, Actions minutes were a
 # finite allowance and that was a second reason; it lapsed when the repository
 # was made public on 27 September 2026. The reason that stands is the cost to
 # the record: a replay is a dated observation, and running one on every merge
@@ -28,6 +32,13 @@ name: Replay a plant
 # job rounded up to the whole minute, so that is one billed minute each for the
 # first three and two for the last. Weekly is about 4.3 runs a month, so five to
 # nine billed minutes a month at those durations.
+#
+# Every one of those four replayed `ci-type-check` alone, because it was the
+# only check declared when they ran. The three checks #110 declared each cost
+# a run of the build or of the validator per break, and the job now starts a
+# PostgreSQL service for the build. How long that takes on a runner is not
+# measured until the first replay to select them has run, and this comment
+# does not guess at it.
 #
 # What fraction of the allowance that is, this comment does not say. The
 # organisation is on the `team` plan, which `gh api /orgs/async-digital-ltd
@@ -76,14 +87,16 @@ name: Replay a plant
 # The five to nine billed minutes a month measured above are still the ceiling.
 #
 # The floor cannot rescue a check with no plant in `canfail.json`, because that
-# file is the whole of what the selection reads checks from. Of the four checks
-# that carry runs here, three are in that position today. The dispatch below
-# cannot reach them either, since it hands the same declaration to the tool and
-# the record step refuses a check the declaration does not declare; their runs
-# are recorded by hand through the `Record a run` workflow, and they go Stale on
-# the backstop until somebody writes them a plant. The ledger's other five
-# checks carry an observation and no run, so they read Unproven and have no
-# proof for a floor to keep alive.
+# file is the whole of what the selection reads checks from. The dispatch below
+# cannot reach such a check either, since it hands the same declaration to the
+# tool and the record step refuses a check the declaration does not declare.
+# Every check that carries a run has a plant there: `ci-type-check` from the
+# start, and `ci-published-output`, `ledger-export-agreement` and
+# `ledger-record-validation` since #110, before which their only runs were
+# typed in through the `Record a run` workflow and nothing could refresh them.
+# The ledger's other five checks carry an observation and no run, so they read
+# Unproven and have no proof for a floor to keep alive; a plant for any of
+# them is written by a person, and nothing here writes one.
 #
 # The floor keeps a proof alive only while two other things hold, and neither is
 # its doing. A person has to merge the branch each replay pushes, because the
@@ -134,6 +147,35 @@ jobs:
       SOURCE_COMMIT: ${{ github.sha }}
       SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       BRANCH: replay/${{ github.run_id }}
+      # The two databases .env.example names, pointed at the service container
+      # below, the same shape as CI. Two of the declared checks are the build,
+      # which derives every status in a database and refuses to run without
+      # one. The config module requires both variables to be set, so both are
+      # here although only the first is read by anything this job runs.
+      DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
+      TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
+
+    services:
+      # The same service CI uses, for the same reason: the build is a
+      # derivation through PostgreSQL, not a file transformation, and the
+      # plants for `ledger-export-agreement` and `ci-published-output` are
+      # plants against the build. It starts with the job whether or not those
+      # checks turn out to be due, because a service cannot be conditional on
+      # a step's output; the steps that create and migrate the databases can
+      # be, and are.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: seen_to_fail
+          POSTGRES_PASSWORD: seen_to_fail
+          POSTGRES_DB: seen_to_fail_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seen_to_fail -d seen_to_fail_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       # With the whole history, because the selection below asks what has
@@ -210,6 +252,19 @@ jobs:
             exit 1
           fi
           echo "config=$RUNNER_TEMP/canfail-due.json" >> "$GITHUB_OUTPUT"
+
+      # The database the build derives into, created and migrated the way CI
+      # does it and only once something is due. Every declared check gets the
+      # same runner state whichever of them was selected: a build-based check
+      # replayed alone and one replayed beside the type check are then the same
+      # replay, which is what makes two of its runs comparable.
+      - name: Create the databases
+        if: steps.select.outputs.config != ''
+        run: node packages/server/src/scripts/create-databases.ts
+
+      - name: Apply migrations
+        if: steps.select.outputs.config != ''
+        run: pnpm db:migrate
 
       - name: Install Python
         if: steps.select.outputs.config != ''

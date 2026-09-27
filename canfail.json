@@ -34,6 +34,109 @@
           "expect": "error TS[0-9]+"
         }
       ]
+    },
+    {
+      "name": "The published page is checked after it is built",
+      "checkId": "ci-published-output",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "packages/server",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "scripts/check-published-output.sh",
+        "tsconfig.base.json"
+      ],
+      "expected": "The check of the published output fails, so the run does not go green.",
+      "run": "pnpm ledger:build && bash scripts/check-published-output.sh",
+      "evidence": {
+        "expect": "The published (page|export|output)"
+      },
+      "breaks": [
+        {
+          "name": "The build writes a script tag into the page after the page it checked, so the file on disk is not the page it verified.",
+          "file": "packages/server/src/ledger/build.ts",
+          "replace": "  await writeFile(pagePath, page, 'utf8');",
+          "with": "  await writeFile(pagePath, `${page}<script></script>`, 'utf8');",
+          "expect": "The published page carries a script"
+        }
+      ]
+    },
+    {
+      "name": "The build refuses to publish a disagreement",
+      "checkId": "ledger-export-agreement",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "packages/server",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The build refuses to publish, exits non-zero, and writes no files at all.",
+      "run": "pnpm ledger:build",
+      "evidence": {
+        "expect": "Built [0-9]+ checks and [0-9]+ runs|so nothing was published"
+      },
+      "breaks": [
+        {
+          "name": "One observation dropped from the export, inside the function that builds it, so the page holds one fewer than the ledger.",
+          "file": "packages/server/src/ledger/snapshot.ts",
+          "replace": "[...input.contents.observations].sort(",
+          "with": "[...input.contents.observations].slice(1).sort(",
+          "expect": "The number of observations published: the record says [0-9]+ and the export says [0-9]+"
+        },
+        {
+          "name": "The status tally counts nothing, so every tile on the page says zero however many checks hold that status.",
+          "file": "packages/server/src/ledger/snapshot.ts",
+          "replace": "    counts[check.status] += 1;",
+          "with": "    counts[check.status] += 0;",
+          "expect": "Checks holding the status [A-Za-z]+: the record says [1-9][0-9]* and the export says 0"
+        }
+      ]
+    },
+    {
+      "name": "The ledger refuses a malformed record",
+      "checkId": "ledger-record-validation",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/record-run.yml",
+        ".github/workflows/replay.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/server",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The validator refuses the ledger and exits non-zero, and nothing is recorded.",
+      "run": "pnpm ledger:validate",
+      "evidence": {
+        "expect": "is sound: [0-9]+ checks|problems?\\. Nothing was recorded\\."
+      },
+      "breaks": [
+        {
+          "name": "A run file whose outcome is a word the ledger does not know.",
+          "file": "ledger/runs/2026-09-18-ledger-record-validation-718c6198ebf1.json",
+          "replace": "\"outcome\": \"caught\"",
+          "with": "\"outcome\": \"passed\"",
+          "expect": "outcome: Invalid option"
+        },
+        {
+          "name": "A run file naming a check that is not in the ledger.",
+          "file": "ledger/runs/2026-09-18-ledger-record-validation-718c6198ebf1.json",
+          "replace": "\"checkId\": \"ledger-record-validation\"",
+          "with": "\"checkId\": \"ledger-record-validatio\"",
+          "expect": "There is no check in the ledger with the id"
+        }
+      ]
     }
   ]
 }
