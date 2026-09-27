@@ -19,11 +19,19 @@ import { renderPage } from './page.ts';
  * text floor rather than the 3:1 WCAG allows it, because every large heading
  * here also sets smaller text in the same colour.
  *
+ * Two states are drawn with `color-mix()` rather than a token: the keyboard
+ * focus ring and the tint behind a pill under the pointer. Each is read off
+ * the stylesheet with its percentage, laid over the page and over an area
+ * card, and measured there: the ring as a graphic against its ground, and
+ * every pill's text against the tint.
+ *
  * Edges are not measured. A status on this page is never told by colour
  * alone: a pill says its word and its mark, and a square in the hero strip
  * carries the mark, so the amber edge of a Stale pill and the dashed edge of an
  * Unproven one sit beside what a reader reads rather than being it. The marks
- * and words are what is measured.
+ * and words are what is measured. The checks at the foot of this file cover
+ * every `color:` and `background:` set from a token and every `color-mix()`,
+ * and nothing set with `border`.
  *
  * The maths repeats the client's contrast.test.ts rather than sharing it. The
  * only package both sides import is the filter language, which is closed to
@@ -96,6 +104,70 @@ function token(scheme: Scheme, name: string): string {
   return hex;
 }
 
+/** A token mixed with transparent, as the stylesheet declares it. */
+interface Mix {
+  readonly property: string;
+  readonly token: string;
+  readonly percent: number;
+}
+
+/** Every `color-mix(in srgb, var(--x) N%, transparent)`, with its property. */
+const mixes: readonly Mix[] = [
+  ...style.matchAll(
+    /(?:^|[\s;{])([a-z-]+):[^;{}]*color-mix\(in srgb, var\(--([a-z-]+)\) (\d+(?:\.\d+)?)%, transparent\)/g,
+  ),
+].map(([, property = '', name = '', percent = '']) => ({
+  property,
+  token: name,
+  percent: Number(percent),
+}));
+
+/** The one mix the stylesheet sets on a property. */
+function mixOn(property: string): Mix {
+  const found = mixes.filter((mix) => mix.property === property);
+  if (found.length !== 1 || found[0] === undefined) {
+    throw new Error(
+      `Expected one color-mix on ${property}, found ${String(found.length)}.`,
+    );
+  }
+  return found[0];
+}
+
+/**
+ * A mix laid over an opaque ground, which is what a reader sees: each channel
+ * is the mix's share of the token plus the rest of the ground.
+ */
+function composite(
+  foreground: string,
+  percent: number,
+  ground: string,
+): string {
+  const share = percent / 100;
+  return `#${[1, 3, 5]
+    .map((start) => {
+      const fore = Number.parseInt(foreground.slice(start, start + 2), 16);
+      const back = Number.parseInt(ground.slice(start, start + 2), 16);
+      return Math.round(share * fore + (1 - share) * back)
+        .toString(16)
+        .padStart(2, '0');
+    })
+    .join('')}`;
+}
+
+/** A token, or a mix of one laid over a token. */
+type Paint = string | { readonly mix: Mix; readonly over: string };
+
+function paint(scheme: Scheme, value: Paint): string {
+  if (typeof value === 'string') {
+    return token(scheme, value);
+  }
+  return composite(
+    token(scheme, value.mix.token),
+    value.mix.percent,
+    token(scheme, value.over),
+  );
+}
+
 /** Relative luminance, WCAG 2. */
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((start) => {
@@ -141,15 +213,23 @@ describe('the measure', () => {
     expect(token('dark', 'bg')).not.toBe(token('light', 'bg'));
     expect(token('dark', 'warning')).toBe(token('light', 'warning'));
   });
+
+  it('lays a mix over its ground: none of it is the ground, all of it is the colour', () => {
+    expect(composite('#000000', 0, '#ffffff')).toBe('#ffffff');
+    expect(composite('#000000', 100, '#ffffff')).toBe('#000000');
+    expect(composite('#000000', 50, '#ffffff')).toBe('#808080');
+  });
 });
 
-/** Every pairing the page renders, with where it is rendered. */
-const pairings: readonly {
+interface Pairing {
   readonly use: string;
-  readonly fore: string;
-  readonly back: string;
+  readonly fore: Paint;
+  readonly back: Paint;
   readonly floor: number;
-}[] = [
+}
+
+/** Every pairing the page renders from its tokens, with where it is rendered. */
+const tokenPairings: readonly Pairing[] = [
   {
     use: 'ink on the page: body text, a Stale pill, a Stale square',
     fore: 'ink',
@@ -231,19 +311,61 @@ const pairings: readonly {
   },
 ];
 
+/**
+ * The colours a pill's text can take: ink, which a pill inherits, and every
+ * token a `.pill` rule sets its text in.
+ */
+const pillInks = [
+  ...new Set([
+    'ink',
+    ...[
+      ...style.matchAll(
+        /^\.pill[^{\n]*\{[^}]*[\s;{]color:\s*var\(--([a-z-]+)\)/gm,
+      ),
+    ].map(([, name = '']) => name),
+  ]),
+];
+
+/** Pills sit on the page in the hero and on an area card in a check line. */
+const grounds = [
+  { name: 'the page', token: 'bg' },
+  { name: 'an area card', token: 'surface' },
+] as const;
+
+const focusRing = mixOn('outline');
+const hoverTint = mixOn('background');
+
+/** The two mixed states, laid over each ground they are drawn on. */
+const mixPairings: readonly Pairing[] = grounds.flatMap((ground) => [
+  {
+    use: `the focus ring on ${ground.name}`,
+    fore: { mix: focusRing, over: ground.token },
+    back: ground.token,
+    floor: graphic,
+  },
+  ...pillInks.map((ink) => ({
+    use: `--${ink} pill text on the hover tint, on ${ground.name}`,
+    fore: ink,
+    back: { mix: hoverTint, over: ground.token },
+    floor: text,
+  })),
+]);
+
+const pairings = [...tokenPairings, ...mixPairings];
+
 describe.each(Object.keys(schemes) as Scheme[])('the %s scheme', (scheme) => {
   describe.each(pairings)('$use', ({ fore, back, floor }) => {
     it(`reaches ${String(floor)}:1`, () => {
       expect(
-        ratio(token(scheme, fore), token(scheme, back)),
+        ratio(paint(scheme, fore), paint(scheme, back)),
       ).toBeGreaterThanOrEqual(floor);
     });
   });
 });
 
 /**
- * A new colour for text, or a new ground, has to be added to the pairings
- * above before this passes, so a pairing cannot reach the page unmeasured.
+ * A new colour for text, a new ground, or a new mix has to be measured above
+ * before this passes, so a pairing cannot reach the page unmeasured.
  */
 describe('the pairings', () => {
   const used = (property: string): Set<string> =>
@@ -255,17 +377,35 @@ describe('the pairings', () => {
       ].map(([, name]) => name ?? ''),
     );
 
+  const tokensIn = (side: 'fore' | 'back'): Set<string> =>
+    new Set(
+      pairings.flatMap((pairing) =>
+        typeof pairing[side] === 'string' ? [pairing[side]] : [],
+      ),
+    );
+
   it('measure every token the page sets text in', () => {
-    const measured = new Set(pairings.map(({ fore }) => fore));
+    const measured = tokensIn('fore');
     expect([...used('color')].filter((name) => !measured.has(name))).toEqual(
       [],
     );
   });
 
   it('measure every token the page sets as a ground', () => {
-    const measured = new Set(pairings.map(({ back }) => back));
+    const measured = tokensIn('back');
     expect(
       [...used('background')].filter((name) => !measured.has(name)),
     ).toEqual([]);
+  });
+
+  it('read every color-mix on the page, and measure each one', () => {
+    expect(mixes).toHaveLength(style.split('color-mix(').length - 1);
+    expect(
+      mixes.filter((mix) => mix !== focusRing && mix !== hoverTint),
+    ).toEqual([]);
+  });
+
+  it('find more than one colour of pill text', () => {
+    expect(pillInks.length).toBeGreaterThan(1);
   });
 });

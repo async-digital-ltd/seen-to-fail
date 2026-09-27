@@ -474,6 +474,11 @@ ${area.checks.map((check) => checkSection(ledger, check)).join('\n')}
  *
  * Amber measures 2.9:1 on the light ground, under the floor for text, so a
  * Stale pill takes the colour on its edge and says its word in ink.
+ *
+ * The focus ring is brick at 70% because 60% measured 2.9:1 on an area card in
+ * the light scheme, under the 3:1 a focus indicator needs. The hover tint is
+ * ink at 5% because 7% took red pill text on a card to 4.4:1. Both are held
+ * by page-contrast.test.ts.
  */
 const style = `:root {
   color-scheme: light dark;
@@ -518,7 +523,7 @@ body {
 a { color: var(--primary); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
 a:focus-visible, summary:focus-visible, .pill-button:focus-visible > .pill {
-  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, transparent);
   outline-offset: 2px;
   border-radius: 10px;
 }
@@ -546,7 +551,7 @@ h1 .result { color: var(--success-ink); }
 .cell-Unproven { border-style: dashed; border-color: var(--muted); }
 .pill-button { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .pill { display: inline-block; padding: 0.1rem 0.625rem; border: 1px solid var(--border); border-radius: 999px; font-size: 0.875rem; font-weight: 600; white-space: nowrap; transition: background 120ms; }
-.pill-button:hover > .pill { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.pill-button:hover > .pill { background: color-mix(in srgb, var(--ink) 5%, transparent); }
 .pill-Proven { color: var(--success-ink); border-color: currentColor; }
 .pill-Broken { color: var(--error); border-color: currentColor; }
 .pill-Stale { border-color: var(--warning); }
