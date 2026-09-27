@@ -700,8 +700,12 @@ than a quiet skip. The status rules above are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
 CI runs `pnpm codegen:check`, applies the migrations, runs the four commands
-above, and then `pnpm build:web`, which is what proves the page reaches the
-code: the tests import modules, and only the bundler starts from `index.html`.
+above, and then starts the server with `scripts/check-server-starts.sh`, which
+is what proves the entry point loads: the tests put requests through the
+handler and never run it. The script waits at most 30 seconds for `/health` and
+one GraphQL query to answer, stops the server, and runs the same way locally.
+Then `pnpm build:web`, which is what proves the page reaches the code: the tests
+import modules, and only the bundler starts from `index.html`.
 It finishes by reading the ledger and building the published page from it, and
 checking what came out: two files, naming the commit CI is running against, with
 no script in them.
