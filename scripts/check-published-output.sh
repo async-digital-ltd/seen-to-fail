@@ -9,7 +9,8 @@
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
-# to main, and that is the check the ledger records as `ci-published-output`.
+# to main or to a `ci-control/` branch, and that is the check the ledger records
+# as `ci-published-output`.
 # The replay runs it too, after its own build, against the plant `canfail.json`
 # declares for that check. A copy of these lines inside `canfail.json` would be
 # a second definition of the check, free to drift from the one CI runs.

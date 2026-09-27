@@ -183,8 +183,9 @@ link must parse back into the same filter.
   saved filters. The schema carries `saved_filters` for saving a filter under a
   name, and nothing reads it yet.
 - **React** with Vite, React Router and urql.
-- **Vitest** for tests, and GitHub Actions for type checking, linting, format
-  checking, tests and a build of the client.
+- **Vitest** for tests, and GitHub Actions for checking the generated types,
+  type checking, linting, format checking, tests, starting the server, a build
+  of the client, and building and checking the published page.
 
 The server is built for local use only. There is no per-request cost limit and
 no limit on the size of a request body, so it is not hardened for deployment.
@@ -599,11 +600,11 @@ and one of them has been replayed so far. The other five are not declared, and
 the whole difference is one file: `canfail.json` declares a plant for each of
 the four and for no other check.
 
-| Checks                                                                       | What their record rests on                                                                                                                                                                                                                           |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                                                                                                          |
-| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Every run they carry so far was planted, watched and typed in on 18 September 2026; the first replay to reach them is the next one the schedule dispatches, and its runs arrive once merged. |
-| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                     |
+| Checks                                                                       | What their record rests on                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                                                                                                                            |
+| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. As of 27 September 2026, every run they carry was planted, watched and typed in on 18 September 2026; the first replay to reach them is the next one the schedule dispatches, and its runs arrive once merged. |
+| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                                       |
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
@@ -750,51 +751,71 @@ is what was checked, what was not, and where the evidence for each is.
   acceptance check all passed it, because each examined what the branch
   contained and the fault was something missing. It was caught when the README
   screenshot, retaken from the branch and expected to show the new link, came
-  back byte-identical to the one before
-  ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
+  back byte-identical to the one before. That is the session's own account, on
+  [#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24).
 - **A scanner trusted only after it fired.** The whole history, every branch
   and every pull request head from the root, was scanned for secrets with
   gitleaks as the last step before the repository was made public on 27
   September 2026, and the result counted only once the same scan had reported
-  a planted key. The first
-  runs are recorded on
+  a planted key. The first runs are recorded on
   [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29), and
   every later run, with its command and its result, on
-  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55).
+  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55). Those are
+  one session's account. The history is public, so the scan itself can be run
+  again by anyone; the planted key it was trusted on cannot be seen from here.
 - **A walkthrough by hand.** The run instructions above were followed from a
   fresh clone on 16 September 2026, before the ledger commands were added to
   them. Every command then present worked, and one sentence led a Homebrew
   reader into database URLs the server refuses, which CI had no way to notice
   ([#27](https://github.com/async-digital-ltd/seen-to-fail/issues/27),
-  [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)).
+  [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)). They were
+  followed again from a fresh clone on 27 September 2026, the ledger commands
+  included, on the Homebrew route with the two database URLs set in the
+  environment rather than in `.env`. Every command worked and said what this
+  file says it does. The Docker route was not walked either time. Both walks
+  are one session's account, the second recorded command by command in the
+  pull request linked from
+  [#127](https://github.com/async-digital-ltd/seen-to-fail/issues/127), and
+  anyone with a clone can repeat them.
 - **The ledger's own guards, watched refusing.** The two checks the publishing
   route rests on were each given the defect they exist for and seen to deny it:
   a record whose outcome was neither caught nor missed, which the validator
   refused with a non-zero exit, and a record dropped from the export inside the
   build, which the build refused to publish, leaving no output directory behind.
-  Both were watched passing before and after. They are the first runs in
-  `ledger/`, which is the first thing this project has recorded about itself
-  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)).
+  Both were watched passing before and after. They are two of the three runs
+  the first commit to `ledger/runs/` added, `7b47398`, which is the first thing
+  this project has recorded about itself
+  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)); the
+  third is the guard in the next bullet. All three were typed in by the session
+  that watched them. Each has a plant in `canfail.json` that a replay can
+  re-check it with, and none had been replayed as of 27 September 2026.
 - **A guard that could not fail, in a repository about guards that cannot
   fail.** The CI step that refuses a published page carrying a script was first
   written as `! grep -qi '<script' ...` under `set -e`. A shell does not apply
   `set -e` to a command whose status is inverted, so that step went green with
   the script sitting in the page. It was found by planting the script and
   watching the step pass, before it had run anywhere, and rewritten as an `if`
-  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)).
+  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)). The
+  check now lives in `scripts/check-published-output.sh`, whose header keeps
+  that history, and the note on its first run in `ledger/runs/` tells it too.
 - **A test that depended on the shell.** The error masking tests passed or
   failed with the value of `NODE_ENV`. They were run under each value, seen
   failing under one, and the server was pinned so they no longer depend on it
   ([#39](https://github.com/async-digital-ltd/seen-to-fail/issues/39),
-  [#56](https://github.com/async-digital-ltd/seen-to-fail/pull/56)).
+  [#56](https://github.com/async-digital-ltd/seen-to-fail/pull/56)). The pin is
+  `maskedErrors` in `packages/server/src/graphql/server.ts`, and the masking
+  tests in the same folder pass with `NODE_ENV=development` set, which anyone
+  can re-run.
 
 Not checked:
 
 - No keyboard and screen reader pass has been run
   ([#28](https://github.com/async-digital-ltd/seen-to-fail/issues/28)).
 - Nothing automated exercises the client and the server together. That path
-  was walked by hand once, over HTTP, on 16 September 2026
-  ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)).
+  was walked by hand over HTTP on 16 September 2026
+  ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)), and a
+  query was put through the client's development proxy to the server on 27
+  September 2026 in the walk above, with `curl` rather than a browser.
 
 This file is written to one rule. A claim is either checkable from this
 repository or from a run it links to, while GitHub keeps that run's log, or it
@@ -807,7 +828,12 @@ two passes over it found claims that were true for whoever wrote them and
 unverifiable for whoever read them
 ([#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83));
 [#121](https://github.com/async-digital-ltd/seen-to-fail/issues/121) records
-the pattern. The rest of the file has not been audited against it yet.
+the pattern. The rest of the file was audited against it on 27 September 2026,
+as it stood at commit `3cd0c37`
+([#127](https://github.com/async-digital-ltd/seen-to-fail/issues/127)), which
+is where the accounts in the bullets above were labelled as accounts.
+`git diff 3cd0c37 -- README.md` shows every change since: the audit's own edits
+and whatever it has not seen.
 
 ## What shipped, and where it could go
 
@@ -816,8 +842,9 @@ the pattern. The rest of the file has not been audited against it yet.
   <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, one check so far, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
 </picture>
 
-**Version 1 is manual, and eight of the nine checks recorded here still are,
-three of them with a plant declared since #110 and no replay yet.**
+**Version 1 is manual, and as of 27 September 2026 eight of the nine checks
+recorded here still were, three of them with a plant declared since #110 and no
+replay yet.**
 Proving one check means making a throwaway branch, breaking the code in the way
 that check exists to catch, running the check, confirming it failed for that
 reason and not another, deleting the branch, and then writing down what
