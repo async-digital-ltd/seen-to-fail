@@ -186,8 +186,9 @@ AS $$
   -- through that day is broken whether or not something else it was asked about
   -- that day went well, and a rule that could hide the miss behind the catch
   -- would be this product failing at its own subject. The same rank is in
-  -- outcomePrecedence in rows.ts, which is what the run lists are sorted by, and
-  -- a test reads this order back out of the database and compares the two.
+  -- outcomePrecedence in rows.ts, which is what the run lists are sorted by.
+  -- This ORDER BY spells it separately. 0007 replaces this function, and the
+  -- test that holds the run it picks to that rank is described there.
   --
   -- Only the two settled outcomes can reach the key, because the filter below
   -- is a positive list, so a comparison against one label is total here. The

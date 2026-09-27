@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { forwardedArguments } from './arguments.ts';
 
 /**
- * The one thing the three scripts share about their arguments, held in one
+ * The one thing the scripts share about their arguments, held in one
  * place so that a script written later cannot forget it.
  */
 

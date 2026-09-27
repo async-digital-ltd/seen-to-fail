@@ -27,9 +27,10 @@ import { createGraphQLServer } from './server.ts';
  * arrive as an error rather than as ValidationErrors, which fails the test just
  * as surely as a row being written.
  *
- * Where a write is refused, the tests also read the record back and find it
- * unchanged, because a refusal that had written its row first would otherwise
- * look exactly like one that had not.
+ * Where a test is about a write being refused, it also reads the record back
+ * and finds it unchanged, because a refusal that had written its row first
+ * would otherwise look exactly like one that had not. The tests about how a
+ * refusal is worded and ordered read the refusal alone.
  *
  * The writes against existing checks use the seeded workspace, whose statuses
  * the seed's own test already proves. A check is picked by the status it starts
@@ -917,8 +918,9 @@ it('accepts text at the longest its field allows, measured after trimming', asyn
  * A long paste into the name, of the kind PostgreSQL cannot fit in the index
  * that keeps names unique. The database refuses that with an error naming the
  * unique constraint, so a writer that matched on the name alone would tell the
- * person the name is taken while no check has it. It is refused here for its
- * length before the database is asked.
+ * person the name is taken while no check has it. It is refused for its
+ * length, which this test reads off the message; that the database is never
+ * asked is counted in the statement test further down.
  */
 it('refuses a name too long to index as too long, not as a name in use', async () => {
   const server = createGraphQLServer({
@@ -934,6 +936,9 @@ it('refuses a name too long to index as too long, not as a name in use', async (
   const errors = refusalOf(result);
   expect(errors.map((error) => error.path)).toStrictEqual(['name']);
   expect(errors[0]?.message).not.toBe(nameTaken.message);
+  expect(errors[0]?.message).toBe(
+    `This can be at most ${String(MAX_LABEL_LENGTH)} characters.`,
+  );
   expect(await workspace(server)).toStrictEqual([]);
 });
 
@@ -1010,8 +1015,8 @@ it('reports a rule only the database can judge once every other rule has passed,
  * PostgreSQL.
  *
  * The first write is the positive control. A valid input through the same spy
- * counts its insert and the read of the check after it, so a count of zero
- * below means nothing was sent rather than that the spy was not listening.
+ * is counted as sending something, so a count of zero below means nothing was
+ * sent rather than that the spy was not listening.
  *
  * Every text field is sent blank where it is required, one character too long,
  * with a NUL and with half of a character. Beside those are the values that

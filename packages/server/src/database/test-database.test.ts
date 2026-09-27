@@ -11,7 +11,7 @@ import { databaseName } from './databases.ts';
  */
 const database = useTestDatabase();
 
-it('has the project migrations applied to the test database', async () => {
+it("records the project's first migration in the test database", async () => {
   const recorded = await database
     .client()
     .query<{ filename: string }>(

@@ -226,7 +226,7 @@ it('heads the page, the app and the status with the same run when two runs tie',
     },
   });
 
-  const { ledger } = await build(directory);
+  const { ledger, page } = await build(directory);
   const published = ledger.checks[0]?.runs.map((run) => run.id);
   const inTheApp = (
     await listRunsForChecks(database.client(), [ledgerCheckUuid('ci-lint')])
@@ -239,6 +239,10 @@ it('heads the page, the app and the status with the same run when two runs tie',
     ledgerFileUuid(`ledger/${tiedLaterFile}`),
   ]);
   expect(summary?.latestSettledRunId).toBe(published?.[0]);
+  // The rendered page, read rather than assumed to follow the export.
+  const earlierOnPage = page.indexOf('A second rule violation.');
+  expect(earlierOnPage).toBeGreaterThan(-1);
+  expect(earlierOnPage).toBeLessThan(page.indexOf('A rule violation.'));
 });
 
 /**
@@ -281,7 +285,7 @@ it('shows a run recorded by the recorder, and the commit that recorded it', asyn
 /**
  * The address a run carries is the check's id, and the name beside it is a
  * label. So a check can be renamed after runs have been recorded against it
- * and every one of them still reaches it: the file the job wrote is untouched,
+ * and a run recorded before the rename still reaches it: its file is untouched,
  * the check publishes under the same id, and the page reads the new name over
  * the old evidence. A build that resolved by name would leave the run behind,
  * and the status with it.

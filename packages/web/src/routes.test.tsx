@@ -22,9 +22,9 @@ const footerSentence =
 
 /**
  * A workspace of two checks: enough for the list to have rows, the run form a
- * choice, and a check's page a record to show. Every screen below is rendered
- * with the answers it asks for, so what is counted on it is the screen and not
- * the notice a missing answer would put in its place (#47).
+ * choice, and a check's page a record to show. Every screen in the table below
+ * is rendered with the answers it asks for, so what is counted on it is the
+ * screen and not the notice a missing answer would put in its place (#47).
  */
 const lint = {
   id: 'ci-lint',
@@ -263,7 +263,7 @@ describe('at the add-check address', () => {
 });
 
 describe('at a check address', () => {
-  it('renders the check detail screen inside the shell', async () => {
+  it('renders the check detail screen, asking for that id, inside the shell', async () => {
     const { calls } = renderApp({
       route: paths.check('ci-lint'),
       answers: [answer(CheckDetailDocument, { check: null })],
@@ -290,7 +290,7 @@ describe('the top bar', () => {
     expect(home).toHaveAttribute('href', '/');
   });
 
-  it('offers to log a test run from every screen, outlined rather than filled', () => {
+  it('offers to log a test run, outlined rather than filled', () => {
     renderApp({ route: paths.newCheck() });
 
     const button = within(screen.getByRole('banner')).getByRole('link', {

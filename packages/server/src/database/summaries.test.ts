@@ -432,8 +432,10 @@ it.each([
     name: `Type check, caught ${String(fixture.caughtDaysAgo)} days ago`,
     runs: [
       { runOn: daysBefore(fixture.caughtDaysAgo), outcome: 'caught' },
-      // Three replays since, none of which settled anything, the newest of
-      // them yesterday. Nothing here is newer evidence about the check.
+      // Three runs since, none of which settled anything, the newest of them
+      // yesterday. Replays in the story; typed in here, because where a run
+      // came from is not read by the derivation. Nothing here is newer
+      // evidence about the check.
       { runOn: daysBefore(8), outcome: 'inconclusive' },
       { runOn: daysBefore(4), outcome: 'inconclusive' },
       { runOn: daysBefore(1), outcome: 'inconclusive' },
@@ -496,6 +498,8 @@ it('counts every run as exactly one of the three', async () => {
   expect(
     summary.caughtCount + summary.missedCount + summary.inconclusiveCount,
   ).toBe(summary.runCount);
+  expect(summary.caughtCount).toBe(2);
+  expect(summary.missedCount).toBe(1);
   expect(summary.inconclusiveCount).toBe(2);
 });
 

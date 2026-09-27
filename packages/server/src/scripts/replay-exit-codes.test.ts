@@ -473,18 +473,17 @@ describe('the same run recorded twice', () => {
     expect(await runAdapter(directory)).toBe(0);
     const first = await runsIn(directory);
     expect(first).toHaveLength(2);
-    const before = await readFile(
-      join(directory, 'runs', first[0] ?? ''),
-      'utf8',
-    );
+    const contents = (files: readonly string[]): Promise<string[]> =>
+      Promise.all(
+        files.map((file) => readFile(join(directory, 'runs', file), 'utf8')),
+      );
+    const before = await contents(first);
 
     expect(await runAdapter(directory)).toBe(0);
     const second = await runsIn(directory);
     expect(second).toHaveLength(2);
     expect(second).toEqual(first);
-    expect(
-      await readFile(join(directory, 'runs', first[0] ?? ''), 'utf8'),
-    ).toBe(before);
+    expect(await contents(second)).toEqual(before);
   });
 
   it('records a second run separately when it came from a different run', async () => {

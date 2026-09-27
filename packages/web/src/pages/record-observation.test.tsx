@@ -385,12 +385,6 @@ describe('the observation form', () => {
 });
 
 /**
- * The mark beside "Observation saved". #58 found it hard-coded to the green
- * tick, so an observation that found the check off was confirmed with the mark
- * for on, beside words saying off. The list under the line draws its mark from
- * what was found, and the line has to draw the same one.
- */
-/**
  * A save under way: the button is disabled and says so, and neither a second
  * press nor Enter in a field sends a second observation. Exactly one send is
  * asserted, not at most one, since the count is what a second send would
@@ -429,6 +423,12 @@ describe('a save in flight', () => {
   });
 });
 
+/**
+ * The mark beside "Observation saved". #58 found it hard-coded to the green
+ * tick, so an observation that found the check off was confirmed with the mark
+ * for on, beside words saying off. The list under the line draws its mark from
+ * what was found, and the line has to draw the same one.
+ */
 describe('the mark beside a saved observation', () => {
   it.each([
     { choice: 'It is on', check: unarmedWithNoRuns, glyph: '✓', found: 'on' },

@@ -31,7 +31,7 @@ import { buildSnapshot } from './snapshot.ts';
  * after the build.
  */
 
-it('shows the reading order, and holds the same statuses the filter knows', () => {
+it('holds the same statuses the filter knows in its reading order, and no others', () => {
   expect([...publishedStatusOrder].sort()).toEqual([...STATUSES].sort());
 });
 
@@ -42,6 +42,8 @@ it('names every check, and counts each status beside its word', () => {
   expect(page).toContain('✓ Proven 1');
   expect(page).toContain('? Unproven 1');
   expect(page).toContain('✕ Broken 0');
+  expect(page).toContain('! Stale 0');
+  expect(page).toContain('○ Unarmed 0');
 });
 
 /**
@@ -50,8 +52,16 @@ it('names every check, and counts each status beside its word', () => {
  * says fewer.
  */
 it('leads with how many checks have been seen to catch a planted defect', () => {
-  expect(renderPage(fixtureSnapshot())).toContain(
+  const snapshot = fixtureSnapshot();
+  expect(renderPage(snapshot)).toContain(
     '<span class="result">1 of 2</span> checks have been seen to catch a planted defect',
+  );
+  const fewer = {
+    ...snapshot,
+    statusCounts: { ...snapshot.statusCounts, Proven: 0, Unproven: 2 },
+  };
+  expect(renderPage(fewer)).toContain(
+    '<span class="result">0 of 2</span> checks have been seen to catch a planted defect',
   );
 });
 
@@ -91,6 +101,15 @@ it('explains every status from the pill that shows it', () => {
   );
   for (const target of targets) {
     expect(popovers.has(target)).toBe(true);
+  }
+  const pills = [
+    ...page.matchAll(
+      /popovertarget="means-([^"]+)"><span class="pill pill-([^" ]+)/g,
+    ),
+  ];
+  expect(pills).toHaveLength(targets.length);
+  for (const [, opens, shows] of pills) {
+    expect(opens).toBe(shows);
   }
 });
 
@@ -166,13 +185,15 @@ it('carries no script at all', () => {
  * replay named, the export beside the page, the repository itself, and the
  * studio that built it. Nothing here is fetched; these are places a reader can
  * go, and the list is closed so that a page which started reaching somewhere
- * else would fail rather than be noticed by somebody reading the HTML.
+ * else would fail rather than be noticed by somebody reading the HTML. Every
+ * link is held to it, and so is every absolute address, which also lets the
+ * SVG namespace through because it is not a link.
  *
  * The replay's ledger is the one rendered, because it is the one with a link
  * that is not a commit. Rendering the other would let a page that dropped the
  * run link pass.
  */
-it('links only to a commit, to a run a record named, or to the export', () => {
+it('links only to a commit, a run a record named, the export, the repository or the studio', () => {
   const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
   const urls = [...page.matchAll(/https?:\/\/[^"'\s]+/g)].map(
     (match) => match[0],
@@ -183,11 +204,15 @@ it('links only to a commit, to a run a record named, or to the export', () => {
   expect(urls).toContain(fixtureReplayRunUrl);
   expect(urls).toContain(repository);
   expect(urls).toContain(studio);
-  for (const url of urls) {
+  const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+  const exported = 'ledger.json';
+  expect(hrefs).toContain(exported);
+  for (const url of [...urls, ...hrefs]) {
     if (
       url === fixtureReplayRunUrl ||
       url === repository ||
       url === studio ||
+      url === exported ||
       url === 'http://www.w3.org/2000/svg'
     ) {
       continue;

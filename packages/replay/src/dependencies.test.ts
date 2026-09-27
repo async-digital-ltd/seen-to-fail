@@ -17,7 +17,9 @@ import type { DeclaredCheck } from './dependencies.ts';
  * selected passes just as well when the matcher answers yes to everything,
  * which is the shape of guard this repository exists to object to. Measured by
  * planting exactly that: a `checksTouchedBy` that returned `options.checks`
- * unfiltered leaves every `toEqual` below red.
+ * unfiltered turns red every test below that expects a check to be left out.
+ * The one that expects both checks passes under it, which is why it is never
+ * the only one.
  */
 
 /** A declaration the way `canfail.json` writes one, with canfail's keys on it. */
@@ -29,6 +31,8 @@ const declaration = {
       dependsOn: ['.github/workflows/ci.yml', 'packages', 'tsconfig.base.json'],
       expected: 'The type check fails.',
       run: 'pnpm typecheck',
+      timeout: 120,
+      evidence: { expect: 'typecheck\\$ tsc --noEmit' },
       breaks: [
         {
           name: 'A plant.',

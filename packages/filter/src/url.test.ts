@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { expect, it } from 'vitest';
 
 import { parseFilterString, serializeFilter } from './url.ts';
-import type { FilterIssue } from './parse.ts';
+import { parseFilter, type FilterIssue } from './parse.ts';
 import {
   emptyFilter,
   JOINERS,
@@ -418,10 +418,26 @@ it('names the group and the condition a bad token sits in', () => {
  * one is refused by a rule that lives in the schema rather than in the grammar,
  * which can only happen if the candidate really did go through `parseFilter`.
  */
-it('lets the language refuse a status a link invented', () => {
-  expect(
-    refusalOf('and!and*status.is.Passing').map((issue) => issue.path),
-  ).toContain('groups[0].conditions[0].value');
+it('refuses a status a link invented exactly as it refuses a request body asking for one', () => {
+  const fromBody = parseFilter({
+    kind: 'groups',
+    joiner: 'and',
+    groups: [
+      {
+        joiner: 'and',
+        conditions: [{ field: 'status', op: 'is', value: 'Passing' }],
+      },
+    ],
+  });
+  if (fromBody.ok) {
+    throw new Error('Expected the request body to be rejected, but it parsed.');
+  }
+  const fromLink = refusalOf('and!and*status.is.Passing');
+
+  expect(fromLink.map((issue) => issue.path)).toContain(
+    'groups[0].conditions[0].value',
+  );
+  expect(fromLink).toEqual(fromBody.errors);
 });
 
 it("reports a group with no conditions in the language's own words", () => {
