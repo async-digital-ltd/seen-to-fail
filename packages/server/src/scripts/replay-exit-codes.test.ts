@@ -33,17 +33,39 @@ const check = {
   howToTellArmed: 'The step appears in the run list.',
 };
 
-const declaration = {
-  checks: [
-    {
-      name: 'Type check',
-      checkId: 'ci-type-check',
-      expected: 'The type check fails.',
-      run: 'pnpm typecheck',
-      breaks: [{ name: 'A plant.', file: 'a.ts', replace: 'a', with: 'b' }],
-    },
-  ],
-};
+const statusesBreak =
+  'STATUSES loses its as const, so Status widens to string.';
+const staleAfterBreak =
+  'STALE_AFTER_DAYS is written as a string rather than a number.';
+
+/**
+ * The type check declared with breaks of these names, which is all the
+ * adapter reads of a break. A report is held to them one for one (#128).
+ */
+function declaring(breakNames: readonly string[]) {
+  return {
+    checks: [
+      {
+        name: 'Type check',
+        checkId: 'ci-type-check',
+        expected: 'The type check fails.',
+        run: 'pnpm typecheck',
+        breaks: breakNames.map((name) => ({
+          name,
+          file: 'a.ts',
+          replace: 'a',
+          with: 'b',
+        })),
+      },
+    ],
+  };
+}
+
+/** Both breaks this repository declares against the type check. */
+const declaration = declaring([statusesBreak, staleAfterBreak]);
+
+/** The first of them alone, for the reports that carry one outcome. */
+const declaringStatuses = declaring([statusesBreak]);
 
 /** What canfail printed on a clean tree, with both plants caught. */
 const caughtBoth = {
@@ -53,15 +75,14 @@ const caughtBoth = {
   look: 0,
   outcomes: [
     {
-      break_name: 'STATUSES loses its as const, so Status widens to string.',
+      break_name: statusesBreak,
       check: 'Type check',
       detail:
         'broke packages/filter/src/types.ts, the check went red as declared',
       verdict: 'catches',
     },
     {
-      break_name:
-        'STALE_AFTER_DAYS is written as a string rather than a number.',
+      break_name: staleAfterBreak,
       check: 'Type check',
       detail:
         'broke packages/server/src/staleness.ts, the check went red as declared',
@@ -92,7 +113,7 @@ const redBaseline = {
   look: 1,
   outcomes: [
     {
-      break_name: 'STATUSES loses its as const, so Status widens to string.',
+      break_name: statusesBreak,
       check: 'Type check',
       detail: redBaselineReason,
       verdict: 'look',
@@ -206,7 +227,7 @@ describe('recording what a replay found', () => {
   });
 
   it('records through the separator pnpm forwards, and exits 0', async () => {
-    const directory = await aLedgerWith(redBaseline);
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
 
     expect(
       await exitCodeOf('record-replay.ts', [
@@ -227,12 +248,15 @@ describe('recording what a replay found', () => {
   });
 
   it('records a catch against the ledger id, carrying its source', async () => {
-    const directory = await aLedgerWith({
-      ...caughtBoth,
-      breaks: 1,
-      catches: 1,
-      outcomes: [caughtBoth.outcomes[0]],
-    });
+    const directory = await aLedgerWith(
+      {
+        ...caughtBoth,
+        breaks: 1,
+        catches: 1,
+        outcomes: [caughtBoth.outcomes[0]],
+      },
+      declaringStatuses,
+    );
 
     expect(await runAdapter(directory)).toBe(0);
     expect(await onlyRunIn(directory)).toMatchObject({
@@ -255,7 +279,7 @@ describe('recording what a replay found', () => {
    * happen before this lands on the default branch.
    */
   it('records a red baseline as inconclusive with the reason verbatim, never as caught', async () => {
-    const directory = await aLedgerWith(redBaseline);
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
 
     expect(await runAdapter(directory)).toBe(0);
     const run = await onlyRunIn(directory);
@@ -361,8 +385,37 @@ describe('what the adapter refuses', () => {
     expect(await runsIn(directory)).toEqual([]);
   });
 
+  /**
+   * #128, as it was measured: a report listing three outcomes against a
+   * declaration of two breaks exited 0 and wrote three runs. The two declared
+   * outcomes are refused with the third, because a report that disagrees with
+   * the declaration was not produced from it, and a run records what a check
+   * did with a declared plant.
+   */
+  it('refuses an outcome for a break nobody declared, exits 1, and leaves no file', async () => {
+    const directory = await aLedgerWith({
+      ...caughtBoth,
+      breaks: 3,
+      catches: 3,
+      outcomes: [
+        ...caughtBoth.outcomes,
+        { ...caughtBoth.outcomes[0], break_name: 'A plant nobody declared.' },
+      ],
+    });
+
+    expect(await runAdapter(directory)).toBe(1);
+    expect(await runsIn(directory)).toEqual([]);
+  });
+
+  it('refuses a report missing a declared break, exits 1, and leaves no file', async () => {
+    const directory = await aLedgerWith(redBaseline, declaration);
+
+    expect(await runAdapter(directory)).toBe(1);
+    expect(await runsIn(directory)).toEqual([]);
+  });
+
   it('refuses an abbreviated commit rather than expanding it, and leaves no file', async () => {
-    const directory = await aLedgerWith(redBaseline);
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
 
     expect(
       await exitCodeOf('record-replay.ts', [
@@ -382,7 +435,7 @@ describe('what the adapter refuses', () => {
   });
 
   it('refuses a run link that is not https, and leaves no file', async () => {
-    const directory = await aLedgerWith(redBaseline);
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
 
     expect(
       await exitCodeOf('record-replay.ts', [
@@ -435,7 +488,7 @@ describe('the same run recorded twice', () => {
   });
 
   it('records a second run separately when it came from a different run', async () => {
-    const directory = await aLedgerWith(redBaseline);
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
 
     expect(await runAdapter(directory)).toBe(0);
     expect(await runsIn(directory)).toHaveLength(1);

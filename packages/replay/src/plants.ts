@@ -65,6 +65,24 @@ const plantedCheckSchema = z.object({
       1,
       'Every check in the plant declaration needs an expected, which is what the check is expected to do about a plant.',
     ),
+  /**
+   * Read for the names and nothing else, because a name is what a report files
+   * each outcome under, and a report is held to these one for one (#128).
+   * Required for the reason the check's own name is: the name a report would
+   * carry for an unnamed break is a rule inside canfail, and a copy of that
+   * rule here would be free to disagree with it after an upgrade.
+   */
+  breaks: z.array(
+    z.object({
+      name: z
+        .string()
+        .trim()
+        .min(
+          1,
+          'Every break in the plant declaration needs a name, which is what a report files its outcome under.',
+        ),
+    }),
+  ),
 });
 
 const declarationSchema = z.object({
@@ -77,6 +95,11 @@ export interface PlantedCheck {
   readonly checkId: string;
   /** What the check is expected to do about a plant, recorded on every run. */
   readonly expected: string;
+  /**
+   * The names of the check's declared breaks, in the order declared. A report
+   * about this check has to carry exactly one outcome for each of them.
+   */
+  readonly breaks: readonly string[];
 }
 
 /**
@@ -86,6 +109,11 @@ export interface PlantedCheck {
  * the only thing anybody does with it.
  */
 export type PlantedChecks = ReadonlyMap<string, PlantedCheck>;
+
+/** Every name that appears more than once in the list, each named once. */
+export function repeated(names: readonly string[]): string[] {
+  return [...new Set(names.filter((name, at) => names.indexOf(name) !== at))];
+}
 
 /**
  * The checks a report can be read against, or every rule the declaration broke.
@@ -113,9 +141,18 @@ export function parsePlantedChecks(
       );
       continue;
     }
+    const breaks = check.breaks.map((declared) => declared.name);
+    // The same objection one level down: an outcome filed under a name two
+    // breaks share could be about either plant.
+    for (const name of repeated(breaks)) {
+      problems.push(
+        `Two breaks of the check ${check.name} are both named ${name}, so an outcome filed under it could mean either.`,
+      );
+    }
     checks.set(check.name, {
       checkId: check.checkId,
       expected: check.expected,
+      breaks,
     });
   }
 

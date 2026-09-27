@@ -53,6 +53,33 @@ that bear on its proof are read and edited together.
 A name the declaration does not declare is a refusal naming it, never a check
 brought into being to receive the run.
 
+## A report is held to the declared breaks
+
+A run records what a check did with a declared plant, so the adapter reads the
+name of every break `canfail.json` declares and holds the report to them, one
+outcome for each (#128). For every check a report names, it refuses:
+
+- an outcome for a break the declaration does not declare for that check;
+- a declared break the report carries no outcome for;
+- more than one outcome for the same declared break.
+
+Each refusal names the check and the break, exits 1, and writes nothing,
+including the outcomes that did match: a report that disagrees with the
+declaration was not produced from the declaration it is being recorded
+against, and the likeliest cause is the file edited on one branch and the
+report coming from a job that ran on another. Names are compared rather than
+counted, so a report with the right number of outcomes against the wrong
+breaks is refused too.
+
+Every break in the declaration therefore needs a `name`, and two breaks of one
+check may not share one. The rule is this repository's, like the rule that
+every check has a name: the name a report would carry for an unnamed break is a
+rule inside `canfail`, and a copy of it here could disagree after an upgrade.
+
+A declared check the report does not name is not a refusal. The workflow runs
+`canfail` over the checks the selection found due and records against the whole
+declaration, so a check absent from the report was not selected this time.
+
 ## Which checks a change touches
 
 A replay that runs on every commit says nothing and costs money, so each check
