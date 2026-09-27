@@ -328,10 +328,14 @@ is pinned to `main`, so a red control run cannot paint it red.
 
 ### A replay, start to finish
 
-One check is replayed by a job: `ci-type-check`. `canfail.json` declares exactly
-one check, with two declared breaks under it; `ledger/checks/` holds nine. So
-eight of those nine have no plant for a job to apply, and no replay can ever
-produce a run for them. The next section says plainly what that means for them.
+Four checks are declared for replay by a job: `ci-type-check`,
+`ci-published-output`, `ledger-export-agreement` and
+`ledger-record-validation`, which are the four that carry a run. `canfail.json`
+declares those four, with seven declared breaks between them; `ledger/checks/`
+holds nine. So five of those nine have no plant for a job to apply, and no
+replay can ever produce a run for them. One of the four, `ci-type-check`, has
+been replayed so far; the other three were declared on #110 and wait for the
+next scheduled run. The next section says plainly what that means for them.
 
 The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
 0.2.1 does it: handed a declaration of planted defects, it runs the check on a
@@ -365,8 +369,10 @@ spelled as git spells them, relative to the root; an entry matches a changed
 path when it is that path or when the path sits inside it. Both keys sit once on
 the check and not once per break, which is what makes them a statement about the
 check's proof rather than about one plant. The list above is shown short:
-`canfail.json` carries all eight of its entries, `canfail`'s own keys beside
-them, and the two declared breaks.
+`canfail.json` carries all eight of that check's entries, `canfail`'s own keys
+beside them, and its two declared breaks, and a list of its own for each of
+the other three checks. What each of those three plants, and why, is in
+`packages/replay/README.md`.
 
 The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
 `cron: '17 4 * * 1'`, which is 04:17 UTC on a Monday, and it can also be
@@ -384,8 +390,11 @@ about one run a week, and the time of day in the cron is a request.
 
 Weekly rather than on every push, because a replay filed on every merge would
 bury the runs that say something under runs that say the same thing again. Each
-replay runs the check once on a clean tree and once per declared break, which is
-three runs of `pnpm typecheck` today. While the repository was private those
+replay runs a check once on a clean tree and once per declared break, so a
+dispatch that replays every declared check runs eleven checks today: three of
+`pnpm typecheck`, three of the build, two of the build followed by the
+published-output script, and three of `pnpm ledger:validate`. While the
+repository was private those
 runs also spent a finite allowance of runner minutes; that reason lapsed when it
 was made public on 27 September 2026, and the cadence rests on the record alone. Weekly also
 sits inside the thirty-day backstop with room to spare: a run that arrives
@@ -396,25 +405,29 @@ workflow that runs on every pull request: `canfail` edits real source files on
 disk and restores them, which is fine on a runner nobody else is using and is
 not something to put in the path of every contributor's change.
 
-The job does six things:
+The job does seven things:
 
 1. **Works out which checks are due**, with `pnpm replay:select`. It exits 0
    when something is due, 3 when nothing is, and 1 when it refuses, and the
    workflow reads that status rather than looking for an output file, because a
    missing file cannot tell a refusal from an honest empty answer.
-2. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
+2. **Creates and migrates the databases**, the same way CI does and against
+   the same kind of service container, because two of the declared checks are
+   the build and the build derives every status in PostgreSQL. Only once
+   something is due; the service itself starts with the job.
+3. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
    report under the runner's temporary directory rather than into the checkout.
-3. **Checks the tree came back.** `canfail` edits real files and puts them back,
+4. **Checks the tree came back.** `canfail` edits real files and puts them back,
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
    declared, so the job stops instead of recording them.
-4. **Records what the report means**, with `pnpm ledger:replay`. One run per
+5. **Records what the report means**, with `pnpm ledger:replay`. One run per
    declared break, each carrying `source: replay`, the commit the plants were
    applied to, and a link to the run that produced it.
-5. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
+6. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
    and the hand-recording workflow run, so this job cannot commit a ledger
    either of them would have refused.
-6. **Pushes `replay/<run id>` and says what is waiting**, printing the
+7. **Pushes `replay/<run id>` and says what is waiting**, printing the
    `gh pr create` command into the run summary. It does not open the pull
    request. A green run here means recorded and waiting for a person; it does
    not mean done.
@@ -425,8 +438,9 @@ last replayed, or its newest settled run is older than an age floor,
 `REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
 days, chosen so that the weekly schedule gets two attempts at a refresh before
 the thirty-day rule takes a proof Stale. Either route can select only a check
-that has a plant in `canfail.json`, so today both reach `ci-type-check` and
-nothing else. For the dependency route, the range is worked out per check
+that has a plant in `canfail.json`, so today both reach the four checks that
+carry a run and none of the five that carry an observation alone. For the
+dependency route, the range is worked out per check
 rather than once for the run. The anchor is the
 `sourceCommit` of that check's newest recorded replay, read back out of the
 ledger, and newest means newest by git's count of commits to `HEAD` rather than
@@ -569,22 +583,25 @@ half is not automatic end to end until that is settled.
 
 ### How much of this record is automatic
 
-One of the nine checks in `ledger/checks/` is replayed by a job. The other eight
-are not, and the whole difference is one file: `canfail.json` declares a plant
-for `ci-type-check` and for no other check.
+Four of the nine checks in `ledger/checks/` are declared for replay by a job,
+and one of them has been replayed so far. The other five are not declared, and
+the whole difference is one file: `canfail.json` declares a plant for each of
+the four and for no other check.
 
-| Checks                                                                       | What their record rests on                                                                                                                                       |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                      |
-| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | Runs somebody planted, watched and typed in. Nothing replays them, so the thirty-day rule is the only thing that will ever move them.                            |
-| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet. |
+| Checks                                                                       | What their record rests on                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                                                                                                          |
+| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Every run they carry so far was planted, watched and typed in on 18 September 2026; the first replay to reach them is the next one the schedule dispatches, and its runs arrive once merged. |
+| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                     |
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
-all. Nine checks are on the page and one of them is replayed. Four of the nine
-have any run at all behind them, and one of those four is replayed. Ten runs
-are in `ledger/runs/` and six of them came from a replay, all six against
-`ci-type-check`, because it is the only check a replay can produce a run for.
+all. Nine checks are on the page, four of them are declared for replay, and one
+of those four has been replayed so far. Four of the nine have any run at all
+behind them, and those are the four declared. Ten runs are in `ledger/runs/`
+and six of them came from a replay, all six against `ci-type-check`, because
+until #110 it was the only check a replay could
+produce a run for.
 
 None of that is a promise that broke. Epic
 [#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) scoped the
@@ -780,7 +797,8 @@ the pattern. The rest of the file has not been audited against it yet.
   <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, one check so far, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
 </picture>
 
-**Version 1 is manual, and eight of the nine checks recorded here still are.**
+**Version 1 is manual, and eight of the nine checks recorded here still are,
+three of them with a plant declared since #110 and no replay yet.**
 Proving one check means making a throwaway branch, breaking the code in the way
 that check exists to catch, running the check, confirming it failed for that
 reason and not another, deleting the branch, and then writing down what
@@ -809,11 +827,11 @@ typed anything in. The scheduled one is the one the epic was for.
 **What is still only a direction** is the rest of the reach, and it is worth
 being specific about which parts:
 
-- **The other eight checks.** A plant is written once, by a person, and nothing
+- **The other five checks.** A plant is written once, by a person, and nothing
   writes one for you. Epic
   [#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) names
   writing plants automatically as out of scope, so until somebody writes them,
-  eight of the nine are proved by hand or not at all.
+  five of the nine are proved by hand or not at all.
 - **A runner of this project's own.** An existing one was adapted rather than
   written, and writing one is only worth it if the adapter shows the ledger
   earns its keep and the tool cannot be made to fit.
