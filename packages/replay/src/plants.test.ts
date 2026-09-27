@@ -41,6 +41,7 @@ describe('reading the plant declaration', () => {
     expect(result.value.get('Type check')).toEqual({
       checkId: 'ci-type-check',
       expected: 'The type check fails.',
+      breaks: ['A plant.'],
     });
   });
 
@@ -95,5 +96,59 @@ describe('reading the plant declaration', () => {
   it('refuses a document that is not a declaration at all', () => {
     expect(parsePlantedChecks(null).ok).toBe(false);
     expect(parsePlantedChecks({ checks: 'ci-type-check' }).ok).toBe(false);
+  });
+});
+
+describe('reading the declared breaks', () => {
+  function withBreaks(breaks: unknown) {
+    return parsePlantedChecks({
+      checks: [
+        {
+          name: 'Type check',
+          checkId: 'ci-type-check',
+          expected: 'The type check fails.',
+          run: 'pnpm typecheck',
+          breaks,
+        },
+      ],
+    });
+  }
+
+  it('reads the name of every declared break, in the order declared', () => {
+    const result = withBreaks([
+      { name: 'The first plant.', file: 'a.ts', replace: 'a', with: 'b' },
+      { name: 'The second plant.', file: 'b.ts', replace: 'b', with: 'c' },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.get('Type check')?.breaks).toEqual([
+      'The first plant.',
+      'The second plant.',
+    ]);
+  });
+
+  /**
+   * A report files each outcome under a break's name, and a report is held to
+   * the declared names one for one, so a break with no name is a plant no
+   * outcome could be matched against.
+   */
+  it('refuses a break that declares no name', () => {
+    expect(withBreaks([{ file: 'a.ts', replace: 'a', with: 'b' }]).ok).toBe(
+      false,
+    );
+  });
+
+  it('refuses a check that declares no breaks at all', () => {
+    expect(withBreaks(undefined).ok).toBe(false);
+  });
+
+  it('refuses two breaks of one check sharing a name rather than picking one', () => {
+    const result = withBreaks([
+      { name: 'A plant.', file: 'a.ts', replace: 'a', with: 'b' },
+      { name: 'A plant.', file: 'b.ts', replace: 'b', with: 'c' },
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems[0]).toContain('A plant.');
   });
 });

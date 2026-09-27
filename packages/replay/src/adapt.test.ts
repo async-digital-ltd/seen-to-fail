@@ -34,7 +34,8 @@ const provenance: ReplayProvenance = {
     'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/1',
 };
 
-function checks(): PlantedChecks {
+/** A declaration of the one check, carrying breaks with these names. */
+function checks(breakNames: readonly string[]): PlantedChecks {
   const parsed = parsePlantedChecks({
     checks: [
       {
@@ -42,7 +43,12 @@ function checks(): PlantedChecks {
         checkId: 'ci-type-check',
         expected: 'The type check fails.',
         run: 'pnpm typecheck',
-        breaks: [{ file: 'a.ts', replace: 'a', with: 'b' }],
+        breaks: breakNames.map((name) => ({
+          name,
+          file: 'a.ts',
+          replace: 'a',
+          with: 'b',
+        })),
       },
     ],
   });
@@ -52,14 +58,22 @@ function checks(): PlantedChecks {
   return parsed.value;
 }
 
-function report(
-  outcomes: readonly {
-    check?: string;
-    break_name?: string;
-    verdict: string;
-    detail?: string;
-  }[],
-): CanfailReport {
+type Outcomes = readonly {
+  check?: string;
+  break_name?: string;
+  verdict: string;
+  detail?: string;
+}[];
+
+/**
+ * The break an outcome is filed under when a test does not say, numbered so
+ * that no two outcomes in one report share a name by accident.
+ */
+function breakNameOf(outcome: Outcomes[number], at: number): string {
+  return outcome.break_name ?? `Plant ${String(at + 1)}.`;
+}
+
+function report(outcomes: Outcomes): CanfailReport {
   const parsed = parseCanfailReport({
     breaks: outcomes.length,
     catches: outcomes.filter((one) => one.verdict === 'catches').length,
@@ -67,9 +81,9 @@ function report(
       (one) => one.verdict === 'blind' || one.verdict === 'wrong-failure',
     ).length,
     look: outcomes.filter((one) => one.verdict === 'look').length,
-    outcomes: outcomes.map((one) => ({
+    outcomes: outcomes.map((one, at) => ({
       check: one.check ?? 'Type check',
-      break_name: one.break_name ?? 'A plant.',
+      break_name: breakNameOf(one, at),
       verdict: one.verdict,
       detail: one.detail ?? 'Something the tool said.',
     })),
@@ -80,10 +94,18 @@ function report(
   return parsed.value;
 }
 
-function adapt(outcomes: Parameters<typeof report>[0]) {
+/**
+ * The report, read against a declaration.
+ *
+ * With no declaration given, the one check declares exactly the breaks the
+ * report names, so the tests about the verdict mapping are not also tests of
+ * the break guard. The guard has its own tests below, which always say what
+ * was declared.
+ */
+function adapt(outcomes: Outcomes, declared?: readonly string[]) {
   return runsFromReport({
     report: report(outcomes),
-    checks: checks(),
+    checks: checks(declared ?? [...new Set(outcomes.map(breakNameOf))]),
     provenance,
   });
 }
@@ -227,9 +249,116 @@ describe('a report that settled nothing at all', () => {
   it('refuses a report with no outcomes rather than recording nothing quietly', () => {
     const result = runsFromReport({
       report: report([]),
-      checks: checks(),
+      checks: checks(['A plant.']),
       provenance,
     });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('a report held to the breaks the declaration holds', () => {
+  const declared = [
+    'STATUSES loses its as const, so Status widens to string.',
+    'STALE_AFTER_DAYS is written as a string rather than a number.',
+  ];
+  const both = declared.map((name) => ({
+    verdict: 'catches',
+    break_name: name,
+  }));
+  const [first, second] = both;
+  if (first === undefined || second === undefined) {
+    throw new Error('Both declared breaks need an outcome.');
+  }
+
+  it('records a report carrying one outcome for each declared break', () => {
+    const result = adapt(both, declared);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.map((run) => run.planted)).toEqual(declared);
+  });
+
+  /**
+   * #128's own measurement: three outcomes against two declared breaks was
+   * accepted and wrote three runs. The extra outcome is a run about a plant
+   * the file does not hold, so the whole report is refused, the two declared
+   * outcomes included, and the refusal names the break.
+   */
+  it('refuses an outcome for a break the declaration does not declare, and proposes no runs', () => {
+    const result = adapt(
+      [...both, { verdict: 'catches', break_name: 'A plant nobody declared.' }],
+      declared,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems).toHaveLength(1);
+    expect(result.problems[0]).toContain('A plant nobody declared.');
+    expect(result.problems[0]).toContain('does not declare');
+  });
+
+  it('refuses a report with no outcome for a declared break, and proposes no runs', () => {
+    const result = adapt([first], declared);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems).toHaveLength(1);
+    expect(result.problems[0]).toContain(second.break_name);
+    expect(result.problems[0]).toContain('no outcome');
+  });
+
+  /**
+   * As many outcomes as declared breaks, and the wrong breaks. A count of
+   * outcomes held to a count of breaks would pass this, so the guard has to
+   * compare the names, and it names both sides of the disagreement.
+   */
+  it('refuses a report whose count matches but whose breaks do not', () => {
+    const result = adapt(
+      [first, { verdict: 'catches', break_name: 'A plant nobody declared.' }],
+      declared,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems).toHaveLength(2);
+  });
+
+  it('refuses two outcomes for one declared break', () => {
+    const result = adapt([...both, second], declared);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems).toHaveLength(1);
+    expect(result.problems[0]).toContain('more than one outcome');
+  });
+
+  /**
+   * A replay runs the checks the selection found due, and the adapter reads
+   * the whole declaration, so a declared check the report never mentions was
+   * not selected. That is not a disagreement and is not refused.
+   */
+  it('asks nothing of a declared check the report does not name', () => {
+    const parsed = parsePlantedChecks({
+      checks: [
+        {
+          name: 'Type check',
+          checkId: 'ci-type-check',
+          expected: 'The type check fails.',
+          breaks: declared.map((name) => ({ name })),
+        },
+        {
+          name: 'Lint',
+          checkId: 'ci-lint',
+          expected: 'The lint fails.',
+          breaks: [{ name: 'An unused import.' }],
+        },
+      ],
+    });
+    if (!parsed.ok) {
+      throw new Error(parsed.problems.join('\n'));
+    }
+    const result = runsFromReport({
+      report: report(both),
+      checks: parsed.value,
+      provenance,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toHaveLength(2);
   });
 });
