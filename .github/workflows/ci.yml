@@ -141,22 +141,18 @@ jobs:
       - name: Check the ledger reads
         run: pnpm ledger:validate
 
-      # The published output, built here and not published anywhere. GitHub
-      # Pages is deliberately switched off on this repository: a Pages site
-      # cannot be private on this plan, and the ledger would become
-      # world-readable before the owner's decision to make the repository
-      # public. Building it as an artefact is what keeps the publishing route
-      # proved, and it runs whenever this workflow runs: every push to main,
-      # every push to a ci-control branch, and every pull request. That is the
-      # trigger block at the top of this file rather than a daily cadence.
-      # There is no cron here and this comment used to claim one.
+      # The published output. It is built whenever this workflow runs: every
+      # push to main, every push to a ci-control branch, and every pull
+      # request. That is the trigger block at the top of this file rather than
+      # a daily cadence. There is no cron here and this comment used to claim
+      # one.
       #
-      # Turning Pages on belongs at the visibility change, which is #76 and
-      # the owner's call. Whether anything in this file has to change when it
-      # does is untested: no Pages site has ever been enabled here and nothing
-      # has been deployed, so the most that can be said is that the artefact
-      # this step produces is the thing that would be served. The README says
-      # the same, in the ledger section, and the two have to keep saying it.
+      # Only a push to main is served, by the publish job at the foot of this
+      # file (#76). Every other run keeps the page as an artefact and nothing
+      # more, so a pull request or a ci-control plant can never change what a
+      # reader sees. Pages stayed off until the repository was made public,
+      # because a Pages site cannot be private on this plan and the page would
+      # have been world-readable ahead of that decision.
       #
       # It loads the records into the development database, which is emptied
       # and rebuilt from them. In CI that database is a service container with
@@ -194,3 +190,38 @@ jobs:
           name: published-ledger
           path: dist/ledger
           retention-days: 7
+
+      # The same directory again, packed the way Pages reads it. Only on a
+      # push to main, so this is the only run whose page the publish job
+      # below can pick up. It comes after the output check, so a page that
+      # failed that check never reaches this step.
+      - name: Hand the published ledger to Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/ledger
+
+  # Serves the page the checks job built and checked on this same commit. It
+  # never builds anything itself, so what is served is exactly what passed.
+  # It runs only after that job succeeds, and only for a push to main.
+  #
+  # The workflow's concurrency group applies here too, so a newer push to
+  # main cancels a publish still in flight and the newer page is the one
+  # served. Nothing is lost by that: the newer commit carries every record
+  # the older one did.
+  publish:
+    name: Publish the ledger
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
