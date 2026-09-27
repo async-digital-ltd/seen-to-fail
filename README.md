@@ -189,9 +189,9 @@ link must parse back into the same filter.
 The server is built for local use only. There is no per-request cost limit and
 no limit on the size of a request body, so it is not hardened for deployment.
 
-The list, the filter bar and the three forms carry keyboard tests. A check's own
-page does not, and no dedicated keyboard and screen reader pass has been run
-over any of them.
+The list, the filter bar and the three forms carry keyboard tests, including the
+observation form on a check's own page. The rest of that page does not, and no
+dedicated keyboard and screen reader pass has been run over any of them.
 
 ## Run it locally
 

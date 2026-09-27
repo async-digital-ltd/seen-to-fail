@@ -233,8 +233,9 @@ const singleConditions: readonly FilterCase[] = [
     /**
      * The area that no status picks out. Proven and CI select the same two
      * checks in this workspace, so a compiler that read a status condition off
-     * the area column would pass that pair; this case and the one below are
-     * where the two fields come apart.
+     * the area column would pass that pair; this case is where the two fields
+     * come apart. The one below does not: it selects the same six checks as
+     * `status is not Proven`.
      */
     name: 'area is Git',
     condition: { field: 'area', op: 'is', value: 'Git' },
@@ -319,7 +320,8 @@ it('selects every check for the empty filter', async () => {
  * the Unproven and Stale checks are in Git and Release, and none of them is in
  * CI. An empty result is the weakest kind of expectation on its own, because a
  * compiler that selected nothing at all would satisfy it, so the two tests
- * below take the same filter apart and show each half selecting real rows.
+ * below take the same filter apart: the status group alone selects real rows,
+ * and the same filter asking for Git in place of CI selects some of them.
  */
 it('selects nothing for Unproven or Stale in CI, because no seeded check is both', async () => {
   const { namesMatching } = await seedAndQuery();

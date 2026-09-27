@@ -7,10 +7,12 @@ import { useTestDatabase } from '../testing/test-database.ts';
  * Every constraint in the schema, seen to refuse the row it exists for.
  *
  * Each test names the constraint it expects, not just the fact that something
- * threw, so a test cannot pass because an unrelated rule fired first. The tests
- * that expect a refusal are paired with ones that insert the nearest acceptable
- * row: a constraint that has started refusing everything is as broken as one
- * that has stopped refusing anything, and only the pair can tell them apart.
+ * threw, so a test cannot pass because an unrelated rule fired first. A refusal
+ * raised by a column's type or by NOT NULL has no constraint to name, and those
+ * tests assert the error code instead. Most tests that expect a refusal are
+ * paired with ones that insert the nearest acceptable row: a constraint that
+ * has started refusing everything is as broken as one that has stopped refusing
+ * anything, and only the pair can tell them apart.
  *
  * The dates come from the database rather than from this process, so a run just
  * after midnight compares the same two clocks the constraint does.
@@ -176,7 +178,7 @@ it('refuses a test run whose outcome is not one the enum has', async () => {
   });
 });
 
-it('accepts both outcomes the enum does have', async () => {
+it('accepts both outcomes that settle something', async () => {
   const checkId = await insertCheck();
 
   await database.client().query(
@@ -488,12 +490,12 @@ it('refuses a run that does not say where it came from', async () => {
  * The runs recorded before the source column existed.
  *
  * The migration backfilled them as hand, which is true of every one of them:
- * nothing but the form could write a run until this story. The test inserts a
- * row through the table as it stands, then reads back what the migration would
- * have left, which is the closest a test against the current schema can get to
- * a row that predates it.
+ * nothing but the form could write a run until this story. That backfill ran
+ * once, over rows no test database holds, and nothing here exercises it. What
+ * this test holds is the value the backfill wrote: a run written as hand reads
+ * back as hand, so a relabelled enum would show here.
  */
-it('reads a run recorded before sources existed as one typed in', async () => {
+it('reads back a run written as typed in as typed in', async () => {
   const checkId = await insertCheck();
   await database.client().query(insertRun, [checkId]);
 

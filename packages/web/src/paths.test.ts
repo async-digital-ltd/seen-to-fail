@@ -12,7 +12,11 @@ it('gives the filter that hides nothing the bare address', () => {
   expect(paths.checks({ filter: emptyFilter })).toBe('/');
 });
 
-/** The example filter from the filter package's README. */
+/**
+ * A filter with two groups, one per joiner. The filter package's own tests
+ * hold its README's examples; this only needs a filter with every separator in
+ * it.
+ */
 const example: Filter = {
   kind: 'groups',
   joiner: 'and',

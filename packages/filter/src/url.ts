@@ -15,7 +15,7 @@ import type { Condition, Filter, Group } from './types.ts';
  * reference; the short version is a joiner, then groups, each group a joiner
  * and then its conditions:
  *
- *     and!or*status.is.Unproven*status.is.Stale!and*area.is.ci
+ *     and!or*status.is.Unproven*status.is.Stale!and*area.is.CI
  *
  * Both joiners are written out even when a list holds a single item, because
  * the joiner is part of the filter's value and dropping it would lose on the

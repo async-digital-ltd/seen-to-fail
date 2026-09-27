@@ -550,7 +550,7 @@ describe('the list, once a check has been added', () => {
   });
 
   /**
-   * The first check anybody adds, which is the journey the README walks.
+   * The first check anybody adds, to a workspace with nothing in it.
    *
    * An empty workspace is told apart from a full one by the counts, not by the
    * list, and the counts gate the whole screen: at a total of nothing the list

@@ -168,6 +168,7 @@ describe('the form refusing a submit', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       '4 details are missing. They are marked below.',
     );
+    expect(document.querySelectorAll('.field--invalid')).toHaveLength(4);
     expect(screen.getByLabelText('Check')).toHaveFocus();
     expect(logCalls(calls)).toEqual([]);
   });

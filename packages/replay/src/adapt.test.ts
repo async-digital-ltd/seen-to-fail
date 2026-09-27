@@ -131,23 +131,25 @@ describe('the pinned verdict mapping', () => {
   it.each(['wrong-failure', 'look'])(
     'records %s as inconclusive, carrying the detail verbatim',
     (verdict) => {
-      const detail = `it failed, but not with 'error TS[0-9]+' ${canfailDash} it said: <script>alert(1)</script> & "quoted"`;
+      const detail = `  it failed, but not with 'error TS[0-9]+' ${canfailDash} it said: <script>alert(1)</script> & "quoted"\n`;
       const result = adapt([{ verdict, detail }]);
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value[0]?.outcome).toBe('inconclusive');
-      // Verbatim: not trimmed, not reworded, not sorted into a category. The
-      // ledger's README is explicit that the reason is the words whoever
-      // recorded it wrote, and `look` is four situations told apart only
-      // inside this sentence.
+      // Verbatim: not trimmed, not reworded, not sorted into a category. This
+      // package's README says the reason is copied word for word, and `look`
+      // is four situations told apart only inside this sentence. The detail
+      // carries surrounding spaces so that a trim here would show: trimming is
+      // the ledger's job when it records the run, not the adapter's.
       expect(result.value[0]?.inconclusiveReason).toBe(detail);
     },
   );
 
   /**
-   * The refusal #66 pinned and #67 inherits. Asserted on the result rather
-   * than on a message, and on the runs being absent rather than on there being
-   * fewer of them: a fifth verdict means the mapping no longer describes the
+   * The refusal #66 pinned and #67 inherits. Asserted on the result and on
+   * the refusal naming the verdict, and on the runs being absent rather than on
+   * there being fewer of them, which a refused result's type guarantees by
+   * carrying none: a fifth verdict means the mapping no longer describes the
    * tool, so the outcomes it DID recognise are no more trustworthy than the
    * one it did not.
    */
@@ -317,6 +319,9 @@ describe('a report held to the breaks the declaration holds', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.problems).toHaveLength(2);
+    const said = result.problems.join('\n');
+    expect(said).toContain('A plant nobody declared.');
+    expect(said).toContain(second.break_name);
   });
 
   it('refuses two outcomes for one declared break', () => {

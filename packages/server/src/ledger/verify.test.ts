@@ -20,10 +20,11 @@ import type { VerificationInput } from './verify.ts';
 /**
  * The guard that decides whether anything is published.
  *
- * Every test below plants one disagreement and expects it to be found. The
- * first test is the one that makes the rest mean anything: with nothing planted
- * the guard finds nothing, so a guard that reported a problem whatever it was
- * given would fail here rather than looking vigilant.
+ * Most tests below plant one disagreement and expect it to be found. The rest
+ * plant nothing and expect nothing, and the first of them is the one that makes
+ * the others mean anything: with nothing planted the guard finds nothing, so a
+ * guard that reported a problem whatever it was given would fail there rather
+ * than looking vigilant.
  */
 
 function sound(): VerificationInput {

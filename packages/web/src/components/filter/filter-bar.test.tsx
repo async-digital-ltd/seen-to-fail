@@ -31,8 +31,8 @@ const unproven: Condition = { field: 'status', op: 'is', value: 'Unproven' };
 const stale: Condition = { field: 'status', op: 'is', value: 'Stale' };
 const inCi: Condition = { field: 'area', op: 'is', value: 'CI' };
 
-/** The README's example: (status is Unproven OR status is Stale) AND area is CI. */
-const readme: GroupedFilter = {
+/** Two groups, one per joiner: (status is Unproven OR status is Stale) AND area is CI. */
+const unprovenOrStaleInCI: GroupedFilter = {
   kind: 'groups',
   joiner: 'and',
   groups: [
@@ -109,7 +109,7 @@ describe('with no conditions', () => {
 
 describe('the chips', () => {
   it('read each condition, with the joiner between two in a group', () => {
-    const { bar } = renderBar(readme);
+    const { bar } = renderBar(unprovenOrStaleInCI);
 
     expect(
       within(groupNumber(bar, 1))
@@ -124,31 +124,34 @@ describe('the chips', () => {
   });
 
   it('take a condition out of its group', async () => {
-    const { user, onChange } = renderBar(readme);
+    const { user, onChange } = renderBar(unprovenOrStaleInCI);
 
     await user.click(
       screen.getByRole('button', { name: 'Remove status is Unproven' }),
     );
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...readme,
-      groups: [{ joiner: 'or', conditions: [stale] }, readme.groups[1]],
+      ...unprovenOrStaleInCI,
+      groups: [
+        { joiner: 'or', conditions: [stale] },
+        unprovenOrStaleInCI.groups[1],
+      ],
     });
   });
 
   it('take the group away with its last condition', async () => {
-    const { user, onChange } = renderBar(readme);
+    const { user, onChange } = renderBar(unprovenOrStaleInCI);
 
     await user.click(screen.getByRole('button', { name: 'Remove area is CI' }));
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...readme,
-      groups: [readme.groups[0]],
+      ...unprovenOrStaleInCI,
+      groups: [unprovenOrStaleInCI.groups[0]],
     });
   });
 
   it('are all cleared at once', async () => {
-    const { user, onChange } = renderBar(readme);
+    const { user, onChange } = renderBar(unprovenOrStaleInCI);
 
     await user.click(screen.getByRole('button', { name: 'Clear' }));
 
@@ -158,7 +161,7 @@ describe('the chips', () => {
 
 describe('the pills', () => {
   it('sit between the conditions of a group and between the groups', () => {
-    const { bar } = renderBar(readme);
+    const { bar } = renderBar(unprovenOrStaleInCI);
 
     expect(
       within(groupNumber(bar, 1)).getAllByRole('button', {
@@ -174,7 +177,7 @@ describe('the pills', () => {
   });
 
   it('switch how a group joins its conditions', async () => {
-    const { user, onChange, bar } = renderBar(readme);
+    const { user, onChange, bar } = renderBar(unprovenOrStaleInCI);
 
     await user.click(
       within(groupNumber(bar, 1)).getByRole('button', {
@@ -183,28 +186,31 @@ describe('the pills', () => {
     );
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...readme,
+      ...unprovenOrStaleInCI,
       groups: [
         { joiner: 'and', conditions: [unproven, stale] },
-        readme.groups[1],
+        unprovenOrStaleInCI.groups[1],
       ],
     });
   });
 
   it('switch how the filter joins its groups', async () => {
-    const { user, onChange, bar } = renderBar(readme);
+    const { user, onChange, bar } = renderBar(unprovenOrStaleInCI);
 
     await user.click(
       within(bar).getByRole('button', { name: 'AND, switch to OR' }),
     );
 
-    expect(onChange).toHaveBeenLastCalledWith({ ...readme, joiner: 'or' });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...unprovenOrStaleInCI,
+      joiner: 'or',
+    });
   });
 });
 
 describe('the picker', () => {
   it('adds a status condition to the group it was opened in', async () => {
-    const { user, onChange, bar } = renderBar(readme);
+    const { user, onChange, bar } = renderBar(unprovenOrStaleInCI);
 
     await user.click(
       within(groupNumber(bar, 2)).getByRole('button', { name: '+ condition' }),
@@ -216,9 +222,9 @@ describe('the picker', () => {
     await user.click(within(picker).getByRole('button', { name: 'Add' }));
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...readme,
+      ...unprovenOrStaleInCI,
       groups: [
-        readme.groups[0],
+        unprovenOrStaleInCI.groups[0],
         {
           joiner: 'and',
           conditions: [inCi, { field: 'status', op: 'is', value: 'Broken' }],
@@ -228,7 +234,7 @@ describe('the picker', () => {
   });
 
   it('starts a new group with its condition, joined by and', async () => {
-    const { user, onChange, bar } = renderBar(readme);
+    const { user, onChange, bar } = renderBar(unprovenOrStaleInCI);
 
     await user.click(within(bar).getByRole('button', { name: '+ group' }));
     await user.selectOptions(screen.getByLabelText('Field'), 'lastCaught');
@@ -237,9 +243,9 @@ describe('the picker', () => {
     await user.click(screen.getByRole('button', { name: 'Add' }));
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...readme,
+      ...unprovenOrStaleInCI,
       groups: [
-        ...readme.groups,
+        ...unprovenOrStaleInCI.groups,
         { joiner: 'and', conditions: [{ field: 'lastCaught', op: 'never' }] },
       ],
     });
@@ -519,18 +525,18 @@ describe('the caps', () => {
 
 describe('Copy link', () => {
   it('copies the address of the page and says so', async () => {
-    const { user, bar } = renderBar(readme);
+    const { user, bar } = renderBar(unprovenOrStaleInCI);
 
     await user.click(within(bar).getByRole('button', { name: 'Copy link' }));
 
     expect(await navigator.clipboard.readText()).toBe(
-      `${window.location.origin}${paths.checks({ filter: readme })}`,
+      `${window.location.origin}${paths.checks({ filter: unprovenOrStaleInCI })}`,
     );
     expect(within(bar).getByRole('status')).toHaveTextContent('Copied');
   });
 
   it('says when the clipboard refused', async () => {
-    const { user, bar } = renderBar(readme);
+    const { user, bar } = renderBar(unprovenOrStaleInCI);
     const refused = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockRejectedValueOnce(new Error('Write permission denied.'));
@@ -563,7 +569,7 @@ describe('the notice', () => {
   });
 
   it('is absent when the address was read', () => {
-    const { bar } = renderBar(readme);
+    const { bar } = renderBar(unprovenOrStaleInCI);
 
     expect(within(bar).queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -571,7 +577,7 @@ describe('the notice', () => {
 
 describe('from the keyboard', () => {
   it('reaches every control with Tab, in reading order', async () => {
-    const { user } = renderBar(readme);
+    const { user } = renderBar(unprovenOrStaleInCI);
     const reached: (string | null)[] = [];
 
     for (let stop = 0; stop < 10; stop += 1) {
@@ -594,7 +600,7 @@ describe('from the keyboard', () => {
   });
 
   it('opens the picker onto its field, and closes it back onto the button', async () => {
-    const { user, bar } = renderBar(readme);
+    const { user, bar } = renderBar(unprovenOrStaleInCI);
     const open = within(groupNumber(bar, 1)).getByRole('button', {
       name: '+ condition',
     });

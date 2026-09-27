@@ -331,8 +331,8 @@ describe('which checks a change touches', () => {
    * question is whether anything in the accumulated set touches a list. The
    * workflow edit below is the middle commit of three, with a document either
    * side of it, so a selection reading only `HEAD~1..HEAD` selects nothing and
-   * fails here. Every other case in this file has one commit in the window and
-   * would pass under either reading, which is exactly why this one is here.
+   * fails here. It is the case that puts the edit that should be selected
+   * anywhere but last, which is exactly why it is here.
    */
   it('selects on anything in the window, not only on the last commit', async () => {
     const { directory, first } = await aRepository();
@@ -389,11 +389,12 @@ describe('which checks a change touches', () => {
   });
 
   /**
-   * #68's third task. A check whose list is missing is never selected, however
-   * plainly the change bears on it, so no replay arrives and the thirty-day
-   * backstop takes it Stale rather than leaving it Proven on old evidence.
+   * #68's third task. A check whose list is missing is never selected by a
+   * change, however plainly the change bears on it. Its proof still ages: the
+   * age floor selects it once that proof is old enough, which a test further
+   * down holds. This one has no runs in the ledger, so only matching is asked.
    */
-  it('never selects a check that declares no dependencies', async () => {
+  it('never selects a check that declares no dependencies for a change', async () => {
     const { directory, first } = await aRepository();
     await write(directory, {
       'canfail.json': {
