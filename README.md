@@ -600,11 +600,11 @@ and one of them has been replayed so far. The other five are not declared, and
 the whole difference is one file: `canfail.json` declares a plant for each of
 the four and for no other check.
 
-| Checks                                                                       | What their record rests on                                                                                                                                                                                                                           |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                                                                                                          |
-| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Every run they carry so far was planted, watched and typed in on 18 September 2026; the first replay to reach them is the next one the schedule dispatches, and its runs arrive once merged. |
-| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                     |
+| Checks                                                                       | What their record rests on                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above. Six of its seven runs came from a replay.                                                                                                                                                                            |
+| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. As of 27 September 2026, every run they carry was planted, watched and typed in on 18 September 2026; the first replay to reach them is the next one the schedule dispatches, and its runs arrive once merged. |
+| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                                       |
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
@@ -787,8 +787,8 @@ is what was checked, what was not, and where the evidence for each is.
   this project has recorded about itself
   ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)); the
   third is the guard in the next bullet. All three were typed in by the session
-  that watched them. Each now has a plant in `canfail.json` that a replay can
-  re-check it with, and no replay has reached any of them yet.
+  that watched them. Each has a plant in `canfail.json` that a replay can
+  re-check it with, and none had been replayed as of 27 September 2026.
 - **A guard that could not fail, in a repository about guards that cannot
   fail.** The CI step that refuses a published page carrying a script was first
   written as `! grep -qi '<script' ...` under `set -e`. A shell does not apply
@@ -828,9 +828,12 @@ two passes over it found claims that were true for whoever wrote them and
 unverifiable for whoever read them
 ([#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83));
 [#121](https://github.com/async-digital-ltd/seen-to-fail/issues/121) records
-the pattern. The rest of the file was audited against it on 27 September 2026
+the pattern. The rest of the file was audited against it on 27 September 2026,
+as it stood at commit `3cd0c37`
 ([#127](https://github.com/async-digital-ltd/seen-to-fail/issues/127)), which
 is where the accounts in the bullets above were labelled as accounts.
+`git diff 3cd0c37 -- README.md` shows every change since: the audit's own edits
+and whatever it has not seen.
 
 ## What shipped, and where it could go
 
@@ -839,8 +842,9 @@ is where the accounts in the bullets above were labelled as accounts.
   <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, one check so far, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
 </picture>
 
-**Version 1 is manual, and eight of the nine checks recorded here still are,
-three of them with a plant declared since #110 and no replay yet.**
+**Version 1 is manual, and as of 27 September 2026 eight of the nine checks
+recorded here still were, three of them with a plant declared since #110 and no
+replay yet.**
 Proving one check means making a throwaway branch, breaking the code in the way
 that check exists to catch, running the check, confirming it failed for that
 reason and not another, deleting the branch, and then writing down what
