@@ -228,6 +228,12 @@ export async function listAreas(database: Queryable): Promise<string[]> {
  * same rows in two different orders. The unsettled runs sort last within their
  * day, which is what keeps the page's "the latest run settled nothing" line
  * from firing on a day whose status is current.
+ *
+ * When the row was written is not a key, although it is recorded, because the
+ * page cannot see it. So two runs typed in on one day with one outcome list in
+ * the order of their ids, which gen_random_uuid() made arbitrary, and the one
+ * typed in later can sit beneath the earlier. newestRunFirst says why that is
+ * the chosen cost.
  */
 export async function listRunsForChecks(
   database: Queryable,

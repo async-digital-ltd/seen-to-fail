@@ -72,6 +72,17 @@ function latest(days: readonly IsoDate[]): IsoDate | null {
     : days.reduce((newest, day) => (day > newest ? day : newest));
 }
 
+/**
+ * A run named in a refusal, or what its absence means. No run means no run
+ * settled anything, which is a statement, not a missing value to print as
+ * "null".
+ */
+function describeRun(id: string | null): string {
+  return id === null
+    ? 'no run, because none settled anything'
+    : `the run ${id}`;
+}
+
 function compare(
   disagreements: string[],
   what: string,
@@ -212,6 +223,11 @@ export function disagreements(input: VerificationInput): string[] {
     // still agrees when they do, because two runs tied on the day and the
     // outcome carry the same day and the same outcome. Only their identities
     // differ, so identity is what is compared.
+    //
+    // A check with no summary at all is refused here too, although the build
+    // never reaches this with one: buildSnapshot throws first. This function
+    // is the guard over whatever it is handed, and a missing summary would
+    // otherwise pass the comparison below by never making it.
     const summary = summaries.get(ledgerCheckUuid(entry.record.id));
     if (summary === undefined) {
       found.push(`${label} has no status derived for it.`);
@@ -221,7 +237,7 @@ export function disagreements(input: VerificationInput): string[] {
         null;
       if (headedBy !== summary.latestSettledRunId) {
         found.push(
-          `${label}: the status was read from the run ${String(summary.latestSettledRunId)} and the export lists ${String(headedBy)} as the latest settled run.`,
+          `${label}: the status was read from ${describeRun(summary.latestSettledRunId)}, and the first run in the export that settled anything is ${describeRun(headedBy)}.`,
         );
       }
     }

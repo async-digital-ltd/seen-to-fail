@@ -335,7 +335,7 @@ async function insertRun(
  * Two runs that share a day and an outcome, read in the order newestRunFirst
  * gives, by the app's query and by the derivation alike.
  *
- * Nothing recorded about the two says which came later, so the last-resort key
+ * The day and the outcome cannot tell them apart, so the last-resort key
  * decides, and it has to be the same key on every surface or the app's table
  * and the published page's table head with different rows. The page sorts in
  * TypeScript with newestRunFirst; the app's query and the derivation sort in
@@ -404,4 +404,46 @@ it('picks the run newestRunFirst puts first when a miss and a catch share a day'
 
   const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
   expect(summary?.latestSettledRunId).toBe(first?.id);
+});
+
+/**
+ * Two ids written in different cases, ordered as PostgreSQL orders the same
+ * two values.
+ *
+ * The id check at the API boundary accepts either case, and PostgreSQL
+ * compares a uuid's sixteen bytes, so case says nothing about its order. Text
+ * comparison does not work that way: an upper-case B sorts before a
+ * lower-case a, while the byte b sorts after the byte a. The two ids below are
+ * chosen so that raw text comparison and byte order disagree, which the first
+ * assertion checks so the fixture cannot quietly stop discriminating.
+ */
+/**
+ * A uuid whose first character is the one given.
+ *
+ * Built by a function rather than written as literals so that the control in
+ * the test below is a comparison made when the test runs. Narrowed to their
+ * literal types, the compiler works the answer out itself and the lint rule
+ * against a condition with a known answer refuses the assertion.
+ */
+function idStartingWith(first: string): string {
+  return `${first}0000000-0000-4000-8000-000000000000`;
+}
+
+it('orders ids written in either case as PostgreSQL orders them', async () => {
+  const upper = idStartingWith('B');
+  const lower = idStartingWith('a');
+  expect(upper < lower).toBe(true);
+
+  const byDatabase = await selectRows<{ id: string }>(
+    database.client(),
+    `SELECT id FROM (VALUES ($1::uuid), ($2::uuid)) AS ids (id)
+      ORDER BY id DESC`,
+    [upper, lower],
+  );
+  const byFunction = [upper, lower]
+    .map((id) => ({ id, runOn: '2026-09-19', outcome: 'caught' as const }))
+    .sort(newestRunFirst)
+    .map((run) => run.id.toLowerCase());
+
+  expect(byFunction).toEqual(byDatabase.map((row) => row.id));
 });

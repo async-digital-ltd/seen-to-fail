@@ -92,12 +92,7 @@ would leave it to the database. A run that settled nothing ranks below both,
 which is consistent with the rules above ignoring it entirely: it sorts last
 within its day.
 
-Two runs that share both a day and an outcome have nothing recorded that orders
-them, and give the same status whichever comes first. They are ordered by the
-run's id, and by the same rule in the app, on the published page and in the
-status derivation, so the two tables list the same rows in the same order. The
-first run in a check's log that settled anything is then the run its status was
-read from, and the build checks that for every check before it publishes.
+Two runs that share both a day and an outcome give the same status whichever comes first, and they are ordered by the run's id, which is arbitrary. The app does record when each run was typed in, but that time is deliberately not a key. The published page is built from files that carry no entry time, and the ledger build loads every record in one transaction, so every run it loads has the same one. Ordering by entry time in the app would therefore list the same rows in a different order from the page. So the app, the page and the status derivation all use the id, and in the app two such runs typed in an hour apart can list the later one beneath the earlier, with nothing on either row saying why. The first run in a check's log that settled anything is the run its status was read from, and the build checks that for every check before it publishes.
 
 Thirty days is the one judgment in the model, and it is one constant,
 `STALE_AFTER_DAYS`, in one module. A catch exactly thirty days old still reads
@@ -603,14 +598,7 @@ of the page.
 
 ### What the build refuses to publish
 
-The build refuses to publish when the records and the output disagree: it
-compares the files on disk with the rows the database ended up holding, with the
-export, and with the rendered page, and the run each check's status was read
-from with the first run in its published table that settled anything, and
-writes nothing if any
-of those disagree.
-A page listing nine runs where the ledger holds ten looks exactly like a page
-listing ten, which is the kind of quiet wrongness this project is about.
+The build refuses to publish when the records and the output disagree: it compares the files on disk with the rows the database ended up holding, with the export, and with the rendered page, and writes nothing if any of those disagree. It also compares the run each check's status was read from with the first run in the check's published table that settled anything, and refuses when they are different runs. A page listing nine runs where the ledger holds ten looks exactly like a page listing ten, which is the kind of quiet wrongness this project is about.
 
 The page names the commit that recorded each run, read back out of the history
 rather than stored, so a run cannot claim a commit that did not add it. That is

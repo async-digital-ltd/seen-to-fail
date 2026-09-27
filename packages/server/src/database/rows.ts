@@ -135,25 +135,31 @@ export interface RunOrderKeys {
  * newestRunFirstSql, which is this rule spelled for PostgreSQL; the published
  * page's table is sorted by this function; and the derivation in the
  * migrations picks a check's latest settled run by the same three keys. Where
- * two runs share a day and an outcome, nothing recorded about them says which
- * came later, so the id is the last resort, and it is the last resort on every
- * surface. It used to be the id in the database and the filename on the page,
- * which put the same two rows in a different order on the two surfaces.
+ * two runs share a day and an outcome, the id is the last resort, and it is
+ * the last resort on every surface. It used to be the id in the database and
+ * the filename on the page, which put the same two rows in a different order
+ * on the two surfaces.
  *
- * The id rather than when the row was written, because the ledger build
- * writes every record in one transaction and they all share one created_at,
- * and a page built from files has no created_at to read at all. A key one
- * surface cannot see is a key the surfaces cannot share.
+ * The id is arbitrary, and a key that is not is deliberately left out. The app
+ * records when each run was typed in, but the ledger build writes every record
+ * in one transaction, so they all share one created_at, and a page built from
+ * files has no created_at to read at all. A key one surface cannot see is a key
+ * the surfaces cannot share. The cost is in the app: two runs typed in on the
+ * same day with the same outcome, an hour apart, can list the later one
+ * beneath the earlier, and neither row says why.
  *
  * With this order, the first run in a check's list that settled anything is
  * the run its status was read from. That is not left to this sentence: the
  * build compares the two on every publish and refuses when they differ, in
  * verify.ts.
  *
- * The ids are compared as text rather than with localeCompare. A uuid is
- * lowercase hex at fixed positions, so plain comparison of the text is the
- * same order as PostgreSQL's comparison of the sixteen bytes, and a
- * locale-aware comparison would be free not to be.
+ * The ids are lowercased and then compared as text, not with localeCompare.
+ * A lowercase uuid is hex at fixed positions, so plain comparison of the text
+ * is the same order as PostgreSQL's comparison of the sixteen bytes, and a
+ * locale-aware comparison would be free not to be. They are lowercased first
+ * because the id check at the API boundary accepts either case, and an
+ * upper-case B sorts before a lower-case a as text while the byte b sorts
+ * after the byte a.
  */
 export function newestRunFirst(
   left: RunOrderKeys,
@@ -167,10 +173,12 @@ export function newestRunFirst(
   if (ranks !== 0) {
     return ranks;
   }
-  if (left.id === right.id) {
+  const leftId = left.id.toLowerCase();
+  const rightId = right.id.toLowerCase();
+  if (leftId === rightId) {
     return 0;
   }
-  return left.id > right.id ? -1 : 1;
+  return leftId > rightId ? -1 : 1;
 }
 
 /**
@@ -180,6 +188,15 @@ export function newestRunFirst(
  * the app's table sorts by cannot differ from the rank the page sorts by. The
  * values are the map's own constants, never input, so writing them into the
  * text is safe.
+ *
+ * The CASE has an ELSE that raises, because a CASE with no ELSE returns null
+ * for a label it does not list, and the migrations README names that as this
+ * schema's recurring blind spot. An outcome added to the enum by a migration
+ * and not to testRunOutcomes would otherwise sort as null, last, and nothing
+ * would say so. The ELSE casts a sentence naming the label to an integer,
+ * which PostgreSQL refuses with that sentence in the error. The test that
+ * compares testRunOutcomes with the enum catches the same mistake earlier, in
+ * the suite rather than on a request.
  */
 export function newestRunFirstSql(source: string): string {
   const ranks = testRunOutcomes
@@ -188,9 +205,10 @@ export function newestRunFirstSql(source: string): string {
         `WHEN '${outcome}' THEN ${String(outcomePrecedence[outcome])}`,
     )
     .join(' ');
+  const unranked = `('The outcome ' || ${source}.outcome::text || ' has no rank in outcomePrecedence')::integer`;
   return (
     `${source}.run_on DESC, ` +
-    `CASE ${source}.outcome ${ranks} END, ` +
+    `CASE ${source}.outcome ${ranks} ELSE ${unranked} END, ` +
     `${source}.id DESC`
   );
 }

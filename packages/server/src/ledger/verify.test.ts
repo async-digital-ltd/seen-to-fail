@@ -378,6 +378,21 @@ it('finds a last-settled date that no run supports', () => {
 const tiedRunFile = 'runs/2026-09-10-first-check-0123456789ab.json';
 
 /**
+ * The ids of the two tied runs: the one with the larger id, which is the run
+ * the status is read from, and the other.
+ */
+function tiedIds(): { readonly latest: string; readonly other: string } {
+  const [first] = fixtureContents().runs;
+  if (first === undefined) {
+    throw new Error('The fixture has no runs.');
+  }
+  const [one, two] = [first.file, tiedRunFile].map((file) =>
+    ledgerFileUuid(`${fixtureLedgerPath}/${file}`),
+  ) as [string, string];
+  return one > two ? { latest: one, other: two } : { latest: two, other: one };
+}
+
+/**
  * The fixture with a second catch on the first check's day, so the check holds
  * two runs that tie on the day and the outcome, and the run its status was
  * read from is one of two candidates rather than the only one.
@@ -399,10 +414,7 @@ function soundTied(): VerificationInput {
       { file: tiedRunFile, record: { ...first.record, planted: 'Another.' } },
     ],
   };
-  const ids = [first.file, tiedRunFile].map((file) =>
-    ledgerFileUuid(`${fixtureLedgerPath}/${file}`),
-  );
-  const latest = ids.reduce((larger, id) => (id > larger ? id : larger));
+  const { latest } = tiedIds();
   const summaries = fixtureSummaries().map((summary) =>
     summary.checkId === ledgerCheckUuid('first-check')
       ? {
@@ -449,11 +461,35 @@ it('finds a table headed by a different run from the one the status was read fro
     page: renderPage(snapshot),
   });
 
-  expect(found).toHaveLength(1);
-  expect(found.join('\n')).toContain('latest settled run');
+  const { latest, other } = tiedIds();
+  expect(found).toEqual([
+    `The check first-check: the status was read from the run ${latest}, and the first run in the export that settled anything is the run ${other}.`,
+  ]);
 });
 
-it('finds a status read from a run the export does not head its table with', () => {
+/** The same disagreement from the other side: the export is right, the status is not. */
+it('finds a status read from the other of two tied runs than the one the export heads its table with', () => {
+  const input = soundTied();
+  const { latest, other } = tiedIds();
+  const found = disagreements({
+    ...input,
+    summaries: input.summaries.map((summary) =>
+      summary.latestSettledRunId === latest
+        ? { ...summary, latestSettledRunId: other }
+        : summary,
+    ),
+  });
+
+  expect(found).toEqual([
+    `The check first-check: the status was read from the run ${other}, and the first run in the export that settled anything is the run ${latest}.`,
+  ]);
+});
+
+/**
+ * A status the derivation says was read from no run, above a table headed by
+ * a catch. The refusal says what the absence means rather than printing it.
+ */
+it('says a status was read from no run, rather than from "null"', () => {
   const input = soundTied();
   const found = disagreements({
     ...input,
@@ -463,5 +499,28 @@ it('finds a status read from a run the export does not head its table with', () 
     })),
   });
 
-  expect(found.join('\n')).toContain('latest settled run');
+  expect(found).toHaveLength(1);
+  expect(found.join('\n')).toContain(
+    'the status was read from no run, because none settled anything',
+  );
+  expect(found.join('\n')).not.toContain('null');
+});
+
+/**
+ * A check handed to the guard with no summary at all. The build cannot get
+ * here, because buildSnapshot refuses first, so this is the only place the
+ * refusal is seen.
+ */
+it('finds a check with no status derived for it', () => {
+  const input = sound();
+  const found = disagreements({
+    ...input,
+    summaries: input.summaries.filter(
+      (summary) => summary.checkId !== ledgerCheckUuid('first-check'),
+    ),
+  });
+
+  expect(found).toEqual([
+    'The check first-check has no status derived for it.',
+  ]);
 });
