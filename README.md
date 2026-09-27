@@ -275,7 +275,7 @@ A check is added through a form of its own.
 
 ## The published ledger
 
-Nothing is hosted. The app above is for running locally; what gets published is
+No service is hosted. The app above is for running locally; what gets published is
 a record rather than a service.
 
 A run reaches that record by being committed. `ledger/` holds one JSON file per
@@ -624,53 +624,27 @@ not write the published ledger. Nothing yet carries a run from a local database
 into `ledger/`
 ([#75](https://github.com/async-digital-ltd/seen-to-fail/issues/75)).
 
-**Nothing is published yet, on purpose.** CI builds the page on every run it
-does, which is every pull request, every push to `main` and every push to a
-`ci-control/` branch, and keeps it as a build artefact for seven days. GitHub
-Pages is switched off on this repository:
-`gh api repos/async-digital-ltd/seen-to-fail/pages` answers 404, re-checked on
-22 September 2026, which is how that can be checked without changing anything.
+**Where it is published.** Every push to `main` builds the page, checks it, and
+serves it with GitHub Pages at
+[async-digital-ltd.github.io/seen-to-fail](https://async-digital-ltd.github.io/seen-to-fail/)
+([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76)). The job
+that serves it builds nothing of its own: it deploys the directory the checks
+built and checked on the same commit, so the page served is the page that
+passed.
 
-A Pages site cannot be private on the plan this organisation is on.
-`gh api /orgs/async-digital-ltd --jq .plan.name` returns `team`, re-checked on
-the same day, and private Pages needs Enterprise Cloud, so the conclusion
-follows from the plan alone.
+Pull requests and pushes to a `ci-control/` branch build and check the same page
+and keep it as a build artefact for seven days, but never serve it. A proposed
+change or a planted defect cannot alter what a reader sees until it is on
+`main`.
 
-That read needs organisation-owner authentication, and saying so is the point of
-this paragraph. Unauthenticated, the same endpoint answers 200 with `login` and
-`type` and no `plan` key at all, measured 22 September 2026. So the plan is the
-best evidence this repository has and it is not a read an outside reader can
-repeat: for that reader it is this file's word. What such a reader can check for
-themselves is the absence of a site rather than the plan behind it, and only
-once this repository is public, because until then a 404 from the `pages`
-endpoint is also what a stranger gets for a repository they cannot see.
-
-There is also a report of an attempt to enable a site with `public=false` being
-refused with `422 Current plan does not support private GitHub Pages`, dated 18
-September 2026 and recorded on
-[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Treat it as
-a first-hand record from one session rather than as a measurement anybody can
-repeat. The same record says the enablement was reverted inside the same minute
-and that no build ran, so there is nothing left in this tree, this history or
-this run record to check it against, and that absence is not evidence either
-way. It will not be reproduced, because reproducing it means enabling Pages,
-which is the one thing that must not happen before the visibility decision.
-
-Nothing rests on that 422, and nothing rests on the plan read either. Turning
-Pages on would make the ledger readable by anyone with the URL before the
-decision to make the repository public has been taken, and it would put the
-output outside the history review that
-[#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55) exists to
-hold. Serving it is
-[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76). Whether the
-build needs changing when that happens has not been tested: no Pages site has
-been enabled here and nothing has been deployed, so the most that can be said is
-that the artefact CI already produces, on every pull request and every push to
-`main` or a `ci-control/` branch, is the thing that would be served.
-
-Two things in this section are written for today and retire the moment #76
-lands: that nothing is published, and the 404. They are true now and they are
-the first things to reread when Pages is turned on.
+Pages stayed switched off until this repository was made public, on 27
+September 2026. A Pages site cannot be private on the plan this organisation is
+on, as measured on 18 September 2026, so turning it on earlier would have made
+the ledger readable by anyone with the URL before the history review on
+[#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55) had cleared
+the rest of the repository to be read. What was and was not measured about the
+plan is recorded on
+[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76).
 
 ## Tests
 
@@ -742,9 +716,10 @@ is what was checked, what was not, and where the evidence for each is.
   back byte-identical to the one before
   ([#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24)).
 - **A scanner trusted only after it fired.** The whole history, every branch
-  and every pull request head from the root, is scanned for secrets with
-  gitleaks as the last step before the repository is made public, and the
-  result counts only once the same scan has reported a planted key. The first
+  and every pull request head from the root, was scanned for secrets with
+  gitleaks as the last step before the repository was made public on 27
+  September 2026, and the result counted only once the same scan had reported
+  a planted key. The first
   runs are recorded on
   [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29), and
   every later run, with its command and its result, on
