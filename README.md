@@ -328,12 +328,14 @@ is pinned to `main`, so a red control run cannot paint it red.
 
 ### A replay, start to finish
 
-Four checks are replayed by a job: `ci-type-check`, `ci-published-output`,
-`ledger-export-agreement` and `ledger-record-validation`, which are the four
-that carry a run. `canfail.json` declares those four, with seven declared
-breaks between them; `ledger/checks/` holds nine. So five of those nine have no
-plant for a job to apply, and no replay can ever produce a run for them. The
-next section says plainly what that means for them.
+Four checks are declared for replay by a job: `ci-type-check`,
+`ci-published-output`, `ledger-export-agreement` and
+`ledger-record-validation`, which are the four that carry a run. `canfail.json`
+declares those four, with seven declared breaks between them; `ledger/checks/`
+holds nine. So five of those nine have no plant for a job to apply, and no
+replay can ever produce a run for them. One of the four, `ci-type-check`, has
+been replayed so far; the other three were declared on #110 and wait for the
+next scheduled run. The next section says plainly what that means for them.
 
 The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
 0.2.1 does it: handed a declaration of planted defects, it runs the check on a
@@ -581,9 +583,10 @@ half is not automatic end to end until that is settled.
 
 ### How much of this record is automatic
 
-Four of the nine checks in `ledger/checks/` are replayed by a job. The other
-five are not, and the whole difference is one file: `canfail.json` declares a
-plant for each of the four and for no other check.
+Four of the nine checks in `ledger/checks/` are declared for replay by a job,
+and one of them has been replayed so far. The other five are not declared, and
+the whole difference is one file: `canfail.json` declares a plant for each of
+the four and for no other check.
 
 | Checks                                                                       | What their record rests on                                                                                                                                                                                                                           |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -593,10 +596,11 @@ plant for each of the four and for no other check.
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
-all. Nine checks are on the page and four of them are replayed. Four of the
-nine have any run at all behind them, and all four are replayed. Ten runs are
-in `ledger/runs/` and six of them came from a replay, all six against
-`ci-type-check`, because until #110 it was the only check a replay could
+all. Nine checks are on the page, four of them are declared for replay, and one
+of those four has been replayed so far. Four of the nine have any run at all
+behind them, and those are the four declared. Ten runs are in `ledger/runs/`
+and six of them came from a replay, all six against `ci-type-check`, because
+until #110 it was the only check a replay could
 produce a run for.
 
 None of that is a promise that broke. Epic
@@ -793,7 +797,8 @@ the pattern. The rest of the file has not been audited against it yet.
   <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, one check so far, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
 </picture>
 
-**Version 1 is manual, and five of the nine checks recorded here still are.**
+**Version 1 is manual, and eight of the nine checks recorded here still are,
+three of them with a plant declared since #110 and no replay yet.**
 Proving one check means making a throwaway branch, breaking the code in the way
 that check exists to catch, running the check, confirming it failed for that
 reason and not another, deleting the branch, and then writing down what

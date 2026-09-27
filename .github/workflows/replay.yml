@@ -9,11 +9,10 @@ name: Replay a plant
 # them is held to is a rule the other is held to.
 #
 # On a schedule, and never on a push. Each replay runs a check once on a clean
-# tree and once per declared break. `canfail.json` declares four checks and
-# seven breaks, so a dispatch that replays every one of them runs eleven
-# checks: three of `pnpm typecheck`, three of the build, two of the build
-# followed by the published-output script, and three of `pnpm ledger:validate`.
-# The scheduled lane runs only the checks that are due, which is usually
+# tree and once per declared break, so a dispatch that replays every declared
+# check runs one more command per check than that check has breaks. Which
+# checks and how many breaks is `canfail.json`'s to say and is not restated
+# here; the scheduled lane runs only the checks that are due, which is usually
 # fewer. While the repository was private, Actions minutes were a
 # finite allowance and that was a second reason; it lapsed when the repository
 # was made public on 27 September 2026. The reason that stands is the cost to
@@ -34,11 +33,29 @@ name: Replay a plant
 # nine billed minutes a month at those durations.
 #
 # Every one of those four replayed `ci-type-check` alone, because it was the
-# only check declared when they ran. The three checks #110 declared each cost
-# a run of the build or of the validator per break, and the job now starts a
+# only check declared when they ran. The checks #110 declared cost a run of
+# the build or of the validator per break, and the job now starts a
 # PostgreSQL service for the build. How long that takes on a runner is not
-# measured until the first replay to select them has run, and this comment
-# does not guess at it.
+# measured until the first replay to select them has run. The one figure
+# there is comes from a development machine on 27 September 2026, where a
+# full run of every break declared that day, seven breaks and eleven commands
+# in all, took 9 seconds of wall clock. A machine-local number, not a runner's.
+#
+# Two bounds are set against that, both before any runner has measured them.
+# Each check in `canfail.json` declares a `timeout` in seconds, which canfail
+# applies to every run of that check: 120 for the type check and for each
+# build, 60 for the validator, against runs that took about a second each on
+# that machine and, for the type check, well under a minute on every runner
+# on record. A run that overruns is killed by canfail and scored `look`, which
+# the adapter records as a run that settled nothing, so a build whose database
+# connection never settles becomes a recorded outcome rather than a job killed
+# with nothing written. canfail's own default is 900 seconds, and at that
+# default one hung build would have spent fifteen of the twenty minutes this
+# job used to have. The job's `timeout-minutes` below is sized above the worst
+# case of every declared run overrunning at once, nineteen minutes as declared
+# on that day, plus the setup around them: twenty-five. A plant added later
+# adds its check's timeout to that sum, so adding one means checking the job's
+# timeout still clears it.
 #
 # What fraction of the allowance that is, this comment does not say. The
 # organisation is on the `team` plan, which `gh api /orgs/async-digital-ltd
@@ -91,12 +108,11 @@ name: Replay a plant
 # cannot reach such a check either, since it hands the same declaration to the
 # tool and the record step refuses a check the declaration does not declare.
 # Every check that carries a run has a plant there: `ci-type-check` from the
-# start, and `ci-published-output`, `ledger-export-agreement` and
-# `ledger-record-validation` since #110, before which their only runs were
-# typed in through the `Record a run` workflow and nothing could refresh them.
-# The ledger's other five checks carry an observation and no run, so they read
-# Unproven and have no proof for a floor to keep alive; a plant for any of
-# them is written by a person, and nothing here writes one.
+# start, and the three published-record checks since #110, before which their
+# only runs were typed in through the `Record a run` workflow and nothing could
+# refresh them. A check that carries an observation and no run reads Unproven
+# and has no proof for a floor to keep alive; a plant for it is written by a
+# person, and nothing here writes one.
 #
 # The floor keeps a proof alive only while two other things hold, and neither is
 # its doing. A person has to merge the branch each replay pushes, because the
@@ -136,7 +152,7 @@ jobs:
   replay:
     name: Replay the declared plants and record what happened
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
       # The commit the plants are applied to, which is what a replay records as
@@ -148,21 +164,20 @@ jobs:
       SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       BRANCH: replay/${{ github.run_id }}
       # The two databases .env.example names, pointed at the service container
-      # below, the same shape as CI. Two of the declared checks are the build,
-      # which derives every status in a database and refuses to run without
-      # one. The config module requires both variables to be set, so both are
-      # here although only the first is read by anything this job runs.
+      # below, the same shape as CI. Every declared check whose `run` is the
+      # build needs one: the build derives every status in a database and
+      # refuses to run without it. Both variables are read here. The step that
+      # creates the databases creates both, and the build reads the first.
       DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
       TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
 
     services:
       # The same service CI uses, for the same reason: the build is a
-      # derivation through PostgreSQL, not a file transformation, and the
-      # plants for `ledger-export-agreement` and `ci-published-output` are
-      # plants against the build. It starts with the job whether or not those
-      # checks turn out to be due, because a service cannot be conditional on
-      # a step's output; the steps that create and migrate the databases can
-      # be, and are.
+      # derivation through PostgreSQL, not a file transformation, and
+      # `canfail.json` declares plants whose `run` is the build. It starts
+      # with the job whether or not those checks turn out to be due, because
+      # a service cannot be conditional on a step's output; the steps that
+      # create and migrate the databases can be, and are.
       postgres:
         image: postgres:16
         env:

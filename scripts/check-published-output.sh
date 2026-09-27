@@ -25,27 +25,38 @@
 # subject. It was caught by running it against a page with a script added on
 # purpose, before it ever ran anywhere.
 #
-# The commit is read from the checkout this runs in, which is what the page
-# has to name: the page is built at that commit, so a page naming any other is
-# a page built from somewhere else.
+# The commit is read from the checkout this script sits in, which is what the
+# page has to name: the page is built at that commit, so a page naming any
+# other is a page built from somewhere else.
 
 set -euo pipefail
 
+# The one argument is where to read, and it is resolved against the directory
+# the caller ran this from, before the script moves to the repository root
+# below. Without that, a relative argument would quietly be read from the
+# root instead, which is not what anybody typing `./out` means. Left out, it
+# is where the build writes and where CI and Pages read from.
+if [ "$#" -ge 1 ]; then
+  case "$1" in
+    /*) directory="$1" ;;
+    *) directory="$PWD/$1" ;;
+  esac
+else
+  directory="dist/ledger"
+fi
+
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# Where the build wrote, which is where CI and Pages read from. The one
-# argument exists so a test can point this at a directory of its own.
-directory="${1:-dist/ledger}"
 page="$directory/index.html"
-export="$directory/ledger.json"
+export_file="$directory/ledger.json"
 
 if [ ! -f "$page" ]; then
   echo "The published page is not there: $page." >&2
   exit 1
 fi
 
-if [ ! -f "$export" ]; then
-  echo "The published export is not there: $export." >&2
+if [ ! -f "$export_file" ]; then
+  echo "The published export is not there: $export_file." >&2
   exit 1
 fi
 

@@ -15,6 +15,7 @@
       ],
       "expected": "The type check fails.",
       "run": "pnpm typecheck",
+      "timeout": 120,
       "evidence": {
         "expect": "typecheck\\$ tsc --noEmit"
       },
@@ -52,6 +53,7 @@
       ],
       "expected": "The check of the published output fails, so the run does not go green.",
       "run": "pnpm ledger:build && bash scripts/check-published-output.sh",
+      "timeout": 120,
       "evidence": {
         "expect": "The published (page|export|output)"
       },
@@ -81,6 +83,7 @@
       ],
       "expected": "The build refuses to publish, exits non-zero, and writes no files at all.",
       "run": "pnpm ledger:build",
+      "timeout": 120,
       "evidence": {
         "expect": "Built [0-9]+ checks and [0-9]+ runs|so nothing was published"
       },
@@ -118,6 +121,7 @@
       ],
       "expected": "The validator refuses the ledger and exits non-zero, and nothing is recorded.",
       "run": "pnpm ledger:validate",
+      "timeout": 60,
       "evidence": {
         "expect": "is sound: [0-9]+ checks|problems?\\. Nothing was recorded\\."
       },
