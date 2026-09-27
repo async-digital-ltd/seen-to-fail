@@ -98,15 +98,13 @@ export const outcomeSettlesSomething = {
  * something else it was asked about that day went well, and a rule that could
  * hide the miss behind the catch would be this product failing at its own
  * subject. A run that settled nothing outranks neither, because it is not
- * evidence about the check at all; it sorts last so that the first run in a
- * check's log is the run the status was read from.
+ * evidence about the check at all, so it sorts last within its day.
  *
  * Lower sorts earlier, which is newest-first order. A map rather than a list,
  * so that adding an outcome above and not ranking it here is a type error: the
- * rank cannot be guessed from the label, so somebody has to give it. The SQL in
- * the migrations spells the same order out for its own ORDER BY clauses, and a
- * test reads the order back out of the database and compares it with this map,
- * so the two cannot drift apart unnoticed.
+ * rank cannot be guessed from the label, so somebody has to give it. It is one
+ * of the three keys of newestRunFirst below, which is where the whole order is
+ * written down.
  */
 export const outcomePrecedence = {
   missed: 0,
@@ -121,6 +119,99 @@ export const settledOutcomes: readonly TestRunOutcome[] =
 /** The outcomes that settle nothing, and are kept out of the status rules. */
 export const unsettledOutcomes: readonly TestRunOutcome[] =
   testRunOutcomes.filter((outcome) => !outcomeSettlesSomething[outcome]);
+
+/** The three fields a run's place in a newest-first list is decided by. */
+export interface RunOrderKeys {
+  readonly id: string;
+  readonly runOn: IsoDate;
+  readonly outcome: TestRunOutcome;
+}
+
+/**
+ * The order every list of runs is read in, newest first: by the day it
+ * happened, then by outcomePrecedence, then by the run's id, descending.
+ *
+ * One rule for every surface that lists runs. The app's table is ordered by
+ * newestRunFirstSql, which is this rule spelled for PostgreSQL; the published
+ * page's table is sorted by this function; and the derivation in the
+ * migrations picks a check's latest settled run by the same three keys. Where
+ * two runs share a day and an outcome, the id is the last resort, and it is
+ * the last resort on every surface. It used to be the id in the database and
+ * the filename on the page, which put the same two rows in a different order
+ * on the two surfaces.
+ *
+ * The id is arbitrary, and a key that is not is deliberately left out. The app
+ * records when each run was typed in, but the ledger build writes every record
+ * in one transaction, so they all share one created_at, and a page built from
+ * files has no created_at to read at all. A key one surface cannot see is a key
+ * the surfaces cannot share. The cost is in the app: two runs typed in on the
+ * same day with the same outcome, an hour apart, can list the later one
+ * beneath the earlier, and neither row says why.
+ *
+ * With this order, the first run in a check's list that settled anything is
+ * the run its status was read from. That is not left to this sentence: the
+ * build compares the two on every publish and refuses when they differ, in
+ * verify.ts.
+ *
+ * The ids are lowercased and then compared as text, not with localeCompare.
+ * A lowercase uuid is hex at fixed positions, so plain comparison of the text
+ * is the same order as PostgreSQL's comparison of the sixteen bytes, and a
+ * locale-aware comparison would be free not to be. They are lowercased first
+ * because the id check at the API boundary accepts either case, and an
+ * upper-case B sorts before a lower-case a as text while the byte b sorts
+ * after the byte a.
+ */
+export function newestRunFirst(
+  left: RunOrderKeys,
+  right: RunOrderKeys,
+): number {
+  if (left.runOn !== right.runOn) {
+    return left.runOn > right.runOn ? -1 : 1;
+  }
+  const ranks =
+    outcomePrecedence[left.outcome] - outcomePrecedence[right.outcome];
+  if (ranks !== 0) {
+    return ranks;
+  }
+  const leftId = left.id.toLowerCase();
+  const rightId = right.id.toLowerCase();
+  if (leftId === rightId) {
+    return 0;
+  }
+  return leftId > rightId ? -1 : 1;
+}
+
+/**
+ * newestRunFirst as an ORDER BY list over the columns of test_runs.
+ *
+ * Built from outcomePrecedence rather than typed out beside it, so the rank
+ * the app's table sorts by cannot differ from the rank the page sorts by. The
+ * values are the map's own constants, never input, so writing them into the
+ * text is safe.
+ *
+ * The CASE has an ELSE that raises, because a CASE with no ELSE returns null
+ * for a label it does not list, and the migrations README names that as this
+ * schema's recurring blind spot. An outcome added to the enum by a migration
+ * and not to testRunOutcomes would otherwise sort as null, last, and nothing
+ * would say so. The ELSE casts a sentence naming the label to an integer,
+ * which PostgreSQL refuses with that sentence in the error. The test that
+ * compares testRunOutcomes with the enum catches the same mistake earlier, in
+ * the suite rather than on a request.
+ */
+export function newestRunFirstSql(source: string): string {
+  const ranks = testRunOutcomes
+    .map(
+      (outcome) =>
+        `WHEN '${outcome}' THEN ${String(outcomePrecedence[outcome])}`,
+    )
+    .join(' ');
+  const unranked = `('The outcome ' || ${source}.outcome::text || ' has no rank in outcomePrecedence')::integer`;
+  return (
+    `${source}.run_on DESC, ` +
+    `CASE ${source}.outcome ${ranks} ELSE ${unranked} END, ` +
+    `${source}.id DESC`
+  );
+}
 
 /**
  * Where a run came from: a person typed it in, or a replay posted it.

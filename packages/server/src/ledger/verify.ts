@@ -3,6 +3,8 @@ import { STATUSES } from '@seen-to-fail/filter';
 import type { StatusTotals } from '../database/checks.ts';
 import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
+import type { CheckSummary } from '../database/summaries.ts';
+import { ledgerCheckUuid } from './identity.ts';
 import { escapeHtml } from './page.ts';
 import type { LedgerContents } from './load.ts';
 import type { PublishedLedger } from './snapshot.ts';
@@ -30,7 +32,12 @@ import type { PublishedLedger } from './snapshot.ts';
  *  - the export's own tally of statuses against the database's independent
  *    count of them,
  *  - the export against the rendered page, which catches a renderer that left a
- *    check out.
+ *    check out,
+ *  - the first settled run in each check's exported table against the run the
+ *    derivation says its status was read from, which catches the table and the
+ *    status being headed by two different runs. The order is sorted in
+ *    TypeScript and the pick is made in SQL, so the two are separate answers
+ *    to one question.
  *
  * The one thing that genuinely is a copy, a check's status, is held to the
  * database by a test rather than by a comparison here, because a test can ask
@@ -54,6 +61,8 @@ export interface VerificationInput {
   readonly databaseTotals: DatabaseTotals;
   /** The database's own count of checks by status. */
   readonly statusTotals: StatusTotals;
+  /** What the derivation worked out for each check, keyed inside by its uuid. */
+  readonly summaries: readonly CheckSummary[];
 }
 
 /** The latest of a set of days, or null when the set is empty. */
@@ -61,6 +70,17 @@ function latest(days: readonly IsoDate[]): IsoDate | null {
   return days.length === 0
     ? null
     : days.reduce((newest, day) => (day > newest ? day : newest));
+}
+
+/**
+ * A run named in a refusal, or what its absence means. No run means no run
+ * settled anything, which is a statement, not a missing value to print as
+ * "null".
+ */
+function describeRun(id: string | null): string {
+  return id === null
+    ? 'no run, because none settled anything'
+    : `the run ${id}`;
 }
 
 function compare(
@@ -133,6 +153,9 @@ export function disagreements(input: VerificationInput): string[] {
   );
 
   const published = new Map(snapshot.checks.map((check) => [check.id, check]));
+  const summaries = new Map(
+    input.summaries.map((summary) => [summary.checkId, summary]),
+  );
 
   for (const entry of contents.checks) {
     const check = published.get(entry.record.id);
@@ -192,6 +215,32 @@ export function disagreements(input: VerificationInput): string[] {
       runs.length,
       check.runs.length,
     );
+
+    // Which run the status was read from, derivation against export. The
+    // status comes from the run the derivation picked, and the table under it
+    // is headed by whichever settled run the exporter sorted first. Nothing
+    // above can see the two naming different runs: every count and every date
+    // still agrees when they do, because two runs tied on the day and the
+    // outcome carry the same day and the same outcome. Only their identities
+    // differ, so identity is what is compared.
+    //
+    // A check with no summary at all is refused here too, although the build
+    // never reaches this with one: buildSnapshot throws first. This function
+    // is the guard over whatever it is handed, and a missing summary would
+    // otherwise pass the comparison below by never making it.
+    const summary = summaries.get(ledgerCheckUuid(entry.record.id));
+    if (summary === undefined) {
+      found.push(`${label} has no status derived for it.`);
+    } else {
+      const headedBy =
+        check.runs.find((run) => outcomeSettlesSomething[run.outcome])?.id ??
+        null;
+      if (headedBy !== summary.latestSettledRunId) {
+        found.push(
+          `${label}: the status was read from ${describeRun(summary.latestSettledRunId)}, and the first run in the export that settled anything is ${describeRun(headedBy)}.`,
+        );
+      }
+    }
 
     if (!page.includes(escapeHtml(entry.record.name))) {
       found.push(`${label} is published and its name is not on the page.`);

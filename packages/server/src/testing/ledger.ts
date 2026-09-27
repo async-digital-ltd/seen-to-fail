@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import type { StatusTotals } from '../database/checks.ts';
 import type { CheckSummary } from '../database/summaries.ts';
-import { ledgerCheckUuid } from '../ledger/identity.ts';
+import { ledgerCheckUuid, ledgerFileUuid } from '../ledger/identity.ts';
 import type { LedgerContents } from '../ledger/load.ts';
 import { buildSnapshot } from '../ledger/snapshot.ts';
 import type { PublishedLedger } from '../ledger/snapshot.ts';
@@ -225,6 +225,9 @@ export function fixtureSummaries(): CheckSummary[] {
       lastCaughtOn: '2026-09-10',
       lastRunOn: '2026-09-10',
       lastSettledOn: '2026-09-10',
+      latestSettledRunId: ledgerFileUuid(
+        `${fixtureLedgerPath}/runs/2026-09-10-first-check-abcdef123456.json`,
+      ),
       runCount: 1,
       caughtCount: 1,
       missedCount: 0,
@@ -238,6 +241,7 @@ export function fixtureSummaries(): CheckSummary[] {
       lastCaughtOn: null,
       lastRunOn: null,
       lastSettledOn: null,
+      latestSettledRunId: null,
       runCount: 0,
       caughtCount: 0,
       missedCount: 0,
