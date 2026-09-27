@@ -10,10 +10,11 @@
 // makes a replay checkable.
 //
 // It exits 1 and writes nothing when the report means something this mapping
-// does not recognise. That ordering is the point rather than a detail: every
-// refusal this adapter owns is decided over the whole report before the first
-// file is written, so a verdict nobody has heard of leaves the ledger exactly
-// as it was. A refusal from the recorder itself stops the script too, and the
+// does not recognise, or when its breaks are not the breaks the declaration
+// holds for the checks it names (#128). That ordering is the point rather than
+// a detail: every refusal this adapter owns is decided over the whole report
+// before the first file is written, so a verdict nobody has heard of, or an
+// outcome for a plant nobody declared, leaves the ledger exactly as it was. A refusal from the recorder itself stops the script too, and the
 // workflow's commit step never runs, which is the same gate `record-run.yml`
 // relies on: a record that is refused never becomes a commit.
 //
