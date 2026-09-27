@@ -5,6 +5,7 @@ import { listRunsForChecks } from './checks.ts';
 import {
   armingObservationColumns,
   checkColumns,
+  newestRunFirst,
   outcomePrecedence,
   savedFilterColumns,
   selectRows,
@@ -12,7 +13,14 @@ import {
   testRunOutcomes,
   testRunSources,
 } from './rows.ts';
-import type { ArmingObservation, Check, SavedFilter, TestRun } from './rows.ts';
+import type {
+  ArmingObservation,
+  Check,
+  SavedFilter,
+  TestRun,
+  TestRunOutcome,
+} from './rows.ts';
+import { listCheckSummaries } from './summaries.ts';
 
 /**
  * A row of each type, inserted and read back through the column list that is
@@ -265,11 +273,10 @@ it('reads back a saved filter with its tree intact', async () => {
  * outcome, all on one day, so the day decides nothing and the outcome is the
  * only key left with anything to say.
  *
- * The three are inserted in the order they are expected back, one statement at
- * a time, so created_at ascends with them. The keys this ordering used before
- * the outcome was one of them were created_at and then the id, and the newest
- * written is the last inserted, so a query that ignored the outcome returns
- * this list reversed. It cannot pass by accident.
+ * The three are given ids that ascend in the order they are expected back, so
+ * the id, which is the only key below the outcome, puts them in the reverse
+ * order. A query that ignored the outcome returns this list reversed. It cannot
+ * pass by accident.
  */
 it('sorts runs on one day by the precedence outcomePrecedence gives', async () => {
   const checkId = await insertCheck();
@@ -277,21 +284,8 @@ it('sorts runs on one day by the precedence outcomePrecedence gives', async () =
     (left, right) => outcomePrecedence[left] - outcomePrecedence[right],
   );
 
-  for (const outcome of expected) {
-    await database.client().query(
-      `INSERT INTO test_runs
-         (check_id, run_on, planted, expected, outcome, inconclusive_reason,
-          source)
-       VALUES ($1, '2026-09-17', 'A removed semicolon', 'The job fails', $2,
-               $3, 'hand')`,
-      [
-        checkId,
-        outcome,
-        outcome === 'inconclusive'
-          ? 'The anchor no longer matches, so nothing broke.'
-          : null,
-      ],
-    );
+  for (const [index, outcome] of expected.entries()) {
+    await insertRun(checkId, runIdEndingIn(index + 1), '2026-09-17', outcome);
   }
 
   const runs = await listRunsForChecks(database.client(), [checkId]);
@@ -302,4 +296,86 @@ it('sorts runs on one day by the precedence outcomePrecedence gives', async () =
   expect(new Set(runs.map((run) => run.runOn))).toEqual(
     new Set(['2026-09-17']),
   );
+});
+
+/** A run id that sorts by the number it ends in. */
+function runIdEndingIn(digit: number): string {
+  return `00000000-0000-4000-8000-00000000000${String(digit)}`;
+}
+
+/** One run, typed in by hand, under an id the test chooses. */
+async function insertRun(
+  checkId: string,
+  id: string,
+  runOn: string,
+  outcome: TestRunOutcome,
+  createdAt: string | null = null,
+): Promise<void> {
+  await database.client().query(
+    `INSERT INTO test_runs
+       (id, check_id, run_on, planted, expected, outcome, inconclusive_reason,
+        source, created_at)
+     VALUES ($1, $2, $3, 'A removed semicolon', 'The job fails', $4, $5,
+             'hand', coalesce($6::timestamptz, now()))`,
+    [
+      id,
+      checkId,
+      runOn,
+      outcome,
+      outcome === 'inconclusive'
+        ? 'The anchor no longer matches, so nothing broke.'
+        : null,
+      createdAt,
+    ],
+  );
+}
+
+/**
+ * Two runs that share a day and an outcome, read in the order newestRunFirst
+ * gives, by the app's query and by the derivation alike.
+ *
+ * Nothing recorded about the two says which came later, so the last-resort key
+ * decides, and it has to be the same key on every surface or the app's table
+ * and the published page's table head with different rows. The page sorts in
+ * TypeScript with newestRunFirst; the app's query and the derivation sort in
+ * SQL. This reads both SQL answers back and holds them to the TypeScript one.
+ *
+ * The row written later has the smaller id, so a query that broke the tie by
+ * when the row was written, as both used to, returns them the other way round.
+ * The times are given rather than left to the clock, so the two cannot share
+ * one, and the control below asserts that the fixture still has that shape.
+ */
+it('breaks a tie on the day and the outcome by the id, in the app and the derivation', async () => {
+  const checkId = await insertCheck();
+  const writtenFirst = runIdEndingIn(2);
+  const writtenSecond = runIdEndingIn(1);
+  await insertRun(
+    checkId,
+    writtenFirst,
+    '2026-09-19',
+    'caught',
+    '2026-09-19T10:00:00Z',
+  );
+  await insertRun(
+    checkId,
+    writtenSecond,
+    '2026-09-19',
+    'caught',
+    '2026-09-19T11:00:00Z',
+  );
+
+  const written = await selectRows<{ id: string }>(
+    database.client(),
+    'SELECT id FROM test_runs WHERE check_id = $1 ORDER BY created_at DESC',
+    [checkId],
+  );
+  expect(written.map((row) => row.id)).toEqual([writtenSecond, writtenFirst]);
+
+  const runs = await listRunsForChecks(database.client(), [checkId]);
+  const expected = [...runs].sort(newestRunFirst).map((run) => run.id);
+  expect(expected).toEqual([writtenFirst, writtenSecond]);
+  expect(runs.map((run) => run.id)).toEqual(expected);
+
+  const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
+  expect(summary?.latestSettledRunId).toBe(expected[0]);
 });

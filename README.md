@@ -90,8 +90,14 @@ went well. Ordering the two by when they were typed in would pick by clerical
 order rather than by anything that happened; ordering them by the day alone
 would leave it to the database. A run that settled nothing ranks below both,
 which is consistent with the rules above ignoring it entirely: it sorts last
-within its day, so the first run in a check's log is the run its status was read
-from.
+within its day.
+
+Two runs that share both a day and an outcome have nothing recorded that orders
+them, and give the same status whichever comes first. They are ordered by the
+run's id, and by the same rule in the app, on the published page and in the
+status derivation, so the two tables list the same rows in the same order. The
+first run in a check's log that settled anything is then the run its status was
+read from, and the build checks that for every check before it publishes.
 
 Thirty days is the one judgment in the model, and it is one constant,
 `STALE_AFTER_DAYS`, in one module. A catch exactly thirty days old still reads
@@ -599,7 +605,10 @@ of the page.
 
 The build refuses to publish when the records and the output disagree: it
 compares the files on disk with the rows the database ended up holding, with the
-export, and with the rendered page, and writes nothing if any of those disagree.
+export, and with the rendered page, and the run each check's status was read
+from with the first run in its published table that settled anything, and
+writes nothing if any
+of those disagree.
 A page listing nine runs where the ledger holds ten looks exactly like a page
 listing ten, which is the kind of quiet wrongness this project is about.
 

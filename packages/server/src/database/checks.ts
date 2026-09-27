@@ -5,6 +5,7 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import {
   armingObservationColumns,
   checkColumnsFrom,
+  newestRunFirstSql,
   selectRows,
   testRunColumns,
 } from './rows.ts';
@@ -221,25 +222,12 @@ export async function listAreas(database: Queryable): Promise<string[]> {
  * a second function here that also grouped would be a second place the shape
  * could be got wrong.
  *
- * Newest first is by the day it happened, then by what the run says, then by
- * the order it was written down, then by id. Two runs can share a day and a day
- * is the finest grain a run is dated to, so the outcome is what decides between
- * them: a miss first, then a catch, then a run that settled nothing. That is
- * outcomePrecedence, spelled here in SQL because an ORDER BY cannot read a
- * TypeScript map, and a test reads this order back out of the database and
- * compares the two.
- *
- * The derivation picks its latest settled run by the same rank, so the first
- * settled row here for a check is the run its status was worked out from. The
- * unsettled runs sort last within their day rather than first, which is what
- * keeps that true when a replay that settled nothing lands on the same day as
- * one that settled something: the page's "the latest run settled nothing" line
- * reads the first row, and it should not fire on a day whose status is current.
- *
- * The last two keys stay as last resorts. Within one day and one outcome there
- * is still nothing meaningful to order by, and without a deterministic key the
- * planner is free to return the rows in either order, so the same rows could
- * read differently from one call to the next.
+ * Newest first is newestRunFirst in rows.ts: by the day, then by what the run
+ * says, then by id. The ORDER BY is built from that rule rather than written
+ * out here, so the app's table and the published page's table cannot put the
+ * same rows in two different orders. The unsettled runs sort last within their
+ * day, which is what keeps the page's "the latest run settled nothing" line
+ * from firing on a day whose status is current.
  */
 export async function listRunsForChecks(
   database: Queryable,
@@ -253,20 +241,15 @@ export async function listRunsForChecks(
     database,
     `SELECT ${testRunColumns} FROM test_runs
       WHERE check_id = ANY($1)
-      ORDER BY run_on DESC,
-               CASE outcome
-                 WHEN 'missed' THEN 0
-                 WHEN 'caught' THEN 1
-                 WHEN 'inconclusive' THEN 2
-               END,
-               created_at DESC, id DESC`,
+      ORDER BY ${newestRunFirstSql('test_runs')}`,
     [[...checkIds]],
   );
 }
 
 /**
  * Every arming observation recorded about any of the given checks, newest
- * first, under the same batching and ordering rules as the runs above.
+ * first, batched like the runs above: by the day, then by when the row was
+ * written, then by id.
  */
 export async function listArmingObservationsForChecks(
   database: Queryable,

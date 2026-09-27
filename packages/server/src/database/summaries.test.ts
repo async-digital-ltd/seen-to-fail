@@ -174,6 +174,21 @@ async function summaryOf(
   return found;
 }
 
+/** The id of the one run a check holds on a day, read straight off the table. */
+async function runIdOn(checkId: string, day: IsoDate): Promise<string> {
+  const rows = await database
+    .client()
+    .query<{ id: string }>(
+      'SELECT id FROM test_runs WHERE check_id = $1 AND run_on = $2',
+      [checkId, day],
+    );
+  const [row] = rows.rows;
+  if (row === undefined || rows.rows.length !== 1) {
+    throw new Error('Expected exactly one run on that day.');
+  }
+  return row.id;
+}
+
 interface StatusCase extends CheckFixture {
   /** The rule this fixture is reached by, as the status table words it. */
   readonly rule: string;
@@ -503,6 +518,7 @@ it('returns a row for a check with no runs and no observations', async () => {
     lastCaughtOn: null,
     lastRunOn: null,
     lastSettledOn: null,
+    latestSettledRunId: null,
     runCount: 0,
     caughtCount: 0,
     missedCount: 0,
@@ -532,6 +548,7 @@ it('counts the runs and dates the evidence behind the status', async () => {
     lastCaughtOn: daysBefore(6),
     lastRunOn: daysBefore(6),
     lastSettledOn: daysBefore(6),
+    latestSettledRunId: await runIdOn(checkId, daysBefore(6)),
     runCount: 3,
     caughtCount: 2,
     missedCount: 1,
@@ -663,11 +680,23 @@ it.each(testRunOutcomes)(
       ],
     });
 
-    const { checkId: typedInId, ...typedInSummary } = await summaryOf(typedIn);
-    const { checkId: replayedId, ...replayedSummary } =
-      await summaryOf(replayed);
+    const {
+      checkId: typedInId,
+      latestSettledRunId: typedInRun,
+      ...typedInSummary
+    } = await summaryOf(typedIn);
+    const {
+      checkId: replayedId,
+      latestSettledRunId: replayedRun,
+      ...replayedSummary
+    } = await summaryOf(replayed);
 
     expect(replayedSummary).toStrictEqual(typedInSummary);
+    // The run the status was read from is each check's own run, which differs
+    // between the two only because they are two rows.
+    const settles = outcomeSettlesSomething[outcome];
+    expect(typedInRun).toBe(settles ? await runIdOn(typedIn, day) : null);
+    expect(replayedRun).toBe(settles ? await runIdOn(replayed, day) : null);
     // Named rather than left as "the same as each other", so a derivation that
     // started answering the same wrong thing to both would still fail. A run
     // that settled nothing leaves a check with nothing said about it, which

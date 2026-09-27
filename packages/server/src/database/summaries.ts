@@ -33,6 +33,12 @@ export interface CheckSummary {
    * status is as old as this, whatever has been attempted since.
    */
   readonly lastSettledOn: IsoDate | null;
+  /**
+   * The run the status was read from, or null when no run has settled
+   * anything. The build holds it against the first settled run in the
+   * published table, which is worked out by different code.
+   */
+  readonly latestSettledRunId: string | null;
   readonly runCount: number;
   readonly caughtCount: number;
   readonly missedCount: number;
@@ -72,6 +78,7 @@ export function derivedSummaryColumnsFrom(source: string): string {
     `${isoDate(`${source}.last_caught_on`)} AS "lastCaughtOn"`,
     `${isoDate(`${source}.last_run_on`)} AS "lastRunOn"`,
     `${isoDate(`${source}.last_settled_on`)} AS "lastSettledOn"`,
+    `${source}.latest_settled_run_id AS "latestSettledRunId"`,
     `${source}.run_count AS "runCount"`,
     `${source}.caught_count AS "caughtCount"`,
     `${source}.missed_count AS "missedCount"`,

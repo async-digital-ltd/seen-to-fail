@@ -8,8 +8,10 @@ import {
   fixtureLedgerPath,
   fixtureSnapshot,
   fixtureStatusTotals,
+  fixtureSummaries,
   fixtureSummariesWithAnUnsettledRun,
 } from '../testing/ledger.ts';
+import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { renderPage } from './page.ts';
 import type { PublishedLedger, PublishedRun } from './snapshot.ts';
 import { disagreements } from './verify.ts';
@@ -33,6 +35,7 @@ function sound(): VerificationInput {
     ledgerPath: fixtureLedgerPath,
     databaseTotals: fixtureDatabaseTotals(),
     statusTotals: fixtureStatusTotals(),
+    summaries: fixtureSummaries(),
   };
 }
 
@@ -279,6 +282,7 @@ function soundUnsettled(): VerificationInput {
     snapshot,
     page: renderPage(snapshot),
     databaseTotals: { ...totals, runs: totals.runs + 1 },
+    summaries: fixtureSummariesWithAnUnsettledRun(),
   };
 }
 
@@ -368,4 +372,96 @@ it('finds a last-settled date that no run supports', () => {
   });
 
   expect(found.join('\n')).toContain('last settled');
+});
+
+/** The file of a second catch, on the same day as the fixture's first. */
+const tiedRunFile = 'runs/2026-09-10-first-check-0123456789ab.json';
+
+/**
+ * The fixture with a second catch on the first check's day, so the check holds
+ * two runs that tie on the day and the outcome, and the run its status was
+ * read from is one of two candidates rather than the only one.
+ *
+ * The summary names whichever of the two has the larger id, worked out here
+ * from the ids themselves rather than by sorting, so this does not borrow the
+ * exporter's order to describe what the exporter should have produced.
+ */
+function soundTied(): VerificationInput {
+  const base = fixtureContents();
+  const [first] = base.runs;
+  if (first === undefined) {
+    throw new Error('The fixture has no runs.');
+  }
+  const contents = {
+    ...base,
+    runs: [
+      ...base.runs,
+      { file: tiedRunFile, record: { ...first.record, planted: 'Another.' } },
+    ],
+  };
+  const ids = [first.file, tiedRunFile].map((file) =>
+    ledgerFileUuid(`${fixtureLedgerPath}/${file}`),
+  );
+  const latest = ids.reduce((larger, id) => (id > larger ? id : larger));
+  const summaries = fixtureSummaries().map((summary) =>
+    summary.checkId === ledgerCheckUuid('first-check')
+      ? {
+          ...summary,
+          runCount: 2,
+          caughtCount: 2,
+          latestSettledRunId: latest,
+        }
+      : summary,
+  );
+  const snapshot = fixtureSnapshot(contents, summaries);
+  const totals = fixtureDatabaseTotals();
+  return {
+    ...sound(),
+    contents,
+    snapshot,
+    page: renderPage(snapshot),
+    databaseTotals: { ...totals, runs: totals.runs + 1 },
+    summaries,
+  };
+}
+
+it('finds nothing wrong when two tied runs head the table the way the status was read', () => {
+  expect(disagreements(soundTied())).toEqual([]);
+});
+
+/**
+ * The class #108 is about: a table headed by one run and a status read from
+ * another. Every count and date agrees, because the two runs tie on both the
+ * day and the outcome; only which run comes first differs.
+ */
+it('finds a table headed by a different run from the one the status was read from', () => {
+  const input = soundTied();
+  const snapshot = {
+    ...input.snapshot,
+    checks: input.snapshot.checks.map((check) => ({
+      ...check,
+      runs: [...check.runs].reverse(),
+    })),
+  };
+  const found = disagreements({
+    ...input,
+    snapshot,
+    page: renderPage(snapshot),
+  });
+
+  expect(found).toHaveLength(1);
+  expect(found.join('\n')).toContain('latest settled run');
+});
+
+it('finds a status read from a run the export does not head its table with', () => {
+  const input = soundTied();
+  const found = disagreements({
+    ...input,
+    summaries: input.summaries.map((summary) => ({
+      ...summary,
+      latestSettledRunId: null,
+    })),
+  });
+
+  expect(found.join('\n')).toContain('latest settled run');
 });

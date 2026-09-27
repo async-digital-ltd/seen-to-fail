@@ -1,6 +1,6 @@
 import type { Status } from '@seen-to-fail/filter';
 
-import { outcomePrecedence } from '../database/rows.ts';
+import { newestRunFirst } from '../database/rows.ts';
 import type {
   IsoDate,
   TestRunOutcome,
@@ -90,7 +90,7 @@ export interface PublishedCheck {
   readonly lastSettledOn: IsoDate | null;
   readonly lastSeenArmedOn: IsoDate | null;
   readonly lastArmed: boolean | null;
-  /** Newest first. */
+  /** Newest first, by newestRunFirst in rows.ts, as the app lists them. */
   readonly runs: readonly PublishedRun[];
   /** Newest first. */
   readonly observations: readonly PublishedObservation[];
@@ -132,34 +132,24 @@ function sourceFileOf(ledgerPath: string, entry: LedgerEntry<unknown>): string {
 }
 
 /**
- * Newest first, by the day it happened, then by a rank the caller gives, then
- * by the file it is recorded in.
- *
- * The rank is what decides between two records dated to the same day, which is
- * the finest grain either kind of record is dated to. Runs pass
- * outcomePrecedence, so a miss published on a day outranks a catch published on
- * the same day and the first run in a check's list is the run its status was
- * read from. Observations have nothing to rank and pass none, and every record
- * then ranks equal, which is the order this function gave before there was a
- * rank at all.
+ * Observations newest first, by the day, then by the file each is recorded in.
  *
  * The file is the last key, and it is what makes the order the same on every
- * build. Sorting by the earlier keys alone leaves the rest to whatever the
- * directory listing happened to give, so the same records could publish in two
- * different orders and a reader comparing two builds would see a change that is
- * not one.
+ * build. Sorting by the day alone leaves the rest to whatever the directory
+ * listing happened to give, so the same records could publish in two
+ * different orders and a reader comparing two builds would see a change that
+ * is not one.
+ *
+ * Runs are not sorted by this. They are sorted by newestRunFirst, the rule the
+ * app's table and the derivation share, once each run has the id it is
+ * published under.
  */
 function byNewest<Record extends { readonly file: string }>(
   dayOf: (record: Record) => IsoDate,
-  rankOf: (record: Record) => number = () => 0,
 ) {
   return (left: Record, right: Record): number => {
     const days = dayOf(right).localeCompare(dayOf(left));
-    if (days !== 0) {
-      return days;
-    }
-    const ranks = rankOf(left) - rankOf(right);
-    return ranks === 0 ? right.file.localeCompare(left.file) : ranks;
+    return days === 0 ? right.file.localeCompare(left.file) : days;
   };
 }
 
@@ -178,12 +168,7 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
   );
 
   const runsByCheck = new Map<string, PublishedRun[]>();
-  for (const entry of [...input.contents.runs].sort(
-    byNewest(
-      (entry) => entry.record.runOn,
-      (entry) => outcomePrecedence[entry.record.outcome],
-    ),
-  )) {
+  for (const entry of input.contents.runs) {
     const sourceFile = sourceFileOf(input.ledgerPath, entry);
     const runs = runsByCheck.get(entry.record.checkId) ?? [];
     runs.push({
@@ -201,6 +186,9 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       recordedIn: input.recordingCommits.get(sourceFile) ?? null,
     });
     runsByCheck.set(entry.record.checkId, runs);
+  }
+  for (const runs of runsByCheck.values()) {
+    runs.sort(newestRunFirst);
   }
 
   const observationsByCheck = new Map<string, PublishedObservation[]>();
