@@ -351,8 +351,9 @@ jobs:
       # The gate. A verdict this mapping does not recognise, a check the
       # declaration does not declare, or a record that breaks a ledger rule
       # stops here with nothing written, so the steps below have nothing to
-      # commit. Every value it reads comes through the environment rather than
-      # being substituted into the text of this script.
+      # commit. So does an undeclared break, a missing one, or one break twice.
+      # Every value it reads comes through the environment rather than being
+      # substituted into the text of this script.
       #
       # The whole declaration, not the one the selection chose. The addresses a
       # report is recorded against are the same either way, and reading them
