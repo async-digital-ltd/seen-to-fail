@@ -143,18 +143,58 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: one of the four checks that carry runs.** The ledger
-holds nine checks. Four of them carry runs, and so have a status the backstop
-can age; the other five carry an arming observation and no run at all, so they
-read Unproven and there is no proof for a floor to keep alive.
+**Which checks this covers: the four checks that carry runs.** The ledger holds
+nine checks. Four of them carry runs, and so have a status the backstop can
+age; the other five carry an arming observation and no run at all, so they read
+Unproven and there is no proof for a floor to keep alive.
 
-Of those four, `canfail.json` declares `ci-type-check` and nothing else, so that
-is the only check either route can select. `ci-published-output`,
-`ledger-export-agreement` and `ledger-record-validation` have no declared break,
-so no replay can produce a run for them at all and the floor does nothing
-whatever for them. Read as a general answer to a page ageing to Stale, this
-covers one of those four and misses three; #110 has the dates and names bringing
-those three into `canfail.json` as one of its alternatives.
+`canfail.json` declares all four. `ci-type-check` was declared first, with two
+breaks against `pnpm typecheck`. The other three were declared on #110, which
+found them reading Stale from 19 October 2026 with no route back: their only
+runs were typed in on 18 September, and a check the declaration does not
+declare is not selectable by either route however old its proof is. Each of
+them now carries a plant against the command CI runs for it:
+
+- `ledger-record-validation` runs `pnpm ledger:validate` against a run file
+  whose outcome is a word the ledger does not know, and against one naming a
+  check that is not in the ledger. Both are the defects the validator exists
+  to refuse, planted in a real record.
+- `ledger-export-agreement` runs `pnpm ledger:build` against an export that
+  drops one observation on the way through, and against a status tally that
+  counts nothing. The build's own comparison of the record with what it built
+  is what refuses both, which is the check.
+- `ci-published-output` runs `pnpm ledger:build` and then the same
+  `scripts/check-published-output.sh` CI runs, against a build that writes a
+  script tag into the page after the page it checked. That is the one seam the
+  build cannot see: a plant in the renderer is refused by the build's own
+  script check before the CI step ever reads the file, so it would be a plant
+  against the wrong check. What the CI step exists to do is read the output
+  back off disk rather than trust the build, and the plant is a disk that
+  disagrees with the build.
+
+The build derives every status in PostgreSQL, so the replay job now starts the
+same service container CI does and creates and migrates the databases before
+the tool runs. A plant against the build in a job with no database would score
+`look` on every dispatch, and the adapter would file an inconclusive run each
+week that settles nothing while the proof aged out regardless.
+
+Every check declares `evidence`: a line the command prints whether it passes
+or refuses, so that a check which never ran is told apart from one that ran
+and missed. The published-output script prints one on every exit for exactly
+this reason.
+
+Two plants were considered for `ci-published-output` and not declared. A build
+that writes to a directory other than the one CI reads is caught by the step's
+`test -f` lines, but its stale predecessor from the clean-tree run would still
+be sitting there for the check to read, so the plant would pass or fail on what
+the previous run left behind. And a build that reads the commit it was built
+from as the parent of `HEAD` is invisible to the step's `grep` whenever `HEAD`
+itself added a run to the ledger, because that commit is then named on the page
+as the one that recorded the run: the step's commit guard is satisfied by any
+mention of the commit, not by the "Built from" line. That is a weakness of the
+step rather than of the plant, and it is left as a finding rather than planted
+as a proof that would flip between caught and missed with the commit it ran
+against.
 
 ## The statuses it exits with
 

@@ -162,27 +162,18 @@ jobs:
 
       # What the build produced, read back off disk rather than trusted. The
       # build has already refused to publish anything that disagrees with the
-      # record; these are the properties a reader of this file can check
-      # without reading the build: two files exist, the page names the commit
-      # it was built from, and it carries no script, so nothing on it is worked
-      # out anywhere but here.
+      # record; these are the properties a reader can check without reading
+      # the build: two files exist, the page names the commit it was built
+      # from, and it carries no script, so nothing on it is worked out anywhere
+      # but here.
       #
-      # The script check is written as an `if` and not as `! grep -qi ...`,
-      # which is what it said first. `set -e` does not apply to a command whose
-      # status is inverted with `!`, so that line went green whatever grep
-      # found: a guard that could not fail, in the one repository where that is
-      # the whole subject. It was caught by running it against a page with a
-      # script added on purpose, before it ever ran here.
+      # A script rather than lines in this file, because the replay runs the
+      # same check against the plant `canfail.json` declares for it (#110), and
+      # a copy of these lines there would be a second definition of the check.
+      # The script's header holds the history of the `! grep` line that could
+      # not fail.
       - name: Check the published output
-        run: |
-          set -euo pipefail
-          test -f dist/ledger/index.html
-          test -f dist/ledger/ledger.json
-          grep -q "$(git rev-parse HEAD | cut -c1-7)" dist/ledger/index.html
-          if grep -qi '<script' dist/ledger/index.html; then
-            echo "The published page carries a script." >&2
-            exit 1
-          fi
+        run: bash scripts/check-published-output.sh
 
       - name: Keep the published ledger as an artefact
         uses: actions/upload-artifact@v7
