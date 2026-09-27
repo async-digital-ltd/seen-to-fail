@@ -18,14 +18,22 @@
 #
 #   1. Runs `pnpm dev:server` in the background, in a process group of its own
 #      so that stopping it stops Node too and not only pnpm.
-#   2. Waits for the server to print its health address. It prints that only
-#      once it is listening, so an address taken from this process's own output
-#      cannot belong to some other process holding the port.
+#   2. Waits for the server to print its health address, which it prints only
+#      once it is listening.
 #   3. Asks `/health` for a 200, then asks the GraphQL endpoint for
 #      `{ __typename }` and expects `Query` back. Neither reaches the database:
 #      this is not a test of what the server serves, which the integration
 #      tests already cover.
 #   4. Stops the server, and kills it if it has not gone within a few seconds.
+#   5. Asks `/health` once more and requires the connection to be refused.
+#
+# Step 5 is what ties the answers to this server. The probes go to the
+# hostname the server printed, and `localhost` can resolve to more than one
+# address, so a stranger listening on one of them can answer while this server
+# listens on another. Printing the address proves this server bound somewhere;
+# only an answer that stops when this server stops proves it was the one
+# answering. A stranger on the port therefore fails the check whichever address
+# it holds, which is the right answer: the result would not mean anything.
 #
 # Every failure exits non-zero, names what it was waiting for, and prints the
 # server's own output. The wait is bounded by SERVER_START_TIMEOUT, in seconds,
@@ -35,6 +43,9 @@
 # It was watched failing before it was trusted: with DATABASE_URL removed it
 # refused because the server exited before listening, and with the listen call
 # replaced by a timer that keeps the process alive it refused on the timeout.
+# With a stranger listening on ::1 at the same port, which curl reaches first
+# for `localhost` on macOS, it used to pass on the stranger's answers; step 5
+# is what now refuses that.
 
 set -euo pipefail
 
@@ -64,7 +75,8 @@ stop_server() {
   if [ -z "$server_pid" ]; then
     return 0
   fi
-  if kill -0 "$server_pid" 2>/dev/null; then
+  # The group rather than the leader: pnpm can have died and left Node behind.
+  if kill -0 -- "-$server_pid" 2>/dev/null; then
     kill -TERM -- "-$server_pid" 2>/dev/null || true
     waited=0
     while kill -0 -- "-$server_pid" 2>/dev/null && [ "$waited" -lt 10 ]; do
@@ -95,6 +107,10 @@ fail() {
   exit 1
 }
 
+# Created here rather than by the redirect below, which runs in the child and
+# may not have happened yet when the loop first reads the file.
+: >"$log"
+
 set -m
 pnpm dev:server >"$log" 2>&1 &
 server_pid=$!
@@ -108,13 +124,14 @@ while :; do
   if ! kill -0 "$server_pid" 2>/dev/null; then
     status=0
     wait "$server_pid" || status=$?
-    server_pid=""
     fail "the server exited with status $status before it was listening."
   fi
 
   if [ -z "$health_url" ]; then
-    health_url="$(sed -n 's/^ *Health: *\(http[^ ]*\).*$/\1/p' "$log" | head -n 1)"
-    graphql_url="$(sed -n 's/^ *GraphiQL: *\(http[^ ]*\).*$/\1/p' "$log" | head -n 1)"
+    # The first match only, with sed quitting on it rather than piping to head,
+    # which under pipefail could end sed with SIGPIPE and this script with it.
+    health_url="$(sed -n 's/^ *Health: *\(http[^ ]*\).*$/\1/p;/^ *Health: *http/q' "$log")"
+    graphql_url="$(sed -n 's/^ *GraphiQL: *\(http[^ ]*\).*$/\1/p;/^ *GraphiQL: *http/q' "$log")"
   fi
 
   if [ -n "$health_url" ]; then
@@ -147,5 +164,14 @@ if [ "$answer" != '{"data":{"__typename":"Query"}}' ]; then
 fi
 
 stop_server
+
+# With this server stopped, nothing may answer where it did. An answer now came
+# from some other process, and so might every answer above. Exit 7 is curl's
+# "could not connect", the only result that clears it.
+refused=0
+curl --silent --output /dev/null --max-time 5 "$health_url" || refused=$?
+if [ "$refused" -ne 7 ]; then
+  fail "$health_url still answered after the server was stopped (curl exit $refused), so another process holds the port and the answers above may have been its."
+fi
 
 echo "The server started: $health_url answered 200 and $graphql_url answered a query, $((SECONDS - started)) seconds after it was started."
