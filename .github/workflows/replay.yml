@@ -8,16 +8,17 @@ name: Replay a plant
 # through `recordRun` in packages/server/src/ledger/record.ts, so a rule one of
 # them is held to is a rule the other is held to.
 #
-# On a schedule, and never on a push. Two reasons, and the second is the
-# stronger one. Each replay runs the check once on a clean tree and once per
-# declared break, which is three runs of `pnpm typecheck` today, and Actions
-# minutes on a private repository are a finite allowance this project has no
-# budget for. The larger cost is to the record: a replay is a dated observation,
-# and running one on every merge would file a near identical proof several times
-# a day, each against a different commit and so each a separate row, burying the
-# runs that say something under runs that say the same thing again. Both of
-# those are arguments against a per-push cadence rather than against a cadence,
-# and the one chosen here is weekly.
+# On a schedule, and never on a push. Each replay runs the check once on a
+# clean tree and once per declared break, which is three runs of `pnpm
+# typecheck` today. While the repository was private, Actions minutes were a
+# finite allowance and that was a second reason; it lapsed when the repository
+# was made public on 27 September 2026. The reason that stands is the cost to
+# the record: a replay is a dated observation, and running one on every merge
+# would file a near identical proof several times a day, each against a
+# different commit and so each a separate row, burying the runs that say
+# something under runs that say the same thing again. That is an argument
+# against a per-push cadence rather than against a cadence, and the one chosen
+# here is weekly.
 #
 # The arithmetic, measured rather than estimated, and re-measured on 22
 # September 2026 across every replay this repository has on record rather than
