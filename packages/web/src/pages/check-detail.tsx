@@ -544,7 +544,8 @@ function CheckNotFound(): ReactElement {
  * `/checks/:id`: one check, its evidence, and the next thing to do about it.
  *
  * Every figure and every "days ago" is computed from what the API returns and
- * the reader's today, so nothing on the page is typed in.
+ * today, the UTC day the API worked the status out against, so nothing on the
+ * page is typed in.
  */
 export function CheckDetail(): ReactElement {
   const { id = '' } = useParams();

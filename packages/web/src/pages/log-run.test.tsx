@@ -8,6 +8,7 @@ import {
   LogTestRunDocument,
 } from '../graphql/generated/graphql';
 import { paths } from '../paths';
+import { holdClockIn } from '../testing/clock';
 import type { Answer } from '../testing/client';
 import { answer, networkFailure, pending } from '../testing/client';
 import { renderApp, renderWithProviders } from '../testing/render';
@@ -54,8 +55,9 @@ const testDay = '2026-09-15';
 
 beforeEach(() => {
   // Only Date is replaced, so the client's ticks and user-event still run.
+  // Midday UTC, because today is the UTC day (#40).
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date(2026, 8, 15, 12, 0));
+  vi.setSystemTime(new Date(`${testDay}T12:00:00Z`));
 });
 
 afterEach(() => {
@@ -416,6 +418,49 @@ describe('the form refusing a submit', () => {
  * change: with the disabled attribute taken off the button this test was
  * watched count three.
  */
+/**
+ * Five in the morning on the 16th in Tokyo, while UTC is still on the 15th.
+ * The API judges "not in the future" against the UTC day, so the 16th is a day
+ * it refuses, and a form reading the reader's own calendar offered it (#40).
+ */
+describe("for a reader whose day is ahead of UTC's", () => {
+  beforeEach(() => {
+    expect(holdClockIn('Asia/Tokyo', '2026-09-15T20:00:00Z')).toBe(
+      '2026-09-16',
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('dates the run on the UTC day and offers no later day', async () => {
+    renderApp({ route: paths.newRun(), answers: [options] });
+
+    const date = await screen.findByLabelText('Date');
+    expect(date).toHaveValue('2026-09-15');
+    expect(date).toHaveAttribute('max', '2026-09-15');
+  });
+
+  it("refuses the reader's own day, and sends nothing", async () => {
+    const { user, calls } = renderApp({
+      route: paths.newRun(),
+      answers: [options, logged('PROVEN')],
+    });
+    await fillIn(user);
+    const date = screen.getByLabelText('Date');
+    await user.clear(date);
+    await user.type(date, '2026-09-16');
+
+    await user.click(screen.getByRole('button', { name: 'Save run' }));
+
+    expect(date).toHaveAccessibleDescription(
+      'A run cannot be dated after today.',
+    );
+    expect(logCalls(calls)).toEqual([]);
+  });
+});
+
 describe('a save in flight', () => {
   it('disables the button, says it is saving, and takes no second submit', async () => {
     const { user, calls } = renderApp({

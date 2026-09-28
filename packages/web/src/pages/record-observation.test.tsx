@@ -11,6 +11,7 @@ import {
   RecordArmingObservationDocument,
 } from '../graphql/generated/graphql';
 import { paths } from '../paths';
+import { holdClockIn } from '../testing/clock';
 import type { Answer } from '../testing/client';
 import { answer, networkFailure, pending } from '../testing/client';
 import { renderApp } from '../testing/render';
@@ -21,8 +22,9 @@ const id = 'b7d1c2e3-4f50-4a61-9b72-8c93d4e5f607';
 const testDay = '2026-09-15';
 
 beforeEach(() => {
+  // Midday UTC, because today is the UTC day (#40).
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date(2026, 8, 15, 12, 0));
+  vi.setSystemTime(new Date(`${testDay}T12:00:00Z`));
 });
 
 afterEach(() => {
@@ -271,6 +273,54 @@ describe('the observation form', () => {
       within(form).getByRole('button', { name: 'It is on' }),
     ).toHaveAccessibleDescription('Say whether the check was on or off.');
     expect(sent).toEqual([]);
+  });
+
+  /**
+   * Five in the morning on the 16th in Tokyo, while UTC is still on the 15th.
+   * The API judges "not in the future" against the UTC day, so the 16th is a
+   * day it refuses, and a form reading the reader's own calendar offered it
+   * (#40).
+   */
+  describe("for a reader whose day is ahead of UTC's", () => {
+    beforeEach(() => {
+      expect(holdClockIn('Asia/Tokyo', '2026-09-15T20:00:00Z')).toBe(
+        '2026-09-16',
+      );
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('opens with the date on the UTC day and offers no later day', async () => {
+      const { user } = renderApp({
+        route: paths.check(id),
+        answers: api(unarmedWithNoRuns).answers,
+      });
+
+      const date = within(await openForm(user)).getByLabelText('Date');
+      expect(date).toHaveValue('2026-09-15');
+      expect(date).toHaveAttribute('max', '2026-09-15');
+    });
+
+    it("refuses the reader's own day, and sends nothing", async () => {
+      const { answers, sent } = api(unarmedWithNoRuns);
+      const { user } = renderApp({ route: paths.check(id), answers });
+      const form = await openForm(user);
+      const date = within(form).getByLabelText('Date');
+      await user.clear(date);
+      await user.type(date, '2026-09-16');
+      await user.click(within(form).getByRole('button', { name: 'It is on' }));
+
+      await user.click(
+        within(form).getByRole('button', { name: 'Save observation' }),
+      );
+
+      expect(date).toHaveAccessibleDescription(
+        'An observation cannot be dated after today.',
+      );
+      expect(sent).toEqual([]);
+    });
   });
 
   it('shows a refusal from the API beside its field', async () => {
