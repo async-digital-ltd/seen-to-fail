@@ -1,7 +1,8 @@
 // pnpm db:reset
 //
 // Drops the development database, creates it again empty, and reapplies every
-// migration. Everything in it is lost. The test database is not touched.
+// migration. Everything in it is lost. The test database is not touched:
+// `pnpm db:test:reset` is the command that recreates that one.
 
 import '../environment.ts';
 

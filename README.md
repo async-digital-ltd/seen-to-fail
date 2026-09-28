@@ -242,10 +242,13 @@ runner applies them in filename order and records each one in a
 `schema_migrations` table, so running `pnpm db:migrate` again applies nothing
 and says so. `pnpm db:reset` drops the development database, creates it again
 empty and reapplies every migration. It leaves the test database alone.
+`pnpm db:test:reset` does the same to the test database and nothing else, which
+is how an edit to a migration that has already been applied reaches the
+database the tests run against.
 `packages/server/migrations/README.md` is worth reading before writing one: it
 holds the trap this schema has fallen into twice, which is that a check
 constraint passes on null and is therefore vacuous for exactly the rows it
-exists to refuse.
+exists to refuse, and says when to run `pnpm db:test:reset`.
 
 ```sh
 pnpm db:seed
@@ -318,11 +321,10 @@ What nothing holds is a long-lived token against a running instance, because
 there is no instance to write to. Both workflows below run on the short-lived
 `GITHUB_TOKEN` the runner is handed and carry no secret of their own, so there
 is nothing here to leak, rotate or scope. Their `permissions:` blocks are the
-whole of what they can do and differ by one line: `Replay a plant` asks for
-`contents: write` and nothing else, and `Record a run` asks for `contents:
-write` and `pull-requests: write`, because it is the one that tries to open its
-own pull request. What either of them writes is a commit on a branch that a
-person then has to merge.
+whole of what they can do and are the same one line: each asks for `contents:
+write` and nothing else, because neither tries to open its own pull request.
+What either of them writes is a commit on a branch that a person then has to
+merge.
 
 ### A run recorded by hand
 
@@ -575,14 +577,16 @@ describe that control branch rather than `main` and were left on
 `replay/35431432957`, which is why `ledger/runs/` holds no inconclusive run.
 
 **Neither workflow opens its own pull request.** GitHub Actions is not permitted
-to create pull requests on this repository. `Record a run` still tries, so it
-ends red at that last step with the record already committed and pushed:
-measured on 18 September 2026 in run
+to create pull requests on this repository, and neither workflow tries. Each
+pushes its branch, ends green, and names the branch and the command that opens
+the pull request in its run summary, so a green run means recorded and waiting
+for a person, not done. `Record a run` used to try, and ended red at that last
+step with the record already committed and pushed: measured on 18 September
+2026 in run
 [35405970369](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35405970369),
 which failed with `GitHub Actions is not permitted to create or approve pull
-requests (createPullRequest)`. `Replay a plant` does not try, and pushes the
-branch instead. The switch that would allow either of them, "Allow GitHub
-Actions to create and approve pull requests", is off:
+requests (createPullRequest)`. The switch that would allow either of them,
+"Allow GitHub Actions to create and approve pull requests", is off:
 `gh api repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow`
 answers `"can_approve_pull_request_reviews": false`, re-checked on
 22 September 2026. It couples creating to approving, so turning it on to let a
@@ -886,9 +890,8 @@ being specific about which parts:
   ledger cannot yet tell you that a run was scored by `canfail` 0.2.1
   ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
 - **End to end without a person.** Neither recording workflow lands its own
-  record. `Replay a plant` pushes a branch and does not try to open a pull
-  request; `Record a run` does try, and goes red at that step with the record
-  already pushed
+  record. Each pushes a branch and names it, with the command that opens the
+  pull request, in its run summary, and a person opens the pull request
   ([#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74)).
 - **Plants that need a branch pushed and another workflow's verdict awaited.**
   Everything here replays in place, on one runner, in one job. Anything else is
