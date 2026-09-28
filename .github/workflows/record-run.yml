@@ -5,15 +5,27 @@ name: Record a run
 # token can write the ledger, because what is published is a static page built
 # from committed records.
 #
-# It opens a pull request rather than pushing. main is protected here and that
-# is the point rather than an obstacle: a recorded run arrives as a diff
+# It pushes a branch rather than pushing to main. main is protected here and
+# that is the point rather than an obstacle: a recorded run arrives as a diff
 # somebody can read, which is the property the publishing route was chosen for.
 #
-# Known and accepted: a pull request opened with the workflow's own token does
-# not trigger the CI workflow, because GitHub refuses to let one workflow run
-# start another. The pull request is opened and its required check has to be
-# started by hand, by closing and reopening it or by pushing to its branch, for
-# every run this workflow records. #74 holds that, and the routes out of it.
+# It does not open the pull request, and that is the route ruled on #74 rather
+# than a limitation worked around. "Allow GitHub Actions to create and approve
+# pull requests" is off on this repository, and GitHub couples create and
+# approve behind that one switch: turning it on to let a job open a pull
+# request also lets automation approve one, in a repository whose whole subject
+# is whether automated checks can be trusted. Measured on 2026-09-18, run
+# 35405970369 of this workflow tried it and went red with the record already
+# committed and pushed, and a red run here is designed to mean nothing landed,
+# so a person reading the red correctly would have lost a real recorded run.
+#
+# So the handoff is the designed behaviour, the same one `Replay a plant` has,
+# and the last step states it in the run summary rather than burying it in a
+# failed step's log. The green means recorded and waiting for a person. It does
+# not mean done. A person opens the pull request from the pushed branch with
+# the command the summary prints, and its required check then starts on its
+# own, as it did on #79. Whether the person in that loop is ever replaced is
+# what #74 still asks.
 on:
   workflow_dispatch:
     inputs:
@@ -52,9 +64,11 @@ on:
         required: false
         type: string
 
+# Only what it needs. The job pushes a branch and never opens a pull request, so
+# `pull-requests: write` would be a permission nothing here uses. The header
+# says why opening one is not attempted.
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   record:
@@ -105,16 +119,22 @@ jobs:
         # reader's rule, and a second copy of it in this shell would be a place
         # for the two to disagree: a run that settled nothing and was given no
         # reason is refused by the step rather than recorded without one.
+        #
+        # The four free-text values are joined to their flags with `=`. Passed
+        # as a separate word, a value that starts with a dash is read by the
+        # recorder's argument parser as the next option, so a planted text such
+        # as `-Werror was removed` was refused with a stack trace before any
+        # ledger rule saw it (#152). Joined, it is recorded exactly as typed.
         run: |
           pnpm ledger:record -- \
             --check-id "$INPUT_CHECK_ID" \
             --run-on "$INPUT_RUN_ON" \
-            --planted "$INPUT_PLANTED" \
-            --expected "$INPUT_EXPECTED" \
+            --planted="$INPUT_PLANTED" \
+            --expected="$INPUT_EXPECTED" \
             --outcome "$INPUT_OUTCOME" \
-            --inconclusive-reason "$INPUT_REASON" \
+            --inconclusive-reason="$INPUT_REASON" \
             --source hand \
-            --note "$INPUT_NOTE"
+            --note="$INPUT_NOTE"
 
       # The record that was just written is sound, or the step above would have
       # refused it. This reads the whole ledger, which is the thing the build
@@ -123,9 +143,15 @@ jobs:
       - name: Check the whole ledger still reads
         run: pnpm ledger:validate
 
-      - name: Open a pull request adding it
+      # Push the branch, exit 0, and tell a person what is waiting. The header
+      # says why this job does not open the pull request itself.
+      #
+      # The check id, the date and the outcome are printed into the command
+      # below only after the recording step accepted them: the id names a check
+      # the ledger holds, the date is a date and the outcome is one of three
+      # words, so none of them can break the quoting a person pastes.
+      - name: Push the record and say what is waiting
         env:
-          GH_TOKEN: ${{ github.token }}
           INPUT_CHECK_ID: ${{ inputs.check-id }}
           INPUT_RUN_ON: ${{ inputs.run-on }}
           INPUT_OUTCOME: ${{ inputs.outcome }}
@@ -138,14 +164,29 @@ jobs:
           git add ledger
           if git diff --cached --quiet; then
             echo "This run is already recorded. Nothing to commit."
+            {
+              echo "## Nothing new to record"
+              echo
+              echo "This run was already in the ledger, byte for byte."
+              echo "No branch was pushed."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           # Worded so that all three outcomes fit the sentence. "a caught"
           # and "a inconclusive" cannot both be written the same way round.
           git commit --message "Record a run for $INPUT_CHECK_ID on $INPUT_RUN_ON: $INPUT_OUTCOME"
           git push origin "$BRANCH"
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "Record a run for $INPUT_CHECK_ID on $INPUT_RUN_ON: $INPUT_OUTCOME" \
-            --body "Recorded by the \`Record a run\` workflow, run $GITHUB_RUN_ID. The diff is the whole record: one file, one run."
+          {
+            echo "## Recorded, and waiting for a person"
+            echo
+            echo "The run is committed on \`$BRANCH\`."
+            echo "It is NOT in the ledger yet. Nothing reaches the published record until this branch is merged."
+            echo
+            echo "Open the pull request with:"
+            echo
+            echo '```sh'
+            echo "gh pr create --base main --head $BRANCH \\"
+            echo "  --title 'Record a run for $INPUT_CHECK_ID on $INPUT_RUN_ON: $INPUT_OUTCOME' \\"
+            echo "  --body 'Recorded by the Record a run workflow, run $GITHUB_RUN_ID.'"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
