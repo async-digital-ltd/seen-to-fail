@@ -22,7 +22,9 @@ export {
   emptyFilter,
   JOINERS,
   MAX_CONDITIONS_PER_GROUP,
+  MAX_DAYS,
   MAX_GROUPS,
+  MAX_RUN_COUNT,
   STATUSES,
 } from './types.ts';
 

@@ -21,6 +21,10 @@ import type { Client } from 'pg';
 export const sqlStates = {
   /** A value that is not one of an enum's labels. */
   invalidTextRepresentation: '22P02',
+  /** A value too large for its numeric type, such as `integer`. */
+  numericValueOutOfRange: '22003',
+  /** A date outside the range PostgreSQL holds: "date out of range". */
+  datetimeFieldOverflow: '22008',
   notNullViolation: '23502',
   foreignKeyViolation: '23503',
   uniqueViolation: '23505',
