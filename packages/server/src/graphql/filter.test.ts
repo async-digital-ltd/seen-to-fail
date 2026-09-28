@@ -533,50 +533,67 @@ for (const [name, condition, path] of failedInsidePostgres) {
 }
 
 /**
- * The two bounds held against PostgreSQL itself rather than restated.
+ * The two bounds held against PostgreSQL itself rather than restated, for
+ * each operator that takes one.
  *
- * The earliest as-of day the server admits is 0001-01-01. The largest day count
- * is the most days that reach back from it to the first date PostgreSQL holds,
- * and the arithmetic is beside the rule in the filter package's `schema.ts`.
- * The largest run count is the largest `integer`, the type of the column it is
- * compared with.
+ * The as-of day is 0001-01-01, the earliest day the bound is set for. The
+ * largest day count is the most days that reach back from it to the first
+ * date PostgreSQL holds, and the arithmetic is beside the rule in the filter
+ * package's `schema.ts`. The largest run count is the largest `integer`, the
+ * type of the column it is compared with.
  *
- * As of that day, each largest value is answered through the API. One more,
+ * As of that day, the largest value is answered through the API. One more,
  * handed straight to the query the API runs so that the validator cannot
  * refuse it first, is refused by PostgreSQL. So each bound is exactly what the
  * statement holds: one higher and a filter fails inside the query again, one
  * lower and the validator refuses a value the query can run.
  */
-it('answers the largest day and run counts as of the earliest day, and PostgreSQL refuses one more', async () => {
-  const client = database.client();
-  await seedWorkspace(client);
-  const earliestDay = '0001-01-01';
-  const server = createGraphQLServer({ database: client, asOf: earliestDay });
+const earliestDay = '0001-01-01';
 
-  const largest: readonly Condition[] = [
-    { field: 'lastCaught', op: 'before', days: MAX_DAYS },
-    { field: 'lastCaught', op: 'after', days: MAX_DAYS },
-    { field: 'runs', op: 'moreThan', count: MAX_RUN_COUNT },
-    { field: 'runs', op: 'fewerThan', count: MAX_RUN_COUNT },
-  ];
-  for (const condition of largest) {
+const boundedOperators: readonly (readonly [
+  string,
+  (value: number) => Condition,
+  number,
+  string,
+])[] = [
+  [
+    'lastCaught before',
+    (days) => ({ field: 'lastCaught', op: 'before', days }),
+    MAX_DAYS,
+    sqlStates.datetimeFieldOverflow,
+  ],
+  [
+    'lastCaught after',
+    (days) => ({ field: 'lastCaught', op: 'after', days }),
+    MAX_DAYS,
+    sqlStates.datetimeFieldOverflow,
+  ],
+  [
+    'runs moreThan',
+    (count) => ({ field: 'runs', op: 'moreThan', count }),
+    MAX_RUN_COUNT,
+    sqlStates.numericValueOutOfRange,
+  ],
+  [
+    'runs fewerThan',
+    (count) => ({ field: 'runs', op: 'fewerThan', count }),
+    MAX_RUN_COUNT,
+    sqlStates.numericValueOutOfRange,
+  ],
+];
+
+for (const [name, condition, largest, refusal] of boundedOperators) {
+  it(`answers ${name} at its largest value as of ${earliestDay}, and PostgreSQL refuses one more with ${refusal}`, async () => {
+    const client = database.client();
+    await seedWorkspace(client);
+    const server = createGraphQLServer({ database: client, asOf: earliestDay });
+
     await expect(
-      query(server, listOnly, { filter: oneCondition(condition) }),
+      query(server, listOnly, { filter: oneCondition(condition(largest)) }),
     ).resolves.toHaveProperty('checks.matching');
-  }
 
-  await expect(
-    listChecks(
-      client,
-      oneCondition({ field: 'lastCaught', op: 'before', days: MAX_DAYS + 1 }),
-      earliestDay,
-    ),
-  ).rejects.toMatchObject({ code: sqlStates.datetimeFieldOverflow });
-  await expect(
-    listChecks(
-      client,
-      oneCondition({ field: 'runs', op: 'moreThan', count: MAX_RUN_COUNT + 1 }),
-      earliestDay,
-    ),
-  ).rejects.toMatchObject({ code: sqlStates.numericValueOutOfRange });
-});
+    await expect(
+      listChecks(client, oneCondition(condition(largest + 1)), earliestDay),
+    ).rejects.toMatchObject({ code: refusal });
+  });
+}

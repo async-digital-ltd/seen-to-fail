@@ -29,17 +29,16 @@ import {
  * integer, so the largest count is the one that still lands on a date
  * PostgreSQL holds.
  *
- * The earliest date PostgreSQL holds is 4714-11-24 BC, the day its Julian day
- * numbers count from. The earliest day the server admits is 0001-01-01: its
- * `isRealDay`, the rule behind the Date scalar, refuses anything before it. So
- * the earliest as-of day is 0001-01-01, which is Julian day 1,721,426, and
- * 0001-01-01 minus 1,721,426 days is 4714-11-24 BC, while one day more is out
- * of range. A later as-of day only moves the result later, so the same cap
- * holds for every as-of day there is. Nothing can overflow the other end,
- * because no count is negative and so the result is never later than the as-of
- * day itself.
+ * The cap is safe for any as-of day on or after 0001-01-01, which is the
+ * earliest day the server's Date scalar admits and earlier than any day the
+ * server computes; the as-of day is the server's own, not a client's.
+ * 0001-01-01 is Julian day 1,721,426, so 0001-01-01 minus 1,721,426 days is
+ * 4714-11-24 BC, PostgreSQL's first date, and one day more is out of range. A
+ * later as-of day only moves the result later. Nothing can overflow the other
+ * end, because no count is negative and so the result is never later than the
+ * as-of day itself.
  *
- * The cap has to hold for every as-of day rather than for today, because the
+ * The cap is set for that earliest day rather than for today, because the
  * limit moves with the day: as of 2026-09-15 the query failed from 2,461,300
  * days, which is that day's Julian number plus one. The cap is also far inside
  * the `integer` the count is cast to.
