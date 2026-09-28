@@ -7,6 +7,7 @@ import { CheckDetailDocument } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import type { StatusName } from '../status';
 import { statusFromName } from '../status';
+import { holdClockIn } from '../testing/clock';
 import { answer, networkFailure, pending } from '../testing/client';
 import { renderApp, renderWithProviders } from '../testing/render';
 import { CheckDetail } from './check-detail';
@@ -15,12 +16,12 @@ type RecordedCheck = NonNullable<CheckDetailQuery['check']>;
 type Run = RecordedCheck['runs'][number];
 
 /**
- * Every "days ago" on the page is counted from the reader's today, so the
- * clock is pinned to midday on one day and each expected figure below is
- * worked out by hand from it.
+ * Every "days ago" on the page is counted from today, which is the UTC day
+ * (#40), so the clock is pinned to midday UTC on one day and each expected
+ * figure below is worked out by hand from it.
  */
 beforeEach(() => {
-  vi.setSystemTime(new Date(2026, 8, 15, 12));
+  vi.setSystemTime(new Date('2026-09-15T12:00:00Z'));
 });
 
 afterEach(() => {
@@ -273,6 +274,35 @@ describe('the next step', () => {
       });
     },
   );
+
+  /**
+   * Ten at night on the 15th in New York, while UTC is already on the 16th.
+   * The API worked Stale out against the 16th, when the catch on 16 August is
+   * 31 days old, one past the threshold. Counted from the reader's own 15th
+   * it read 30, the age of a check that is still Proven (#40).
+   */
+  describe("for a reader whose day is behind UTC's", () => {
+    beforeEach(() => {
+      expect(holdClockIn('America/New_York', '2026-09-16T02:00:00Z')).toBe(
+        '2026-09-15',
+      );
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('counts the age of the last proof from the UTC day', async () => {
+      await renderRecordedCheck({
+        status: 'STALE',
+        lastCaughtOn: '2026-08-16',
+      });
+
+      expect(screen.getByText(/^The last proof is/)).toHaveTextContent(
+        /^The last proof is 31 days old\./,
+      );
+    });
+  });
 
   it('is not shown for a Proven check, which can still log a run', async () => {
     await renderRecordedCheck({ status: 'PROVEN', lastCaughtOn: '2026-09-06' });

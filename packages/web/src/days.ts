@@ -45,9 +45,10 @@ function utcMidnight(day: string): number {
 /**
  * How many whole days before today a day is.
  *
- * Never below zero. The API dates "today" by UTC and the reader's calendar may
- * already be a day behind it (issue #40), so a day the API accepted as today
- * can read as tomorrow here. Counting it as today says what the reader means.
+ * Never below zero. Today here and today at the API are the same UTC day
+ * (#40), but they are read from two clocks, and a reader whose clock runs slow
+ * can see a day the API accepted as today read as tomorrow. Counting it as
+ * today says what the reader means.
  */
 export function daysAgo(day: string, today: string): number {
   const difference = utcMidnight(today) - utcMidnight(day);

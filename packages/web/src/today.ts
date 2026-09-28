@@ -1,20 +1,23 @@
 /**
- * Today, as the reader's calendar has it, written YYYY-MM-DD.
+ * Today, as the server has it: the UTC day, written YYYY-MM-DD.
  *
- * The forms default their date to this and refuse a day after it. It is the
- * local day rather than UTC because a person dates what they did by their own
- * calendar, and a UTC default would offer tomorrow to anybody west of
- * Greenwich in the evening.
+ * The forms default their date to this and refuse a day after it, and every
+ * "days ago" on a screen is counted from it. The API judges "not in the future"
+ * against the UTC day (`todayInUtc()` on the server), and this is the same
+ * reading of the clock, so a form never offers a day the API will refuse.
  *
- * The API judges "not in the future" against the UTC day, so for part of the
- * day a reader east of UTC can be refused today's date. That refusal arrives
- * as a field error on the date like any other. Issue #40 holds the choice of
- * how to reconcile the two calendars, and this function is the one place the
- * client would change.
+ * It was the reader's own calendar day until #40. East of UTC just after
+ * midnight the reader's day has turned over and UTC's has not, so the form
+ * offered, and defaulted to, a day the API refused as in the future. The owner
+ * ruled on #40 to keep UTC as the one calendar: a run is often written by a job
+ * with no clock of its own, and a record has to name the same day whoever
+ * wrote it.
+ *
+ * The cost is a date that can look a day out on the reader's own clock. East
+ * of UTC just after midnight the form offers what is still yesterday there,
+ * and west of UTC in the evening what is already tomorrow there. The API
+ * accepts both, which is the point.
  */
 export function today(now: Date = new Date()): string {
-  const year = String(now.getFullYear()).padStart(4, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return now.toISOString().slice(0, 10);
 }
