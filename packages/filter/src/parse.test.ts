@@ -82,6 +82,10 @@ const validConditions: readonly (readonly [string, Condition])[] = [
     'the largest run count',
     { field: 'runs', op: 'fewerThan', count: MAX_RUN_COUNT },
   ],
+  [
+    'an area holding a character made of a surrogate pair',
+    { field: 'area', op: 'is', value: 'CI 😀' },
+  ],
 ];
 
 for (const [name, condition] of validConditions) {
@@ -348,7 +352,8 @@ const bounds: readonly (readonly [string, unknown, FilterIssue])[] = [
     groupedFilter({ field: 'area', op: 'is', value: 'C\u0000I' }),
     {
       path: 'groups[0].conditions[0].value',
-      message: 'An area cannot contain a NUL character.',
+      message:
+        'An area cannot contain a NUL character or an unpaired surrogate.',
     },
   ],
 ];
@@ -356,6 +361,36 @@ const bounds: readonly (readonly [string, unknown, FilterIssue])[] = [
 for (const [name, input, issue] of bounds) {
   it(`refuses ${name}, with one issue at ${issue.path}`, () => {
     expect(parseFilter(input)).toStrictEqual({ ok: false, errors: [issue] });
+  });
+}
+
+/**
+ * Half of a character in an area (#161). PostgreSQL does not refuse it: UTF-8
+ * cannot carry it, so the driver sends U+FFFD in its place, and the filter
+ * used to match an area holding U+FFFD, a different value from the one it was
+ * given. It is refused with the rule the write path refuses it with, so a
+ * filter cannot ask for an area no check can have.
+ */
+const halvesOfACharacter: readonly (readonly [string, string])[] = [
+  ['a high surrogate on its own', 'C\uD800I'],
+  ['a low surrogate on its own', 'C\uDC00I'],
+  ['the high half of a pair with nothing after it', 'CI\uD83D'],
+];
+
+for (const [name, value] of halvesOfACharacter) {
+  it(`refuses an area holding ${name}, with one issue at groups[0].conditions[0].value`, () => {
+    expect(
+      parseFilter(groupedFilter({ field: 'area', op: 'is', value })),
+    ).toStrictEqual({
+      ok: false,
+      errors: [
+        {
+          path: 'groups[0].conditions[0].value',
+          message:
+            'An area cannot contain a NUL character or an unpaired surrogate.',
+        },
+      ],
+    });
   });
 }
 

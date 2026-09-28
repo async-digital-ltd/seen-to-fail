@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 
-import { loadDatabaseConfig } from '../config.ts';
-import { useTestDatabase } from '../testing/test-database.ts';
+import { loadDatabaseConfig, SharedDatabaseError } from '../config.ts';
+import { openTestDatabase, useTestDatabase } from '../testing/test-database.ts';
 import { databaseName } from './databases.ts';
 
 /**
@@ -34,4 +34,20 @@ it('connects to the test database and not the development one', async () => {
   // Fails if both URLs have been pointed at one database, which would let the
   // truncation between tests empty the development data.
   expect(connected).not.toBe(databaseName(databaseUrl));
+});
+
+/**
+ * The harness every database-backed test file opens its connection through
+ * refuses a test database that is also the development one (#156).
+ *
+ * Nothing listens on port 1, so a harness that read the URL some other way,
+ * skipping the check, would still reject here, but with a failure to connect
+ * rather than with the refusal.
+ */
+it('refuses to open a test database that is also the development one', async () => {
+  const shared = 'postgresql://localhost:1/stf_shared';
+
+  await expect(
+    openTestDatabase({ DATABASE_URL: shared, TEST_DATABASE_URL: shared }),
+  ).rejects.toBeInstanceOf(SharedDatabaseError);
 });

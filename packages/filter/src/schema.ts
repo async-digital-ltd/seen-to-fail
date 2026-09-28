@@ -69,16 +69,36 @@ const statusCondition = z.strictObject({
 });
 
 /**
- * An area is compared with a `text` column, and PostgreSQL text cannot hold the
- * NUL character: the statement is refused as an invalid byte sequence. It is
- * the only character PostgreSQL refuses in text, so it is the only one refused
- * here.
+ * An unpaired UTF-16 surrogate: half of a character. With the `u` flag a pair
+ * that makes up a real character is one code point and does not match.
  */
+const unpairedSurrogate = /\p{Surrogate}/u;
+
+/**
+ * Text PostgreSQL can hold exactly as it was sent.
+ *
+ * A NUL character is refused outright: the statement fails as an invalid byte
+ * sequence (#36). An unpaired surrogate is not refused but changed: UTF-8
+ * cannot carry one, so the driver sends U+FFFD in its place, and a filter for
+ * `"\uD800"` would match an area that really holds U+FFFD, a different value
+ * from the one it was given (#161).
+ *
+ * This repeats `storable` in the server's `database/new-records.ts`, the rule
+ * every area has to meet before it is written, so the filter refuses exactly
+ * the areas no check can have. It is repeated rather than shared because this
+ * package holds the filter language and nothing else, and that rule covers
+ * every text field the server writes. The server's
+ * `database/storable-text.test.ts` holds the two copies to the same answers.
+ */
+function storable(text: string): boolean {
+  return !text.includes('\u0000') && !unpairedSurrogate.test(text);
+}
+
 const areaText = z
   .string()
   .refine(
-    (text) => !text.includes('\u0000'),
-    'An area cannot contain a NUL character.',
+    storable,
+    'An area cannot contain a NUL character or an unpaired surrogate.',
   );
 
 const areaCondition = z.strictObject({

@@ -533,6 +533,62 @@ for (const [name, condition, path] of failedInsidePostgres) {
 }
 
 /**
+ * Half of a character in an area (#161). It is not among the four above,
+ * because PostgreSQL does not refuse it: UTF-8 cannot carry it, so the driver
+ * sends U+FFFD in its place, and the filter used to match an area that really
+ * holds U+FFFD, a different value from the one it was given.
+ */
+const halfACharacter: Condition = { field: 'area', op: 'is', value: '\uD800' };
+
+/**
+ * What the refusal below prevents. Handed straight to the query the API runs,
+ * so that the validator cannot refuse it first, the value selects the one
+ * check whose area is U+FFFD. None of the seeded checks has that area, so a
+ * query that compared the value as sent would select nothing.
+ */
+it('selects the check whose area is U+FFFD for an unpaired surrogate handed straight to the query', async () => {
+  const client = database.client();
+  const { asOf } = await seedWorkspace(client);
+  await client.query(
+    `INSERT INTO checks (name, area, protects, how_to_tell_armed)
+     VALUES ('Replacement character', $1, 'Nothing', 'Nothing')`,
+    ['�'],
+  );
+
+  const listing = await listChecks(client, oneCondition(halfACharacter), asOf);
+
+  expect(listing.checks.map((check) => check.name)).toStrictEqual([
+    'Replacement character',
+  ]);
+});
+
+it('refuses an unpaired surrogate in an area at groups[0].conditions[0].value, and sends no statement', async () => {
+  const server = await seededServer();
+
+  const control = await statementsSent(async () => {
+    await query(server, listOnly, { filter: unprovenOrStaleInCI });
+  });
+  expect(control).toBe(1);
+
+  let refusal: unknown;
+  const sent = await statementsSent(async () => {
+    const { body } = await post(server, listOnly, {
+      filter: oneCondition(halfACharacter),
+    });
+    refusal = body.errors?.[0]?.extensions?.errors;
+  });
+
+  expect(sent).toBe(0);
+  expect(refusal).toStrictEqual([
+    {
+      path: 'groups[0].conditions[0].value',
+      message:
+        'An area cannot contain a NUL character or an unpaired surrogate.',
+    },
+  ]);
+});
+
+/**
  * The two bounds held against PostgreSQL itself rather than restated, for
  * each operator that takes one.
  *

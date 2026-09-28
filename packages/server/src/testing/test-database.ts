@@ -1,7 +1,7 @@
 import { Client } from 'pg';
 import { afterAll, beforeAll, beforeEach } from 'vitest';
 
-import { loadDatabaseConfig } from '../config.ts';
+import { type Environment, loadDatabaseConfig } from '../config.ts';
 import { quoteIdentifier } from '../database/identifiers.ts';
 import { applyMigrations, migrationsTable } from '../database/migrations.ts';
 
@@ -41,6 +41,24 @@ export async function truncateAllTables(client: Client): Promise<void> {
   await client.query(`TRUNCATE TABLE ${names} RESTART IDENTITY CASCADE`);
 }
 
+/**
+ * A connection to the test database, with its migrations applied.
+ *
+ * The URL is read through `loadDatabaseConfig`, which refuses a test database
+ * that is also the development one before anything connects, so the truncation
+ * between tests cannot reach development data (#156). The environment is a
+ * parameter so that a test can hand it a configuration it has to refuse.
+ */
+export async function openTestDatabase(
+  environment: Environment = process.env,
+): Promise<Client> {
+  const { testDatabaseUrl } = loadDatabaseConfig(environment);
+  await migrateOnce(testDatabaseUrl);
+  const connection = new Client({ connectionString: testDatabaseUrl });
+  await connection.connect();
+  return connection;
+}
+
 export interface TestDatabase {
   /** The connected client. Only callable from inside a test. */
   client: () => Client;
@@ -67,11 +85,7 @@ export function useTestDatabase(): TestDatabase {
   }
 
   beforeAll(async () => {
-    const { testDatabaseUrl } = loadDatabaseConfig();
-    await migrateOnce(testDatabaseUrl);
-    const connection = new Client({ connectionString: testDatabaseUrl });
-    await connection.connect();
-    open = connection;
+    open = await openTestDatabase();
   });
 
   beforeEach(async () => {
