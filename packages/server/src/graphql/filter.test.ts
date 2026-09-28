@@ -1,11 +1,19 @@
 import { readFileSync } from 'node:fs';
 
-import { parseFilter, parseFilterString } from '@seen-to-fail/filter';
+import {
+  MAX_DAYS,
+  MAX_RUN_COUNT,
+  parseFilter,
+  parseFilterString,
+} from '@seen-to-fail/filter';
+import type { Condition, Filter } from '@seen-to-fail/filter';
 import { expect, it, vi } from 'vitest';
 
+import { listChecks } from '../database/checks.ts';
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
 import { post, query } from '../testing/graphql.ts';
 import type { Variables } from '../testing/graphql.ts';
+import { sqlStates } from '../testing/rejections.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { createGraphQLServer } from './server.ts';
 
@@ -331,13 +339,20 @@ it('refuses an invalid filter with the path to every bad node', async () => {
 });
 
 /**
+ * The list alone, for the tests that count statements. The status tiles are a
+ * query of their own that runs whatever the filter says, so asking for them
+ * would count a statement that has nothing to do with the filter.
+ */
+const listOnly = `
+  query ListOnly($filter: FilterInput) {
+    checks(filter: $filter) { matching }
+  }
+`;
+
+/**
  * The acceptance test for the edge: a filter that is refused issues no query
  * at all. Counted on the connection the server was handed, as the batching
  * tests count, so what is measured is statements that reached PostgreSQL.
- *
- * The document asks for the list alone. The status tiles are a query of their
- * own that runs whatever the filter says, so asking for them here would count a
- * statement that has nothing to do with the filter.
  *
  * The first request is the positive control. A valid filter through the same
  * spy counts one statement, so a count of zero below means nothing was sent
@@ -346,12 +361,6 @@ it('refuses an invalid filter with the path to every bad node', async () => {
 it('never reaches the database with a filter it refuses', async () => {
   const server = await seededServer();
   const client = database.client();
-
-  const listOnly = `
-    query ListOnly($filter: FilterInput) {
-      checks(filter: $filter) { matching }
-    }
-  `;
 
   const refused: unknown[] = [
     'all',
@@ -437,4 +446,137 @@ it('compares an area that looks like SQL as text and nothing more', async () => 
   }
 
   expect(namesOf(await listUnder(server, null))).toStrictEqual(everyCheck);
+});
+
+/** A filter of one condition, in one group. */
+function oneCondition(condition: Condition): Filter {
+  return {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [{ joiner: 'and', conditions: [condition] }],
+  };
+}
+
+/**
+ * How many statements a request sent, counted on the connection the server
+ * was handed, as the acceptance test above counts them.
+ */
+async function statementsSent(send: () => Promise<void>): Promise<number> {
+  const watched = vi.spyOn(database.client(), 'query');
+  try {
+    await send();
+    return watched.mock.calls.length;
+  } finally {
+    watched.mockRestore();
+  }
+}
+
+/**
+ * The four filters #36 found failing inside PostgreSQL, where the API could
+ * only answer with a masked error and no path. Each is now refused at the edge
+ * in the validator's own words, and no statement is sent. The first request in
+ * each test is the positive control for the count, as in the acceptance test.
+ *
+ * The first day count is the one measured as of 2026-09-15, when it was the
+ * first that failed. That limit moves with the as-of day, which is why the
+ * bound is set for the earliest as-of day instead; the test after these holds
+ * it there.
+ */
+const failedInsidePostgres: readonly (readonly [string, Condition, string])[] =
+  [
+    [
+      'a day count of 2461300',
+      { field: 'lastCaught', op: 'before', days: 2_461_300 },
+      'groups[0].conditions[0].days',
+    ],
+    [
+      'a day count past the largest integer',
+      { field: 'lastCaught', op: 'before', days: 2_147_483_648 },
+      'groups[0].conditions[0].days',
+    ],
+    [
+      'a run count of the largest safe integer',
+      { field: 'runs', op: 'moreThan', count: Number.MAX_SAFE_INTEGER },
+      'groups[0].conditions[0].count',
+    ],
+    [
+      'an area holding a NUL character',
+      { field: 'area', op: 'is', value: 'C\u0000I' },
+      'groups[0].conditions[0].value',
+    ],
+  ];
+
+for (const [name, condition, path] of failedInsidePostgres) {
+  it(`refuses ${name} at ${path}, and sends no statement`, async () => {
+    const server = await seededServer();
+    const filter = oneCondition(condition);
+
+    const control = await statementsSent(async () => {
+      await query(server, listOnly, { filter: unprovenOrStaleInCI });
+    });
+    expect(control).toBe(1);
+
+    let refusal: unknown;
+    const sent = await statementsSent(async () => {
+      const { body } = await post(server, listOnly, { filter });
+      refusal = body.errors?.[0]?.extensions?.errors;
+    });
+
+    expect(sent).toBe(0);
+    const validated = parseFilter(filter);
+    if (validated.ok) {
+      throw new Error(`The validator accepted ${name}.`);
+    }
+    expect(validated.errors.map((issue) => issue.path)).toStrictEqual([path]);
+    expect(refusal).toStrictEqual(validated.errors);
+  });
+}
+
+/**
+ * The two bounds held against PostgreSQL itself rather than restated.
+ *
+ * The earliest as-of day the server admits is 0001-01-01. The largest day count
+ * is the most days that reach back from it to the first date PostgreSQL holds,
+ * and the arithmetic is beside the rule in the filter package's `schema.ts`.
+ * The largest run count is the largest `integer`, the type of the column it is
+ * compared with.
+ *
+ * As of that day, each largest value is answered through the API. One more,
+ * handed straight to the query the API runs so that the validator cannot
+ * refuse it first, is refused by PostgreSQL. So each bound is exactly what the
+ * statement holds: one higher and a filter fails inside the query again, one
+ * lower and the validator refuses a value the query can run.
+ */
+it('answers the largest day and run counts as of the earliest day, and PostgreSQL refuses one more', async () => {
+  const client = database.client();
+  await seedWorkspace(client);
+  const earliestDay = '0001-01-01';
+  const server = createGraphQLServer({ database: client, asOf: earliestDay });
+
+  const largest: readonly Condition[] = [
+    { field: 'lastCaught', op: 'before', days: MAX_DAYS },
+    { field: 'lastCaught', op: 'after', days: MAX_DAYS },
+    { field: 'runs', op: 'moreThan', count: MAX_RUN_COUNT },
+    { field: 'runs', op: 'fewerThan', count: MAX_RUN_COUNT },
+  ];
+  for (const condition of largest) {
+    await expect(
+      query(server, listOnly, { filter: oneCondition(condition) }),
+    ).resolves.toHaveProperty('checks.matching');
+  }
+
+  await expect(
+    listChecks(
+      client,
+      oneCondition({ field: 'lastCaught', op: 'before', days: MAX_DAYS + 1 }),
+      earliestDay,
+    ),
+  ).rejects.toMatchObject({ code: sqlStates.datetimeFieldOverflow });
+  await expect(
+    listChecks(
+      client,
+      oneCondition({ field: 'runs', op: 'moreThan', count: MAX_RUN_COUNT + 1 }),
+      earliestDay,
+    ),
+  ).rejects.toMatchObject({ code: sqlStates.numericValueOutOfRange });
 });

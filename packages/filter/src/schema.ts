@@ -3,7 +3,9 @@ import { z } from 'zod';
 import {
   JOINERS,
   MAX_CONDITIONS_PER_GROUP,
+  MAX_DAYS,
   MAX_GROUPS,
+  MAX_RUN_COUNT,
   STATUSES,
 } from './types.ts';
 
@@ -15,15 +17,51 @@ import {
  * rather than a silently dropped field. Every union is discriminated, so a bad
  * node is reported at its own path instead of as a wall of near misses from
  * each alternative in turn.
+ *
+ * A filter this accepts has to be one the compiled SQL can run, not only one
+ * that is well formed. A value PostgreSQL refuses fails inside the query, where
+ * the API can only answer with a masked error and no path, so each value is
+ * bounded here to what the statement can hold (#36).
  */
 
+/**
+ * A day count is compiled as the as-of day minus the count, a date minus an
+ * integer, so the largest count is the one that still lands on a date
+ * PostgreSQL holds.
+ *
+ * The earliest date PostgreSQL holds is 4714-11-24 BC, the day its Julian day
+ * numbers count from. The earliest day the server admits is 0001-01-01: its
+ * `isRealDay`, the rule behind the Date scalar, refuses anything before it. So
+ * the earliest as-of day is 0001-01-01, which is Julian day 1,721,426, and
+ * 0001-01-01 minus 1,721,426 days is 4714-11-24 BC, while one day more is out
+ * of range. A later as-of day only moves the result later, so the same cap
+ * holds for every as-of day there is. Nothing can overflow the other end,
+ * because no count is negative and so the result is never later than the as-of
+ * day itself.
+ *
+ * The cap has to hold for every as-of day rather than for today, because the
+ * limit moves with the day: as of 2026-09-15 the query failed from 2,461,300
+ * days, which is that day's Julian number plus one. The cap is also far inside
+ * the `integer` the count is cast to.
+ */
 const dayCount = z
   .int('A day count must be a whole number of days.')
-  .min(0, 'A day count cannot be negative.');
+  .min(0, 'A day count cannot be negative.')
+  .max(MAX_DAYS, `A day count cannot be more than ${String(MAX_DAYS)}.`);
 
+/**
+ * A run count is compared with `run_count`, an `integer` column of
+ * `check_summaries`. PostgreSQL types the placeholder from the column it is
+ * compared with, so a count past the largest `integer` is refused as out of
+ * range before any row is compared. The cap is that largest `integer`.
+ */
 const runCount = z
   .int('A run count must be a whole number of runs.')
-  .min(0, 'A run count cannot be negative.');
+  .min(0, 'A run count cannot be negative.')
+  .max(
+    MAX_RUN_COUNT,
+    `A run count cannot be more than ${String(MAX_RUN_COUNT)}.`,
+  );
 
 const statusCondition = z.strictObject({
   field: z.literal('status'),
@@ -31,10 +69,23 @@ const statusCondition = z.strictObject({
   value: z.enum(STATUSES),
 });
 
+/**
+ * An area is compared with a `text` column, and PostgreSQL text cannot hold the
+ * NUL character: the statement is refused as an invalid byte sequence. It is
+ * the only character PostgreSQL refuses in text, so it is the only one refused
+ * here.
+ */
+const areaText = z
+  .string()
+  .refine(
+    (text) => !text.includes('\u0000'),
+    'An area cannot contain a NUL character.',
+  );
+
 const areaCondition = z.strictObject({
   field: z.literal('area'),
   op: z.enum(['is', 'isNot']),
-  value: z.string(),
+  value: areaText,
 });
 
 /**
@@ -92,25 +143,66 @@ function nonEmpty<T>(values: readonly T[], what: string): readonly [T, ...T[]] {
   return [first, ...rest];
 }
 
-const conditions = z
-  .array(condition)
-  .min(1, 'A group needs at least one condition.')
-  .max(
-    MAX_CONDITIONS_PER_GROUP,
-    `A group takes at most ${String(MAX_CONDITIONS_PER_GROUP)} conditions.`,
-  )
-  .transform((parsed) => nonEmpty(parsed, 'conditions'));
+/**
+ * A list's bounds and messages, and the name `nonEmpty` gives it if the
+ * minimum is ever removed.
+ */
+interface ListBounds {
+  readonly what: string;
+  readonly max: number;
+  readonly tooFew: string;
+  readonly tooMany: string;
+}
+
+/**
+ * A non-empty list of at most `max` elements, refused on its length before any
+ * element is validated (#38).
+ *
+ * `z.array(element).max(n)` validates every element first and measures the
+ * length after, so the size of the input decided both the work done and the
+ * size of the refusal: 100,000 bad conditions came back as 100,001 issues, and
+ * about 200,000 overflowed zod's call stack instead of being refused at all.
+ * Here the length is read first, off the input as it arrived, and the pipe
+ * stops at that one refusal, so a list over its cap costs the same to refuse
+ * whatever it holds. It reports at the list's own path, as the old check did.
+ *
+ * Anything that is not an array passes the length check untouched, so the
+ * array schema after it still reports it as not being an array, at the same
+ * path. The array schema has no maximum of its own, because nothing longer can
+ * reach it.
+ */
+function boundedList<Element extends z.ZodType>(
+  element: Element,
+  bounds: ListBounds,
+) {
+  return z
+    .unknown()
+    .refine(
+      (value) => !Array.isArray(value) || value.length <= bounds.max,
+      bounds.tooMany,
+    )
+    .pipe(z.array(element).min(1, bounds.tooFew))
+    .transform((parsed) => nonEmpty(parsed, bounds.what));
+}
+
+const conditions = boundedList(condition, {
+  what: 'conditions',
+  max: MAX_CONDITIONS_PER_GROUP,
+  tooFew: 'A group needs at least one condition.',
+  tooMany: `A group takes at most ${String(MAX_CONDITIONS_PER_GROUP)} conditions.`,
+});
 
 const group = z.strictObject({
   joiner: z.enum(JOINERS),
   conditions,
 });
 
-const groups = z
-  .array(group)
-  .min(1, 'A filter with groups needs at least one group.')
-  .max(MAX_GROUPS, `A filter takes at most ${String(MAX_GROUPS)} groups.`)
-  .transform((parsed) => nonEmpty(parsed, 'groups'));
+const groups = boundedList(group, {
+  what: 'groups',
+  max: MAX_GROUPS,
+  tooFew: 'A filter with groups needs at least one group.',
+  tooMany: `A filter takes at most ${String(MAX_GROUPS)} groups.`,
+});
 
 /**
  * The schema `parseFilter` runs. Exported so that the API layer can reuse this

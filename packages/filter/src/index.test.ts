@@ -5,7 +5,9 @@ import {
   filterSchema,
   JOINERS,
   MAX_CONDITIONS_PER_GROUP,
+  MAX_DAYS,
   MAX_GROUPS,
+  MAX_RUN_COUNT,
   packageName,
   parseFilter,
   STATUSES,
@@ -34,6 +36,8 @@ it('exports the rest of the language through the package entry point', () => {
   expect(JOINERS).toEqual(['and', 'or']);
   expect(MAX_GROUPS).toBe(10);
   expect(MAX_CONDITIONS_PER_GROUP).toBe(10);
+  expect(MAX_DAYS).toBe(1_721_426);
+  expect(MAX_RUN_COUNT).toBe(2_147_483_647);
   expect(filterSchema.safeParse(emptyFilter).success).toBe(true);
 });
 
