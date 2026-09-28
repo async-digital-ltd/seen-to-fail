@@ -40,6 +40,23 @@ named so that a test can assert which rule fired rather than that something
 did; a test that only asserts "the insert failed" passes just as well when an
 unrelated rule fired instead.
 
+The suite enforces two parts of that, reading every CHECK constraint from
+`pg_constraint` when it runs rather than from a list, so a constraint added
+here is held to them the moment it exists:
+
+- **It must have a refusal test.** Declare one with `refusalTest` in
+  `src/database/schema.test.ts`, which takes the constraint's name, records it
+  where the registry test reads it, and asserts the refusal came from that
+  name. A CHECK constraint with none fails the suite.
+- **It must never evaluate to null.** A probe evaluates each constraint's own
+  expression on rows whose nullable columns are null and whose enum columns
+  take every label the enum has, and fails on any row it answers null. That
+  catches both shapes above, including the `CASE` that only goes wrong when a
+  label is added after it.
+
+The row the constraint should accept is still yours to insert beside the
+refusal: nothing counts those.
+
 A guard nobody has watched deny anything is a guard nobody knows the state of,
 which is the whole of what this repository is about.
 

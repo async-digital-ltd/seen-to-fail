@@ -1,5 +1,11 @@
 import { expect, it } from 'vitest';
 
+import {
+  checkConstraintNames,
+  constraintsWithARefusalTest,
+  nullVerdicts,
+  refusalTest,
+} from '../testing/check-constraints.ts';
 import { rejectionOf, sqlStates } from '../testing/rejections.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 
@@ -13,6 +19,13 @@ import { useTestDatabase } from '../testing/test-database.ts';
  * paired with ones that insert the nearest acceptable row: a constraint that
  * has started refusing everything is as broken as one that has stopped refusing
  * anything, and only the pair can tell them apart.
+ *
+ * A CHECK constraint's refusal tests are declared with refusalTest, which takes
+ * the constraint's name, and the two tests at the end of this file read every
+ * CHECK constraint from the catalog. One fails when a constraint has no refusal
+ * test here; the other fails when a constraint evaluates to null on a probe row
+ * built from its own columns. So a CHECK constraint added in a migration needs
+ * its refusal test in this file.
  *
  * The dates come from the database rather than from this process, so a run just
  * after midnight compares the same two clocks the constraint does.
@@ -115,35 +128,33 @@ it('accepts two checks with different names', async () => {
 
 // Both forms are the same emptiness to a reader, and only the second one needs
 // btrim to be caught at all.
-it.each([
+for (const { form, name } of [
   { form: 'empty', name: '' },
   { form: 'nothing but spaces', name: '   ' },
-])('refuses a check whose name is $form', async ({ name }) => {
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO checks (name, area, protects, how_to_tell_armed)
-     VALUES ($1, 'Continuous integration', '', '')`,
-    [name],
+]) {
+  refusalTest(
+    'checks_name_not_empty',
+    `refuses a check whose name is ${form}`,
+    () =>
+      rejectionOf(
+        database.client(),
+        `INSERT INTO checks (name, area, protects, how_to_tell_armed)
+         VALUES ($1, 'Continuous integration', '', '')`,
+        [name],
+      ),
   );
+}
 
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'checks_name_not_empty',
-  });
-});
-
-it('refuses a check whose area is blank', async () => {
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO checks (name, area, protects, how_to_tell_armed)
-     VALUES ('Formatting check', '   ', '', '')`,
-  );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'checks_area_not_empty',
-  });
-});
+refusalTest(
+  'checks_area_not_empty',
+  'refuses a check whose area is blank',
+  () =>
+    rejectionOf(
+      database.client(),
+      `INSERT INTO checks (name, area, protects, how_to_tell_armed)
+       VALUES ('Formatting check', '   ', '', '')`,
+    ),
+);
 
 it('refuses a test run against a check that does not exist', async () => {
   const refused = await rejectionOf(
@@ -193,22 +204,18 @@ it('accepts both outcomes that settle something', async () => {
   expect(await count('test_runs')).toBe(2);
 });
 
-it('refuses a test run dated after the day it was recorded', async () => {
-  const checkId = await insertCheck();
-
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO test_runs ${runColumns}
-     VALUES ($1, ${today} + 1, 'A removed semicolon', 'The job fails',
-             'caught', 'hand')`,
-    [checkId],
-  );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'test_runs_run_on_not_in_the_future',
-  });
-});
+refusalTest(
+  'test_runs_run_on_not_in_the_future',
+  'refuses a test run dated after the day it was recorded',
+  async () =>
+    rejectionOf(
+      database.client(),
+      `INSERT INTO test_runs ${runColumns}
+       VALUES ($1, ${today} + 1, 'A removed semicolon', 'The job fails',
+               'caught', 'hand')`,
+      [await insertCheck()],
+    ),
+);
 
 it('accepts a test run dated today and one dated well in the past', async () => {
   const checkId = await insertCheck();
@@ -238,21 +245,17 @@ it('refuses an arming observation against a check that does not exist', async ()
   });
 });
 
-it('refuses an arming observation dated after the day it was recorded', async () => {
-  const checkId = await insertCheck();
-
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO arming_observations (check_id, observed_on, armed)
-     VALUES ($1, ${today} + 1, true)`,
-    [checkId],
-  );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'arming_observations_observed_on_not_in_the_future',
-  });
-});
+refusalTest(
+  'arming_observations_observed_on_not_in_the_future',
+  'refuses an arming observation dated after the day it was recorded',
+  async () =>
+    rejectionOf(
+      database.client(),
+      `INSERT INTO arming_observations (check_id, observed_on, armed)
+       VALUES ($1, ${today} + 1, true)`,
+      [await insertCheck()],
+    ),
+);
 
 it('accepts an arming observation dated today and one dated earlier', async () => {
   const checkId = await insertCheck();
@@ -308,17 +311,15 @@ it('refuses a second saved filter with the same name', async () => {
   });
 });
 
-it('refuses a saved filter whose name is blank', async () => {
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO saved_filters (name, filter) VALUES ('   ', '{}')`,
-  );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'saved_filters_name_not_empty',
-  });
-});
+refusalTest(
+  'saved_filters_name_not_empty',
+  'refuses a saved filter whose name is blank',
+  () =>
+    rejectionOf(
+      database.client(),
+      `INSERT INTO saved_filters (name, filter) VALUES ('   ', '{}')`,
+    ),
+);
 
 it('refuses a saved filter whose filter is not JSON', async () => {
   const refused = await rejectionOf(
@@ -350,7 +351,7 @@ it('deletes a check together with its runs and its observations', async () => {
  * of accepting statements underneath is what tells a constraint that refuses
  * everything apart from one that refuses the right things.
  */
-it.each([
+for (const [description, evidence] of [
   [
     'a replay with no commit',
     `'replay', NULL, 'https://ci.example.com/runs/91'`,
@@ -367,24 +368,22 @@ it.each([
     'a run typed in by hand carrying a run link',
     `'hand', NULL, 'https://ci.example.com/runs/91'`,
   ],
-])('refuses %s', async (_description, evidence) => {
-  const checkId = await insertCheck();
-
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO test_runs
-       (check_id, run_on, planted, expected, outcome,
-        source, source_commit, source_run_url)
-     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
-             ${evidence})`,
-    [checkId],
+] as const) {
+  refusalTest(
+    'test_runs_source_carries_its_evidence',
+    `refuses ${description}`,
+    async () =>
+      rejectionOf(
+        database.client(),
+        `INSERT INTO test_runs
+           (check_id, run_on, planted, expected, outcome,
+            source, source_commit, source_run_url)
+         VALUES ($1, ${today}, 'A removed semicolon', 'The job fails',
+                 'caught', ${evidence})`,
+        [await insertCheck()],
+      ),
   );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'test_runs_source_carries_its_evidence',
-  });
-});
+}
 
 it('accepts a hand run with nothing beside it and a replay with both', async () => {
   const checkId = await insertCheck();
@@ -413,7 +412,7 @@ it('accepts a hand run with nothing beside it and a replay with both', async () 
  * nothing about why. It was seen to accept exactly that row before the IS NOT
  * NULL was written beside it.
  */
-it.each([
+for (const [description, values] of [
   ['a run that settled nothing with no reason', `'inconclusive', NULL`],
   ['a run that settled nothing with a blank reason', `'inconclusive', ''`],
   [
@@ -422,24 +421,22 @@ it.each([
   ],
   ['a caught run carrying a reason', `'caught', 'the anchor is gone'`],
   ['a missed run carrying a reason', `'missed', 'the anchor is gone'`],
-])('refuses %s', async (_description, values) => {
-  const checkId = await insertCheck();
-
-  const refused = await rejectionOf(
-    database.client(),
-    `INSERT INTO test_runs
-       (check_id, run_on, planted, expected, outcome, inconclusive_reason,
-        source)
-     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', ${values},
-             'hand')`,
-    [checkId],
+] as const) {
+  refusalTest(
+    'test_runs_inconclusive_carries_its_reason',
+    `refuses ${description}`,
+    async () =>
+      rejectionOf(
+        database.client(),
+        `INSERT INTO test_runs
+           (check_id, run_on, planted, expected, outcome, inconclusive_reason,
+            source)
+         VALUES ($1, ${today}, 'A removed semicolon', 'The job fails',
+                 ${values}, 'hand')`,
+        [await insertCheck()],
+      ),
   );
-
-  expect(refused).toEqual({
-    code: sqlStates.checkViolation,
-    constraint: 'test_runs_inconclusive_carries_its_reason',
-  });
-});
+}
 
 /**
  * The other half of the pair. A constraint that has started refusing
@@ -504,4 +501,44 @@ it('reads back a run written as typed in as typed in', async () => {
     .query<{ source: string }>('SELECT source FROM test_runs');
 
   expect(rows.rows.map((row) => row.source)).toEqual(['hand']);
+});
+
+/**
+ * The registry: every CHECK constraint the catalog lists has a refusal test
+ * declared above, and every refusal test declared above names a constraint the
+ * catalog lists.
+ *
+ * The first half is the one that matters. A constraint added in a migration
+ * with no refusal test fails here, because nothing has ever been seen to make
+ * it refuse anything. The second half keeps the first honest: it is what fails
+ * if the catalog read finds nothing, which would otherwise leave every
+ * constraint looking covered.
+ */
+it('has a refusal test for every CHECK constraint in the schema, and none for a constraint it lacks', async () => {
+  const inSchema = await checkConstraintNames(database.client());
+  const covered = constraintsWithARefusalTest();
+
+  expect(inSchema.filter((name) => !covered.includes(name))).toEqual([]);
+  expect(covered.filter((name) => !inSchema.includes(name))).toEqual([]);
+});
+
+/**
+ * The null probe: every CHECK constraint the catalog lists is probed, and none
+ * of them evaluates to null on any of its probe rows.
+ *
+ * This fails on a constraint that is written wrong, where the registry fails on
+ * one that is never exercised. A constraint can have refusal tests that all
+ * pass and still be vacuous for a row nobody planted: a CASE with no ELSE
+ * refuses every row its tests plant, and accepts anything carrying an enum
+ * label added after it was written. The probe gives every enum column every
+ * label the enum has at the time the suite runs, so that label is probed the
+ * day it is added.
+ */
+it('evaluates every CHECK constraint to true or false, never null, on its probe rows', async () => {
+  const verdicts = await nullVerdicts(database.client());
+
+  expect(verdicts.map((verdict) => verdict.constraint)).toEqual(
+    await checkConstraintNames(database.client()),
+  );
+  expect(verdicts.filter((verdict) => verdict.nullOn.length > 0)).toEqual([]);
 });
