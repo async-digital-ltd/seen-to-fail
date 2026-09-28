@@ -1,9 +1,9 @@
 # Writing a migration
 
 Numbered plain SQL, applied in filename order, each file in one transaction.
-Read the most recent one for the house style. This file holds the one thing
-that style cannot show you, because it is about what is missing rather than
-about what is there.
+Read the most recent one for the house style. This file holds two things that
+style cannot show you, because each is about what is missing rather than about
+what is there.
 
 ## A CHECK constraint passes on NULL
 
@@ -42,3 +42,24 @@ unrelated rule fired instead.
 
 A guard nobody has watched deny anything is a guard nobody knows the state of,
 which is the whole of what this repository is about.
+
+## An edit to an applied migration does not reach the database
+
+The runner records each file it applies by name in `schema_migrations` and
+skips any name it has already recorded. Edit a migration that a database has
+already applied and `pnpm db:migrate` applies nothing and exits 0. The test
+suite migrates the same way, so it runs against the schema from before the
+edit and says nothing about it.
+
+That is harmless for ordinary work and dangerous for a plant. A defect planted
+in an applied migration never reaches the database, and the suite passing reads
+as the guard surviving the plant. So after editing an applied migration, and
+again after putting it back:
+
+```sh
+pnpm db:test:reset
+```
+
+It drops the test database, creates it again and reapplies every migration,
+the edited one included. `pnpm db:reset` does the same for the development
+database and leaves the test database alone.

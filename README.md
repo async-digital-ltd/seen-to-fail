@@ -242,10 +242,13 @@ runner applies them in filename order and records each one in a
 `schema_migrations` table, so running `pnpm db:migrate` again applies nothing
 and says so. `pnpm db:reset` drops the development database, creates it again
 empty and reapplies every migration. It leaves the test database alone.
+`pnpm db:test:reset` does the same to the test database and nothing else, which
+is how an edit to a migration that has already been applied reaches the
+database the tests run against.
 `packages/server/migrations/README.md` is worth reading before writing one: it
 holds the trap this schema has fallen into twice, which is that a check
 constraint passes on null and is therefore vacuous for exactly the rows it
-exists to refuse.
+exists to refuse, and says when to run `pnpm db:test:reset`.
 
 ```sh
 pnpm db:seed

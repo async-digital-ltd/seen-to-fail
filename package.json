@@ -23,6 +23,7 @@
     "db:down": "bash scripts/db-down.sh",
     "db:migrate": "node packages/server/src/scripts/migrate.ts",
     "db:reset": "node packages/server/src/scripts/reset.ts",
+    "db:test:reset": "node packages/server/src/scripts/reset-test-database.ts",
     "db:seed": "node packages/server/src/scripts/seed.ts",
     "ledger:validate": "node packages/server/src/scripts/validate-ledger.ts",
     "ledger:record": "node packages/server/src/scripts/record-run.ts",
