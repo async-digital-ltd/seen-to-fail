@@ -1,9 +1,11 @@
 import { expect, it } from 'vitest';
 
-import { parseFilter } from './parse.ts';
+import { parseFilter, type FilterIssue } from './parse.ts';
 import {
   MAX_CONDITIONS_PER_GROUP,
+  MAX_DAYS,
   MAX_GROUPS,
+  MAX_RUN_COUNT,
   type Condition,
   type Filter,
 } from './types.ts';
@@ -72,6 +74,14 @@ const validConditions: readonly (readonly [string, Condition])[] = [
   ['a day count of zero', { field: 'lastCaught', op: 'after', days: 0 }],
   ['more runs than a count', { field: 'runs', op: 'moreThan', count: 5 }],
   ['fewer runs than a count', { field: 'runs', op: 'fewerThan', count: 2 }],
+  [
+    'the largest day count',
+    { field: 'lastCaught', op: 'before', days: MAX_DAYS },
+  ],
+  [
+    'the largest run count',
+    { field: 'runs', op: 'fewerThan', count: MAX_RUN_COUNT },
+  ],
 ];
 
 for (const [name, condition] of validConditions) {
@@ -306,4 +316,122 @@ it('says what the rule was, not only where it broke', () => {
     path: 'groups[0].conditions',
     message: 'A group needs at least one condition.',
   });
+});
+
+/**
+ * The values the compiled SQL cannot hold (#36), one row per bound, each with
+ * the one issue it reports. Past these, the filter used to be accepted here and
+ * fail inside PostgreSQL, where the API can only answer with a masked error, so
+ * the path and the message are the whole of what a client learns. Why each
+ * bound is the number it is lives beside the rule in `schema.ts`, and the
+ * server's filter tests hold the numbers against PostgreSQL itself.
+ */
+const bounds: readonly (readonly [string, unknown, FilterIssue])[] = [
+  [
+    'a day count one past the largest',
+    groupedFilter({ field: 'lastCaught', op: 'after', days: MAX_DAYS + 1 }),
+    {
+      path: 'groups[0].conditions[0].days',
+      message: 'A day count cannot be more than 1721426.',
+    },
+  ],
+  [
+    'a run count one past the largest',
+    groupedFilter({ field: 'runs', op: 'moreThan', count: MAX_RUN_COUNT + 1 }),
+    {
+      path: 'groups[0].conditions[0].count',
+      message: 'A run count cannot be more than 2147483647.',
+    },
+  ],
+  [
+    'an area holding a NUL character',
+    groupedFilter({ field: 'area', op: 'is', value: 'C\u0000I' }),
+    {
+      path: 'groups[0].conditions[0].value',
+      message: 'An area cannot contain a NUL character.',
+    },
+  ],
+];
+
+for (const [name, input, issue] of bounds) {
+  it(`refuses ${name}, with one issue at ${issue.path}`, () => {
+    expect(parseFilter(input)).toStrictEqual({ ok: false, errors: [issue] });
+  });
+}
+
+/**
+ * A list over its cap is refused on its length alone (#38).
+ *
+ * The length used to be checked only after every element had been validated,
+ * so 100,000 bad conditions came back as 100,001 issues and about 200,000
+ * overflowed the call stack instead of being refused. Every element below is
+ * bad, and there are more of them than either of those, so a list whose
+ * elements were validated before its length would answer with an issue per
+ * element or throw.
+ */
+const OVERSIZED = 250_000;
+
+const badCondition = { field: 'lastCaught', op: 'before', days: -1 };
+
+it('refuses a group of far more bad conditions than it takes with one issue about its size', () => {
+  const input = {
+    kind: 'groups',
+    joiner: 'and',
+    groups: [{ joiner: 'and', conditions: repeat(OVERSIZED, badCondition) }],
+  };
+
+  expect(parseFilter(input)).toStrictEqual({
+    ok: false,
+    errors: [
+      {
+        path: 'groups[0].conditions',
+        message: 'A group takes at most 10 conditions.',
+      },
+    ],
+  });
+});
+
+it('refuses a filter of far more bad groups than it takes with one issue about its size', () => {
+  const input = {
+    kind: 'groups',
+    joiner: 'and',
+    groups: repeat(OVERSIZED, { joiner: 'unless', conditions: [badCondition] }),
+  };
+
+  expect(parseFilter(input)).toStrictEqual({
+    ok: false,
+    errors: [{ path: 'groups', message: 'A filter takes at most 10 groups.' }],
+  });
+});
+
+/**
+ * The same rule seen from inside, at the smallest size it applies to. Each
+ * element counts the times its `field` is read, which validating it cannot
+ * avoid, since `field` is what picks the schema it is checked against. The
+ * list within its cap is the positive control: it shows a read is counted, so
+ * no reads for the list over its cap means none happened.
+ */
+it('reads no element of a list over its cap', () => {
+  let reads = 0;
+  const watched = {
+    get field() {
+      reads += 1;
+      return 'lastCaught';
+    },
+    op: 'never',
+  };
+
+  parseFilter(groupedFilter(...repeat(MAX_CONDITIONS_PER_GROUP, watched)));
+  expect(reads).toBeGreaterThan(0);
+
+  reads = 0;
+  parseFilter(groupedFilter(...repeat(MAX_CONDITIONS_PER_GROUP + 1, watched)));
+  expect(reads).toBe(0);
+
+  parseFilter({
+    kind: 'groups',
+    joiner: 'and',
+    groups: repeat(MAX_GROUPS + 1, { joiner: 'and', conditions: [watched] }),
+  });
+  expect(reads).toBe(0);
 });

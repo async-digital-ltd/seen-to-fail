@@ -249,10 +249,16 @@ const anyStatusCondition: fc.Arbitrary<StatusCondition> = fc
  * kind is what exercises the escape: it includes the grammar's own separators,
  * characters outside the basic plane, and unpaired surrogates, which are
  * strings JavaScript can hold and a link therefore has to carry.
+ *
+ * The NUL character is the one code unit left out, because an area holding it
+ * is not a filter: PostgreSQL text cannot hold it, so the schema refuses it
+ * (#36), and a link carrying one is refused rather than round-tripped.
  */
 const anyAreaText = fc.oneof(
   fc.constantFrom('ci', 'lint', 'unit tests', 'build-and-release', ''),
-  fc.string({ unit: 'binary', maxLength: 12 }),
+  fc
+    .string({ unit: 'binary', maxLength: 12 })
+    .filter((text) => !text.includes('\u0000')),
 );
 
 const anyAreaCondition: fc.Arbitrary<AreaCondition> = fc
@@ -454,4 +460,24 @@ it('refuses more groups than a filter takes', () => {
   ].join('!');
 
   expect(refusalOf(tooMany).map((issue) => issue.path)).toContain('groups');
+});
+
+/**
+ * #36 names a share link as one way to reach a value PostgreSQL cannot hold.
+ * Both links below are well formed, so the grammar hands each one on, and the
+ * refusal is the schema's, at the node at fault.
+ */
+it('refuses a link carrying a day count past the largest, or a NUL in an area', () => {
+  expect(refusalOf('and!and*lastCaught.before.99999999999')).toStrictEqual([
+    {
+      path: 'groups[0].conditions[0].days',
+      message: 'A day count cannot be more than 1721426.',
+    },
+  ]);
+  expect(refusalOf('and!and*area.is.C~0000I')).toStrictEqual([
+    {
+      path: 'groups[0].conditions[0].value',
+      message: 'An area cannot contain a NUL character.',
+    },
+  ]);
 });

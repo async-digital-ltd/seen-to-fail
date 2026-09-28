@@ -38,6 +38,20 @@ export const MAX_GROUPS = 10;
 /** A group takes at most this many conditions. */
 export const MAX_CONDITIONS_PER_GROUP = 10;
 
+/**
+ * The largest day count a `lastCaught` condition takes: the most days that can
+ * be counted back from any as-of day on or after 0001-01-01 without leaving the
+ * range of dates PostgreSQL holds. The arithmetic is beside the rule in
+ * `schema.ts`.
+ */
+export const MAX_DAYS = 1_721_426;
+
+/**
+ * The largest run count a `runs` condition takes: the largest value of the
+ * `integer` column the count is compared with.
+ */
+export const MAX_RUN_COUNT = 2_147_483_647;
+
 /** A check's status is one of the five, or is anything but that one. */
 export interface StatusCondition {
   readonly field: 'status';
