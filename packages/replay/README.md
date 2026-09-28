@@ -191,13 +191,17 @@ them now carries a plant against the command CI runs for it:
   counts nothing. The build's own comparison of the record with what it built
   is what refuses both, which is the check.
 - `ci-published-output` runs `pnpm ledger:build` and then the same
-  `scripts/check-published-output.sh` CI runs, against a build that writes a
-  script tag into the page after the page it checked. That is the one seam the
-  build cannot see: a plant in the renderer is refused by the build's own
+  `scripts/check-published-output.sh` CI runs, against two builds. The first
+  writes a script tag into the page after the page it checked. That is a seam
+  the build cannot see: a plant in the renderer is refused by the build's own
   script check before the CI step ever reads the file, so it would be a plant
   against the wrong check. What the CI step exists to do is read the output
   back off disk rather than trust the build, and the plant is a disk that
-  disagrees with the build.
+  disagrees with the build. The second, since #141, reads the commit it was
+  built from as the parent of `HEAD`. The page and the export then agree with
+  each other, so the build's own checks pass them, and only the step, which
+  reads the commit from the checkout, can see that the "Built from" lines name
+  a commit the page was not built from.
 
 The build derives every status in PostgreSQL, so the replay job now starts the
 same service container CI does and creates and migrates the databases before
@@ -210,18 +214,20 @@ or refuses, so that a check which never ran is told apart from one that ran
 and missed. The published-output script prints one on every exit for exactly
 this reason.
 
-Two plants were considered for `ci-published-output` and not declared. A build
-that writes to a directory other than the one CI reads is caught by the step's
-`test -f` lines, but its stale predecessor from the clean-tree run would still
-be sitting there for the check to read, so the plant would pass or fail on what
-the previous run left behind. And a build that reads the commit it was built
-from as the parent of `HEAD` is invisible to the step's `grep` whenever `HEAD`
-itself added a run to the ledger, because that commit is then named on the page
-as the one that recorded the run: the step's commit guard is satisfied by any
-mention of the commit, not by the "Built from" line. That is a weakness of the
-step rather than of the plant, and it is left as a finding rather than planted
-as a proof that would flip between caught and missed with the commit it ran
-against.
+Two plants were considered for `ci-published-output` when #110 declared its
+first. A build that writes to a directory other than the one CI reads is caught
+by the step's `test -f` lines, but its stale predecessor from the clean-tree run
+would still be sitting there for the check to read, so the plant would pass or
+fail on what the previous run left behind. That one is still not declared. A
+build that reads the commit it was built from as the parent of `HEAD` was
+invisible to the step's `grep` whenever `HEAD` itself added a run to the
+ledger, because that commit is then named on the page as the one that recorded
+the run: the step's commit guard was satisfied by any mention of the commit,
+not by the "Built from" line. That was a weakness of the step rather than of the
+plant, so it was recorded as #141 rather than planted as a proof that would flip
+between caught and missed with the commit it ran against. #141 made the step
+read the "Built from" lines alone, so the plant no longer flips, and it is the
+second one declared above.
 
 ## The statuses it exits with
 

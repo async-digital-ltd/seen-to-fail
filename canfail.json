@@ -64,6 +64,13 @@
           "replace": "  await writeFile(pagePath, page, 'utf8');",
           "with": "  await writeFile(pagePath, `${page}<script></script>`, 'utf8');",
           "expect": "The published page carries a script"
+        },
+        {
+          "name": "The build reads the commit it was built from as the parent of HEAD, so the page's \"Built from\" lines name a commit the page was not built from.",
+          "file": "packages/server/src/ledger/commits.ts",
+          "replace": "  return (await git(repositoryRoot, 'rev-parse', 'HEAD')).trim();",
+          "with": "  return (await git(repositoryRoot, 'rev-parse', 'HEAD~1')).trim();",
+          "expect": "The published page has a \"Built from\" line that does not name [0-9a-f]{40}"
         }
       ]
     },

@@ -4,16 +4,18 @@
 #
 # The build has already refused to publish anything that disagrees with the
 # record. These are the properties a reader can check without reading the
-# build: two files exist, the page names the commit it was built from, and it
-# carries no script, so nothing on it is worked out anywhere but at build time.
+# build: two files exist, the page's "Built from" lines name the commit it was
+# built from, and it carries no script, so nothing on it is worked out anywhere
+# but at build time.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
 # to main or to a `ci-control/` branch, and that is the check the ledger records
 # as `ci-published-output`.
-# The replay runs it too, after its own build, against the plant `canfail.json`
-# declares for that check. A copy of these lines inside `canfail.json` would be
-# a second definition of the check, free to drift from the one CI runs.
+# The replay runs it too, after its own build, against the plants
+# `canfail.json` declares for that check. A copy of these lines inside
+# `canfail.json` would be a second definition of the check, free to drift from
+# the one CI runs.
 #
 # Every refusal names what it refused, and the pass names what it read. Those
 # lines are what the replay reads as evidence that this ran at all: a check
@@ -61,9 +63,37 @@ if [ ! -f "$export_file" ]; then
   exit 1
 fi
 
-commit="$(git rev-parse HEAD | cut -c1-7)"
-if ! grep -q "$commit" "$page"; then
-  echo "The published page does not name $commit, the commit it was built from." >&2
+commit="$(git rev-parse HEAD)"
+short="${commit:0:7}"
+
+# The page states the commit it was built from on its "Built from" lines, one
+# under the headline and one in the footer. Those lines are what is read here,
+# every one of them, and nothing else on the page.
+#
+# This step used to look for the short commit anywhere on the page (#141). A
+# run recorded in the commit under test names that commit in its own row,
+# inside its `Recorded in` link, which is the normal state of a page built at a
+# commit that added a run. The search then found the commit whatever the
+# "Built from" lines said, so a page naming another commit, or none, passed.
+#
+# Each line is held to what the renderer writes for this commit: a link to its
+# full id on GitHub around its first seven characters. Both are read, because a
+# reader sees the one and follows the other. A "Built from" that does not read
+# that way is refused rather than skipped, and so is a page with none. A grep
+# that finds nothing, or cannot read the page, hands the loop no lines, and the
+# count after it refuses that.
+expected="^Built from commit <a href=\"https://github\\.com/[^\"]+/commit/${commit}\"><code>${short}</code></a>\$"
+stamps=0
+while IFS= read -r stamp; do
+  stamps=$((stamps + 1))
+  if [[ ! "$stamp" =~ $expected ]]; then
+    echo "The published page has a \"Built from\" line that does not name $commit, the commit it was built from: $stamp" >&2
+    exit 1
+  fi
+done < <(grep -o 'Built from[^,]*' "$page")
+
+if [ "$stamps" -eq 0 ]; then
+  echo "The published page has no \"Built from\" line, so it does not say which commit it was built from." >&2
   exit 1
 fi
 
