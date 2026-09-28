@@ -205,7 +205,9 @@ cp .env.example .env
 
 `.env` holds `DATABASE_URL` and `TEST_DATABASE_URL`. The server reads both
 through one config module and stops with the name of the variable if either is
-missing, so there is nothing to guess at.
+missing, so there is nothing to guess at. It also stops, naming both, if the two
+name one database, because the test database is emptied between tests and
+dropped by `pnpm db:test:reset`.
 
 ### The database
 
