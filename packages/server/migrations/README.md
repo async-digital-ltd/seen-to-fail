@@ -48,14 +48,16 @@ here is held to them the moment it exists:
   `src/database/schema.test.ts`, which takes the constraint's name, records it
   where the registry test reads it, and asserts the refusal came from that
   name. A CHECK constraint with none fails the suite.
-- **It must never evaluate to null.** A probe evaluates each constraint's own
-  expression on rows whose nullable columns are null and whose enum columns
-  take every label the enum has, and fails on any row it answers null. That
-  catches both shapes above, including the `CASE` that only goes wrong when a
-  label is added after it.
+- **It must not evaluate to null on the probe's own values.** A probe
+  evaluates each constraint's own expression on rows whose nullable columns
+  are null, whose enum columns take every label the enum has, and whose other
+  columns take a few fixed values of their type, and fails on any row it
+  answers null. That catches both shapes above, including the `CASE` that only
+  goes wrong when a label is added after it.
 
-The row the constraint should accept is still yours to insert beside the
-refusal: nothing counts those.
+Two things are still yours: inserting the row the constraint should accept
+beside the refusal, which nothing counts, and thinking about any value the
+probe does not try.
 
 A guard nobody has watched deny anything is a guard nobody knows the state of,
 which is the whole of what this repository is about.
