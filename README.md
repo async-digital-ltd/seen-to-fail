@@ -445,7 +445,10 @@ The job does seven things:
    either of them would have refused.
 7. **Pushes `replay/<run id>` and says what is waiting**, printing the
    `gh pr create` command into the run summary. It does not open the pull
-   request. A green run here means recorded and waiting for a person; it does
+   request. The printed title takes its ticket number from `TICKET`, and the
+   command will not run until that is set, so the merged commit's subject
+   names the issue the replay evidences
+   ([#116](https://github.com/async-digital-ltd/seen-to-fail/issues/116)). A green run here means recorded and waiting for a person; it does
    not mean done.
 
 **What makes a check due.** A check is replayed when either of two things
