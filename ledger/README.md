@@ -87,8 +87,10 @@ observation is held to the same two rules about its check and its day.
 Today is the day in UTC, whatever zone the machine running the command is set
 to, and it is read when the command runs, so a record that passed once goes on
 passing. A person whose own day is already ahead of UTC is refused for typing it
-until UTC catches up, which is open as
-[#40](https://github.com/async-digital-ltd/seen-to-fail/issues/40).
+until UTC catches up. That is the ruled behaviour, not a defect:
+[#40](https://github.com/async-digital-ltd/seen-to-fail/issues/40) keeps UTC as
+the one calendar, and the `Record a run` form's `run-on` input says the day is
+read in UTC.
 
 Every schema is strict: a key nobody reads is refused rather than dropped, in a
 check, a run and an observation alike, because a misspelled field silently

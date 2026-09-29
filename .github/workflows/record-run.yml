@@ -34,7 +34,7 @@ on:
         required: true
         type: string
       run-on:
-        description: The day the defect was planted, as YYYY-MM-DD.
+        description: The day the defect was planted, as YYYY-MM-DD in UTC. A day after today in UTC is refused.
         required: true
         type: string
       planted:

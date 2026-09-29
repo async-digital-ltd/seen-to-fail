@@ -170,8 +170,14 @@ const unpairedSurrogate = /\p{Surrogate}/u;
  * sequence, and an unpaired surrogate is quietly changed. Neither can be typed
  * into a form, so either one arriving is a paste or a client bug, and neither
  * should reach the database.
+ *
+ * The filter package repeats this as its rule for an area, so a filter cannot
+ * ask for an area no check can have (#161). It cannot import this, and this
+ * does not import it, because that package holds the filter language and
+ * nothing else. Exported so that `storable-text.test.ts` can hold the two
+ * copies to the same answers.
  */
-function storable(text: string): boolean {
+export function storable(text: string): boolean {
   return !text.includes('\u0000') && !unpairedSurrogate.test(text);
 }
 

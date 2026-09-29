@@ -205,7 +205,9 @@ cp .env.example .env
 
 `.env` holds `DATABASE_URL` and `TEST_DATABASE_URL`. The server reads both
 through one config module and stops with the name of the variable if either is
-missing, so there is nothing to guess at.
+missing, so there is nothing to guess at. It also stops, naming both, if the two
+name one database, because the test database is emptied between tests and
+dropped by `pnpm db:test:reset`.
 
 ### The database
 
@@ -663,8 +665,10 @@ into `ledger/`
 
 **Where it is published.** Every push to `main` builds the page, checks it, and
 serves it with GitHub Pages at
-[async-digital-ltd.github.io/seen-to-fail](https://async-digital-ltd.github.io/seen-to-fail/)
-([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76)). The job
+[seen-to-fail.async-digital.com](https://seen-to-fail.async-digital.com/)
+([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76),
+[#137](https://github.com/async-digital-ltd/seen-to-fail/issues/137)). The old
+`async-digital-ltd.github.io/seen-to-fail` address redirects there. The job
 that serves it builds nothing of its own: it deploys the directory the checks
 built and checked on the same commit, so the page served is the page that
 passed.

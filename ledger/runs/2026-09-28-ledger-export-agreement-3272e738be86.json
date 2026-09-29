@@ -1,0 +1,12 @@
+{
+  "checkId": "ledger-export-agreement",
+  "runOn": "2026-09-28",
+  "planted": "One observation dropped from the export, inside the function that builds it, so the page holds one fewer than the ledger.",
+  "expected": "The build refuses to publish, exits non-zero, and writes no files at all.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "33b5238e3063101cbe2b43e19a42e1cf26144514",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36412371539"
+}

@@ -246,19 +246,21 @@ const anyStatusCondition: fc.Arbitrary<StatusCondition> = fc
 /**
  * Area values are arbitrary text, so the generator mixes the ordinary names a
  * person would type with strings of arbitrary UTF-16 code units. The second
- * kind is what exercises the escape: it includes the grammar's own separators,
- * characters outside the basic plane, and unpaired surrogates, which are
- * strings JavaScript can hold and a link therefore has to carry.
+ * kind is what exercises the escape: it includes the grammar's own separators
+ * and characters outside the basic plane, each written as the two escapes of
+ * its surrogate pair.
  *
- * The NUL character is the one code unit left out, because an area holding it
- * is not a filter: PostgreSQL text cannot hold it, so the schema refuses it
- * (#36), and a link carrying one is refused rather than round-tripped.
+ * Two things are left out, because an area holding either is not a filter:
+ * the NUL character, which PostgreSQL text cannot hold (#36), and a surrogate
+ * on its own, which the driver would send as U+FFFD (#161). The schema refuses
+ * both, so a link carrying one is refused rather than round-tripped; the tests
+ * near the foot of this file hold that.
  */
 const anyAreaText = fc.oneof(
   fc.constantFrom('ci', 'lint', 'unit tests', 'build-and-release', ''),
   fc
     .string({ unit: 'binary', maxLength: 12 })
-    .filter((text) => !text.includes('\u0000')),
+    .filter((text) => !text.includes('\u0000') && !/\p{Surrogate}/u.test(text)),
 );
 
 const anyAreaCondition: fc.Arbitrary<AreaCondition> = fc
@@ -477,7 +479,27 @@ it('refuses a link carrying a day count past the largest, or a NUL in an area', 
   expect(refusalOf('and!and*area.is.C~0000I')).toStrictEqual([
     {
       path: 'groups[0].conditions[0].value',
-      message: 'An area cannot contain a NUL character.',
+      message:
+        'An area cannot contain a NUL character or an unpaired surrogate.',
     },
   ]);
+});
+
+/**
+ * The escape carries any code unit, so a link can spell half of a character.
+ * The grammar hands it on and the schema refuses it (#161), as it refuses the
+ * same value in a request body. A whole pair, written as its two escapes, is
+ * read back as the character it makes.
+ */
+it('refuses a link carrying half of a character in an area, and reads a whole pair', () => {
+  expect(refusalOf('and!and*area.is.C~D800I')).toStrictEqual([
+    {
+      path: 'groups[0].conditions[0].value',
+      message:
+        'An area cannot contain a NUL character or an unpaired surrogate.',
+    },
+  ]);
+  expect(parsedOrThrow('and!and*area.is.C~D83D~DE00I')).toStrictEqual(
+    oneCondition({ field: 'area', op: 'is', value: 'C😀I' }),
+  );
 });
