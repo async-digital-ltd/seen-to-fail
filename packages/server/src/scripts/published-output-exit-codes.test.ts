@@ -1,5 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -169,6 +169,45 @@ it('refuses a "Built from" line naming another commit while a run row names the 
     stamp(commit, commit),
   );
   expect(await exitCodeFor(corrected)).toBe(0);
+});
+
+/**
+ * The defect #170 records. A recorded catch of the plant that names the wrong
+ * commit shows that plant's description on the page, and the description
+ * speaks of "Built from" lines. The step used to read the words anywhere, so
+ * the page that proved the plant was caught was refused, and the replay that
+ * recorded it could never merge.
+ *
+ * The description is read from `canfail.json` rather than typed here, so a
+ * rewording of the plant is tested as it is.
+ */
+it('passes a page whose run rows quote the wrong-commit plant’s description, and exits 0', async () => {
+  const declared = JSON.parse(
+    await readFile(join(repositoryRoot, 'canfail.json'), 'utf8'),
+  ) as { checks: { breaks?: { name: string }[] }[] };
+  const quoting = declared.checks
+    .flatMap((check) => check.breaks ?? [])
+    .map((entry) => entry.name)
+    .filter((name) => name.includes('Built from'));
+  expect(quoting.length).toBeGreaterThan(0);
+
+  const commit = await head();
+  const ledger = fixtureSnapshot();
+  const page = renderPage({
+    ...ledger,
+    builtFrom: commit,
+    checks: ledger.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((entry) => ({
+        ...entry,
+        recordedIn: commit,
+        planted: quoting[0] ?? '',
+      })),
+    })),
+  });
+  expect(page).toContain('&quot;Built from&quot;');
+
+  expect(await exitCodeFor(page)).toBe(0);
 });
 
 it('refuses a page with no "Built from" line while a run row names the checkout’s commit, and exits 1', async () => {
