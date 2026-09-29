@@ -347,7 +347,7 @@ is pinned to `main`, so a red control run cannot paint it red.
 Four checks are declared for replay by a job: `ci-type-check`,
 `ci-published-output`, `ledger-export-agreement` and
 `ledger-record-validation`, which are the four that carry a run. `canfail.json`
-declares those four, with seven declared breaks between them; `ledger/checks/`
+declares those four, with eight declared breaks between them; `ledger/checks/`
 holds nine. So five of those nine have no plant for a job to apply, and no
 replay can ever produce a run for them. One of the four, `ci-type-check`, has
 been replayed so far; the other three were declared on #110 and wait for the

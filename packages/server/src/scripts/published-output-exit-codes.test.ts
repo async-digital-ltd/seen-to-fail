@@ -7,36 +7,80 @@ import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
 
 import { repositoryRoot } from '../ledger/location.ts';
+import { renderPage } from '../ledger/page.ts';
+import { fixtureSnapshot } from '../testing/ledger.ts';
 
 /**
  * The check CI runs on the published output, judged the way CI judges it: by
  * what it exits with.
  *
  * It is a script rather than lines in the workflow because the replay runs the
- * same check against the plant `canfail.json` declares for it, and two copies
+ * same check against the plants `canfail.json` declares for it, and two copies
  * of a check are two checks. These tests run that script as a process against
- * a directory of their own, holding a page that says what a real page says
- * about the commit, and take one thing away at a time. Each refusal is asserted
- * on the code and never on the wording, which is the number the workflow reads.
+ * a directory of their own, holding a page drawn by the page's own renderer,
+ * and change one thing at a time. Each refusal is asserted on the code and
+ * never on the wording, which is the number the workflow reads.
+ *
+ * The page is drawn rather than typed here so that what the script reads is the
+ * markup a real page carries. A change to how the page states the commit it was
+ * built from then fails here, in the pull request that makes it, rather than
+ * on the first published page after it.
  */
 
 const script = join(repositoryRoot, 'scripts', 'check-published-output.sh');
 const run = promisify(execFile);
 
 /** The commit this checkout is at, which is the one the page has to name. */
-async function shortHead(): Promise<string> {
+async function head(): Promise<string> {
   const { stdout } = await run('git', [
     '-C',
     repositoryRoot,
     'rev-parse',
     'HEAD',
   ]);
-  return stdout.trim().slice(0, 7);
+  return stdout.trim();
 }
 
-/** What a page that passes looks like, as far as the script reads it. */
-function aPageBuiltFrom(commit: string): string {
-  return `<!doctype html>\n<html lang="en"><body><p>Built from commit <code>${commit}</code>, read as of 27 September 2026.</p></body></html>\n`;
+/** A commit that is not the checkout's, for a page to name in its place. */
+const anotherCommit = '0123456789abcdef0123456789abcdef01234567';
+
+/**
+ * The fixture ledger's page, built from one commit, with every run on it
+ * recorded in another. A run recorded in the checkout's own commit is the
+ * normal state of a page built at a commit that added a run, and it puts that
+ * commit on the page in the run's row whatever the "Built from" line says.
+ */
+function aPage(builtFrom: string, recordedIn: string): string {
+  const ledger = fixtureSnapshot();
+  return renderPage({
+    ...ledger,
+    builtFrom,
+    checks: ledger.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((entry) => ({ ...entry, recordedIn })),
+    })),
+  });
+}
+
+/**
+ * The part of a "Built from" line that names the commit, as the renderer
+ * writes it: a link to the commit on GitHub, around its first seven
+ * characters. The two are passed apart so a test can make them disagree.
+ */
+function stamp(linked: string, shown: string): string {
+  return `Built from commit <a href="https://github.com/async-digital-ltd/seen-to-fail/commit/${linked}"><code>${shown.slice(0, 7)}</code></a>`;
+}
+
+/**
+ * The page with every occurrence of one piece of text replaced. It throws when
+ * there is nothing to replace, so a plant that no longer matches the page
+ * fails as a plant rather than handing the script the page unchanged.
+ */
+function swapped(page: string, from: string, to: string): string {
+  if (!page.includes(from)) {
+    throw new Error(`The page does not hold the text to replace: ${from}`);
+  }
+  return page.replaceAll(from, to);
 }
 
 const anExport = '{\n  "checks": []\n}\n';
@@ -75,13 +119,17 @@ async function exitCodeAgainst(directory: string): Promise<number> {
   });
 }
 
-it('passes a page naming the commit, with no script, beside its export, and exits 0', async () => {
-  const directory = await anOutputWith({
-    'index.html': aPageBuiltFrom(await shortHead()),
-    'ledger.json': anExport,
-  });
+/** The code the script exits on for a page beside a sound export. */
+async function exitCodeFor(page: string): Promise<number> {
+  return exitCodeAgainst(
+    await anOutputWith({ 'index.html': page, 'ledger.json': anExport }),
+  );
+}
 
-  expect(await exitCodeAgainst(directory)).toBe(0);
+it('passes a page built from the commit, with no script, beside its export, and exits 0', async () => {
+  const commit = await head();
+
+  expect(await exitCodeFor(aPage(commit, commit))).toBe(0);
 });
 
 it('refuses an output with no page, and exits 1', async () => {
@@ -91,20 +139,84 @@ it('refuses an output with no page, and exits 1', async () => {
 });
 
 it('refuses an output with no export, and exits 1', async () => {
+  const commit = await head();
   const directory = await anOutputWith({
-    'index.html': aPageBuiltFrom(await shortHead()),
+    'index.html': aPage(commit, commit),
   });
 
   expect(await exitCodeAgainst(directory)).toBe(1);
 });
 
-it('refuses a page that does not name the commit the checkout is at, and exits 1', async () => {
-  const directory = await anOutputWith({
-    'index.html': aPageBuiltFrom('0000000'),
-    'ledger.json': anExport,
-  });
+it('refuses a page built from another commit, with no run recorded in the checkout’s, and exits 1', async () => {
+  expect(await exitCodeFor(aPage(anotherCommit, anotherCommit))).toBe(1);
+});
 
-  expect(await exitCodeAgainst(directory)).toBe(1);
+/**
+ * The defect #141 records. The step used to look for the commit anywhere on
+ * the page, and a run row recorded in the checkout's own commit named it,
+ * so a "Built from" line naming any other commit went through.
+ */
+it('refuses a "Built from" line naming another commit while a run row names the checkout’s, and passes it once the line is corrected', async () => {
+  const commit = await head();
+  const planted = aPage(anotherCommit, commit);
+  expect(planted).toContain(`/commit/${commit}"`);
+
+  expect(await exitCodeFor(planted)).toBe(1);
+
+  const corrected = swapped(
+    planted,
+    stamp(anotherCommit, anotherCommit),
+    stamp(commit, commit),
+  );
+  expect(await exitCodeFor(corrected)).toBe(0);
+});
+
+it('refuses a page with no "Built from" line while a run row names the checkout’s commit, and exits 1', async () => {
+  const commit = await head();
+  const page = swapped(aPage(commit, commit), stamp(commit, commit), '');
+  expect(page).toContain(`/commit/${commit}"`);
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+/**
+ * The page states it twice, under the headline and in the footer. Each is a
+ * claim a reader can see, so each is held to the commit, not only the first.
+ */
+it('refuses a page whose second "Built from" line names another commit, and exits 1', async () => {
+  const commit = await head();
+  const page = aPage(commit, commit);
+  const right = stamp(commit, commit);
+  const last = page.lastIndexOf(right);
+  expect(last).toBeGreaterThan(page.indexOf(right));
+  const planted =
+    page.slice(0, last) +
+    stamp(anotherCommit, anotherCommit) +
+    page.slice(last + right.length);
+
+  expect(await exitCodeFor(planted)).toBe(1);
+});
+
+it('refuses a "Built from" line linking the checkout’s commit while it shows another, and exits 1', async () => {
+  const commit = await head();
+  const page = swapped(
+    aPage(commit, commit),
+    stamp(commit, commit),
+    stamp(commit, anotherCommit),
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a "Built from" line showing the checkout’s commit while it links another, and exits 1', async () => {
+  const commit = await head();
+  const page = swapped(
+    aPage(commit, commit),
+    stamp(commit, commit),
+    stamp(anotherCommit, commit),
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
 });
 
 /**
@@ -113,10 +225,9 @@ it('refuses a page that does not name the commit the checkout is at, and exits 1
  * `<script>` tag does.
  */
 it('refuses a page carrying a script, whatever its case, and exits 1', async () => {
-  const directory = await anOutputWith({
-    'index.html': `${aPageBuiltFrom(await shortHead())}<SCRIPT></SCRIPT>\n`,
-    'ledger.json': anExport,
-  });
+  const commit = await head();
 
-  expect(await exitCodeAgainst(directory)).toBe(1);
+  expect(await exitCodeFor(`${aPage(commit, commit)}<SCRIPT></SCRIPT>\n`)).toBe(
+    1,
+  );
 });

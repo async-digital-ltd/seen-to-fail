@@ -46,10 +46,11 @@ replay record too, though nothing here calls it that way. `pnpm ledger:replay`
 writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote two runs, one for each of the two breaks `canfail.json` declared when it
-ran; it declares seven now, under four checks, since #110. The adapter holds
-the report to the declaration (#128): an outcome for a break the declaration
-does not declare, a declared break with no outcome, or a check it does not
-declare, is refused by name, and nothing at all is written.
+ran; it has declared four checks since #110, and eight breaks between them
+since #141. The adapter holds the report to the declaration (#128): an outcome
+for a break the declaration does not declare, a declared break with no outcome,
+or a check it does not declare, is refused by name, and nothing at all is
+written.
 
 The two commands write through the same recorder, `recordRun` in
 `packages/server/src/ledger/record.ts`, so the rules below hold for both, and
