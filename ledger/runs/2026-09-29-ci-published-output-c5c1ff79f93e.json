@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-published-output",
+  "runOn": "2026-09-29",
+  "planted": "The build writes a script tag into the page after the page it checked, so the file on disk is not the page it verified.",
+  "expected": "The check of the published output fails, so the run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "ec2b3bd91178bf641bb1fe7c69812891aaafd267",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36588226891"
+}

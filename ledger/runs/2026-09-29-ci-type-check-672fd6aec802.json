@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-type-check",
+  "runOn": "2026-09-29",
+  "planted": "STALE_AFTER_DAYS is written as a string rather than a number.",
+  "expected": "The type check fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "ec2b3bd91178bf641bb1fe7c69812891aaafd267",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36588226891"
+}
