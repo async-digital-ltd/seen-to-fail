@@ -82,6 +82,15 @@ short="${commit:0:7}"
 # that way is refused rather than skipped, and so is a page with none. A grep
 # that finds nothing, or cannot read the page, hands the loop no lines, and the
 # count after it refuses that.
+#
+# A line is found by the words "Built from commit" followed by a raw `<`, the
+# start of the renderer's own link. Text on the page cannot produce that:
+# everything a record contributes is escaped, so its `<` reads `&lt;`. This
+# step used to take the words "Built from" anywhere (#170), and the page shows
+# each plant's description, so a recorded catch of the plant that names the
+# wrong commit put that plant's own description on the page, where it was
+# read as a line and refused. Markup that starts that way but reads
+# differently is still read, and still refused.
 expected="^Built from commit <a href=\"https://github\\.com/[^\"]+/commit/${commit}\"><code>${short}</code></a>\$"
 stamps=0
 while IFS= read -r stamp; do
@@ -90,7 +99,7 @@ while IFS= read -r stamp; do
     echo "The published page has a \"Built from\" line that does not name $commit, the commit it was built from: $stamp" >&2
     exit 1
   fi
-done < <(grep -o 'Built from[^,]*' "$page")
+done < <(grep -o 'Built from commit <[^,]*' "$page")
 
 if [ "$stamps" -eq 0 ]; then
   echo "The published page has no \"Built from\" line, so it does not say which commit it was built from." >&2
