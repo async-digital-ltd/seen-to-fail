@@ -665,8 +665,10 @@ into `ledger/`
 
 **Where it is published.** Every push to `main` builds the page, checks it, and
 serves it with GitHub Pages at
-[async-digital-ltd.github.io/seen-to-fail](https://async-digital-ltd.github.io/seen-to-fail/)
-([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76)). The job
+[seen-to-fail.async-digital.com](https://seen-to-fail.async-digital.com/)
+([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76),
+[#137](https://github.com/async-digital-ltd/seen-to-fail/issues/137)). The old
+`async-digital-ltd.github.io/seen-to-fail` address redirects there. The job
 that serves it builds nothing of its own: it deploys the directory the checks
 built and checked on the same commit, so the page served is the page that
 passed.
