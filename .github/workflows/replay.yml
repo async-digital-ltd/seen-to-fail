@@ -416,11 +416,15 @@ jobs:
             echo "The replay ran and its runs are committed on \`$BRANCH\`."
             echo "They are NOT in the ledger yet. Nothing reaches the published record until this branch is merged."
             echo
-            echo "Open the pull request with:"
+            echo "Open the pull request with the lines below, after setting TICKET to the issue this replay evidences."
+            echo "The pull request title becomes the merged commit's subject, and the number in it is the only record"
+            echo "of which ticket the merge served (#116). The title reads TICKET in a form the shell refuses while it"
+            echo "is empty, so the command does not run at all until a number is set."
             echo
             echo '```sh'
+            echo 'TICKET='
             echo "gh pr create --base main --head $BRANCH \\"
-            echo "  --title 'Record a replay from run $GITHUB_RUN_ID' \\"
+            echo "  --title \"Record a replay from run $GITHUB_RUN_ID (#\${TICKET:?set TICKET to the issue this replay evidences})\" \\"
             echo "  --body 'Recorded by the Replay a plant workflow, run $GITHUB_RUN_ID.'"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
