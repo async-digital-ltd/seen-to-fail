@@ -1,0 +1,6 @@
+{
+  "checkId": "ledger-export-agreement",
+  "observedOn": "2026-10-01",
+  "armed": true,
+  "note": "Read from run 36817268610 of the CI workflow on main at 237698b, where the \"Build the published ledger\" step ran and the run concluded success."
+}

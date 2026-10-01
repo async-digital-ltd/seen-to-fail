@@ -20,6 +20,7 @@ import {
   renderPage,
 } from './page.ts';
 import { buildSnapshot } from './snapshot.ts';
+import type { PublishedCheck } from './snapshot.ts';
 
 /**
  * The published page.
@@ -303,6 +304,99 @@ it('names the runs that settled nothing only when there are some', () => {
       ),
     ),
   ).toContain('Caught 1 of 2, 1 settled nothing');
+});
+
+/**
+ * A check with a run behind it and no observation, against one with neither.
+ *
+ * Neither has an observation, so the "Last seen" line cannot be what separates
+ * them, and a reader still has to be able to tell a check something was
+ * planted for from one nothing has ever been done to. The run is taken in both
+ * shapes it comes in: one that caught, which also moves the status, and one
+ * that settled nothing, which leaves the check reading Unarmed exactly like a
+ * check with neither, so only the fact beside the name and the list of planted
+ * defects are left to tell them apart. Each check is read inside its own
+ * section, so a page that said the right words about the wrong check fails.
+ */
+it('tells a check with a run and no observation apart from one with neither', () => {
+  const snapshot = fixtureSnapshot();
+  const caught = snapshot.checks.find((check) => check.id === 'first-check');
+  const observed = snapshot.checks.find((check) => check.id === 'second-check');
+  const unsettledRun = fixtureSnapshot(
+    fixtureContentsWithAnUnsettledRun(),
+    fixtureSummariesWithAnUnsettledRun(),
+  )
+    .checks.find((check) => check.id === 'first-check')
+    ?.runs.find((run) => run.outcome === 'inconclusive');
+  if (
+    caught === undefined ||
+    observed === undefined ||
+    unsettledRun === undefined
+  ) {
+    throw new Error(
+      'The fixture holds two checks and a run that settled nothing.',
+    );
+  }
+  // The fixture's caught check has a run and no observation; this test is
+  // only about that pair if it still does.
+  expect(caught.runs).toHaveLength(1);
+  expect(caught.observations).toHaveLength(0);
+
+  const unsettled: PublishedCheck = {
+    ...caught,
+    id: 'unsettled-check',
+    name: 'A check whose only run settled nothing',
+    status: 'Unarmed',
+    runCount: 1,
+    caughtCount: 0,
+    inconclusiveCount: 1,
+    lastCaughtOn: null,
+    lastRunOn: unsettledRun.runOn,
+    lastSettledOn: null,
+    runs: [unsettledRun],
+  };
+  const neither: PublishedCheck = {
+    ...observed,
+    id: 'bare-check',
+    name: 'A check with no run and no observation',
+    status: 'Unarmed',
+    lastSeenArmedOn: null,
+    lastArmed: null,
+    observations: [],
+  };
+  const page = renderPage({
+    ...snapshot,
+    checks: [...snapshot.checks, unsettled, neither],
+    statusCounts: { ...snapshot.statusCounts, Unarmed: 2 },
+  });
+  const section = (id: string): string => {
+    const match = new RegExp(
+      `<details class="check" id="${id}">[\\s\\S]*?</details>`,
+    ).exec(page);
+    if (match === null) {
+      throw new Error(`The page has no section for ${id}.`);
+    }
+    return match[0];
+  };
+
+  const bare = section('bare-check');
+  expect(bare).toContain('<span class="pill pill-Unarmed">');
+  expect(bare).toContain('Never planted');
+  expect(bare).toContain('None yet.');
+
+  const proven = section('first-check');
+  expect(proven).toContain('<span class="pill pill-Proven">');
+  expect(proven).toContain('Caught 1 of 1');
+
+  const nothingSettled = section('unsettled-check');
+  expect(nothingSettled).toContain('<span class="pill pill-Unarmed">');
+  expect(nothingSettled).toContain('Caught 0 of 1, 1 settled nothing');
+
+  for (const withARun of [proven, nothingSettled]) {
+    expect(withARun).toContain('Planted defects, newest first');
+    expect(withARun).not.toContain('Never planted');
+    expect(withARun).not.toContain('None yet.');
+  }
 });
 
 /**
