@@ -575,8 +575,9 @@ runs. What differs is that on the
 Monday nobody decided a replay was due, which is the whole of what the automatic
 half was for.
 
-**And since.** Two more replays have reached the record, each over all four
-declared checks. The schedule fired again on Monday 28 September 2026 as run
+**And since.** By 1 October 2026 two more replays had reached the record, each
+over all four declared checks. The schedule fired again on Monday 28 September
+2026 as run
 [36412371539](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36412371539),
 against `33b5238`, and its seven records, the first replays of the three checks
 declared on #110, came in through
