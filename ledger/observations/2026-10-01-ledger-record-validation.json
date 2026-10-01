@@ -1,0 +1,6 @@
+{
+  "checkId": "ledger-record-validation",
+  "observedOn": "2026-10-01",
+  "armed": true,
+  "note": "Read from run 36817268610 of the CI workflow on main at 237698b, where the \"Check the ledger reads\" step ran pnpm ledger:validate and the run concluded success. The two recording workflows were not read for this observation."
+}
