@@ -46,7 +46,7 @@ if [[ ! -x $chrome ]]; then
   exit 1
 fi
 
-for url in http://localhost:4000/ready "$page"; do
+for url in http://127.0.0.1:4000/ready "$page"; do
   if ! curl -sf -o /dev/null "$url"; then
     echo "$url is not answering. Start pnpm dev:server and pnpm dev:web." >&2
     exit 1

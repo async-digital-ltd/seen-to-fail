@@ -187,8 +187,11 @@ link must parse back into the same filter.
   type checking, linting, format checking, tests, starting the server, a build
   of the client, and building and checking the published page.
 
-The server is built for local use only. There is no per-request cost limit and
-no limit on the size of a request body, so it is not hardened for deployment.
+The server is built for local use only. It listens on `127.0.0.1` and no other
+interface, so no other machine can reach it, and it sends no CORS headers, so a
+browser will not hand its answers to a page from another origin. There is no
+per-request cost limit and no limit on the size of a request body, so it is not
+hardened for deployment.
 
 The list, the filter bar and the three forms carry keyboard tests, including the
 observation form on a check's own page. The rest of that page does not, and no
@@ -269,7 +272,7 @@ it only ever points at the development database.
 pnpm dev:server
 ```
 
-Serves GraphiQL at `http://localhost:4000/graphql`, where the schema and its
+Serves GraphiQL at `http://127.0.0.1:4000/graphql`, where the schema and its
 queries can be read and run. There is a liveness route at `/health`, which
 answers whenever the process is up, and a readiness route at `/ready`, which
 answers only once the database does.

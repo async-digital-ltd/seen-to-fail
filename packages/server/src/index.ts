@@ -16,6 +16,7 @@ import {
   graphqlRoute,
   healthRoute,
   readinessRoute,
+  serverHost,
   serverPort,
 } from './graphql/server.ts';
 
@@ -40,8 +41,8 @@ const server = createServer((request, response) => {
   void handle(request, response);
 });
 
-server.listen(serverPort, () => {
-  const address = `http://localhost:${String(serverPort)}`;
+server.listen(serverPort, serverHost, () => {
+  const address = `http://${serverHost}:${String(serverPort)}`;
   console.log(`Serving ${databaseName(databaseUrl)} on ${address}.`);
   console.log(`  GraphiQL:  ${address}${graphqlRoute}`);
   console.log(`  Health:    ${address}${healthRoute}`);
