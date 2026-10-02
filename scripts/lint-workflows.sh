@@ -54,11 +54,16 @@
 # `inputs.check_id` in record-run.yml and `inputs.only-due` typed as
 # `inputs.only_due` in replay.yml, it exited 1 and named both lines, while
 # `pnpm lint` and `pnpm format:check` both exited 0 over the same two plants.
-# With the plants removed it exited 0 and named all three workflows. Run with
-# no shellcheck anywhere on the PATH and `"$BRANCH"` left unquoted in a run
-# step of record-run.yml, it exited 1 on shellcheck's SC2086, so the shellcheck
-# answering is the pinned one. A copy with one character of a pinned sum
-# changed refused the download and exited 1 before running anything.
+# With the plants removed it exited 0 and named all three workflows.
+#
+# The same two plants, pushed to the pull request for #157, failed this step
+# in CI run 36984692843 with exit 1, naming both lines. Run 36984277388, on
+# the commit before the plants, had passed it.
+#
+# Run with no shellcheck anywhere on the PATH and `"$BRANCH"` left unquoted in
+# a run step of record-run.yml, it exited 1 on SC2086, so the one answering is
+# the pinned one. A copy with one character of a pinned sum changed refused the
+# download and exited 1 before running anything.
 
 set -euo pipefail
 
