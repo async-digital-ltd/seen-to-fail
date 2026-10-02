@@ -246,7 +246,7 @@ jobs:
           # than the floor would bring it. It reaches nothing outside
           # canfail.json: a check with no plant there is recorded by hand
           # through the `Record a run` workflow, not here.
-          MATCHING: ${{ github.event_name == 'schedule' || inputs.only-due }}
+          MATCHING: ${{ github.event_name == 'schedule' || inputs.only_due }}
         run: |
           set -euo pipefail
           if [ "$MATCHING" != 'true' ]; then

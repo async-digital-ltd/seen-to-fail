@@ -107,7 +107,7 @@ jobs:
       # different path with a commit and a run link to carry: that is #67.
       - name: Write the run into the ledger
         env:
-          INPUT_CHECK_ID: ${{ inputs.check-id }}
+          INPUT_CHECK_ID: ${{ inputs.check_id }}
           INPUT_RUN_ON: ${{ inputs.run-on }}
           INPUT_PLANTED: ${{ inputs.planted }}
           INPUT_EXPECTED: ${{ inputs.expected }}
