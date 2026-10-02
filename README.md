@@ -751,8 +751,8 @@ in place instead of reporting on them.
 `lint:workflows` reads every file in `.github/workflows` as a GitHub Actions
 workflow with [actionlint](https://github.com/rhysd/actionlint), and the shell
 in each of their `run:` steps with ShellCheck. Nothing else reads
-`record-run.yml` or `replay.yml` as a workflow before it runs, and neither runs
-on a pull request
+`.github/workflows/record-run.yml` or `.github/workflows/replay.yml` as a
+workflow before it runs, and neither runs on a pull request
 ([#157](https://github.com/async-digital-ltd/seen-to-fail/issues/157)). It
 downloads both tools from their release pages on every run, so it needs a
 network connection, and refuses either one unless its SHA-256 matches the pin
