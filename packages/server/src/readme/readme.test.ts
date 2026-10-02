@@ -95,27 +95,68 @@ it("reads a job's steps in order, and refuses one it would have to leave off the
 });
 
 /**
- * Whether a span of inline code is a path, judged by its shape alone.
+ * The words in spans of inline code that are paths, judged by their shape
+ * alone.
  *
- * A span with a space in it is a command or a phrase, one starting with a slash
- * is an address on the running server, and one with a scheme is a web address.
- * What is left is a path when it has a slash in it, starts with a dot, or ends in
- * an extension some tracked file has, which keeps out `area.is.git` and
+ * A span is split at its spaces, so a path inside a command such as
+ * `ls ledger/checks` is read as well as a span that is only a path. A word
+ * starting with a slash is an address on the running server, one with a scheme
+ * is a web address, one in quotes is a value in a command or a condition, such
+ * as `'refs/heads/main'`, and one with no letter or digit in it is punctuation.
+ * What is left is a path when it has a slash in it, starts with a dot, or ends
+ * in an extension some tracked file has, which keeps out `area.is.git` and
  * `127.0.0.1`.
+ *
+ * A word with no slash, no dot and no extension cannot be told from a name by
+ * its shape, so `LICENSE` is the one path in the README this does not read.
  */
-function looksLikePath(span: string, extensions: ReadonlySet<string>): boolean {
-  if (/\s/u.test(span) || span.startsWith('/') || span.includes('://')) {
-    return false;
-  }
-  if (span.includes('/') || span.startsWith('.')) {
-    return true;
-  }
-  const extension = /\.([A-Za-z0-9]+)$/u.exec(span)?.[1];
-  return extension !== undefined && extensions.has(extension);
+function pathsIn(
+  spans: readonly string[],
+  extensions: ReadonlySet<string>,
+): string[] {
+  const looksLikePath = (word: string): boolean => {
+    if (
+      word.startsWith('/') ||
+      word.startsWith("'") ||
+      word.startsWith('"') ||
+      word.includes('://') ||
+      !/[A-Za-z0-9]/u.test(word)
+    ) {
+      return false;
+    }
+    if (word.includes('/') || word.startsWith('.')) {
+      return true;
+    }
+    const extension = /\.([A-Za-z0-9]+)$/u.exec(word)?.[1];
+    return extension !== undefined && extensions.has(extension);
+  };
+  return [
+    ...new Set(spans.flatMap((span) => span.split(' ').filter(looksLikePath))),
+  ];
 }
 
 /**
- * Spans with a path's shape that name something deliberately not in the tree,
+ * Whether a path is in the tree. A trailing slash names the directory, and a
+ * word with a `*` in it is a pattern the shell expands, which is in the tree
+ * when some tracked file matches it.
+ */
+function inTree(path: string, tracked: ReadonlySet<string>): boolean {
+  const bare = path.replace(/\/$/u, '');
+  if (!bare.includes('*')) {
+    return tracked.has(bare);
+  }
+  const pattern = new RegExp(
+    `^${bare
+      .split('*')
+      .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, '\\$&'))
+      .join('[^/]*')}$`,
+    'u',
+  );
+  return [...tracked].some((file) => pattern.test(file));
+}
+
+/**
+ * Words with a path's shape that name something deliberately not in the tree,
  * and what each names instead. Each is checked to still be in the README, so
  * an entry cannot outlive the sentence it was written for and go on excusing
  * a path nobody is reading any more.
@@ -125,6 +166,10 @@ const notInTheTree = new Map([
   ['.graphql', 'A file extension rather than a file.'],
   ['packages/web/dist', 'What `pnpm build:web` writes, which git ignores.'],
   ['async-digital-ltd.github.io/seen-to-fail', 'A web address.'],
+  [
+    'repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow',
+    "A path in GitHub's REST API, which `gh api` is given.",
+  ],
 ]);
 
 /** Branch lanes the workflows push to, whose names share a path's shape. */
@@ -146,12 +191,15 @@ function trackedPaths(): Set<string> {
   return paths;
 }
 
-it('takes a span of inline code for a path only when it has the shape of one', () => {
+it('reads a word of inline code as a path only when it has the shape of one', () => {
   const extensions = new Set(['json', 'md', 'ts']);
   const spans = [
     'ledger/runs/',
     '.env.example',
     'canfail.json',
+    'ls ledger/checks',
+    "! grep -qi '<script' ...",
+    "github.ref == 'refs/heads/main'",
     'area.is.git',
     '127.0.0.1',
     '/health',
@@ -160,9 +208,20 @@ it('takes a span of inline code for a path only when it has the shape of one', (
     'STALE_AFTER_DAYS',
   ];
 
-  expect(spans.filter((span) => looksLikePath(span, extensions))).toStrictEqual(
-    ['ledger/runs/', '.env.example', 'canfail.json'],
-  );
+  expect(pathsIn(spans, extensions)).toStrictEqual([
+    'ledger/runs/',
+    '.env.example',
+    'canfail.json',
+    'ledger/checks',
+  ]);
+});
+
+it('finds a path with a pattern in it only when a tracked file matches', () => {
+  const tracked = new Set(['ledger', 'ledger/runs', 'ledger/runs/a.json']);
+
+  expect(inTree('ledger/runs/*.json', tracked)).toBe(true);
+  expect(inTree('ledger/runs/*.yml', tracked)).toBe(false);
+  expect(inTree('ledger/*.json', tracked)).toBe(false);
 });
 
 it('names only paths that exist in the tree', () => {
@@ -173,15 +232,11 @@ it('names only paths that exist in the tree', () => {
       return extension === undefined ? [] : [extension];
     }),
   );
-  const paths = [
-    ...new Set(
-      inlineCodeIn(readme).filter((span) => looksLikePath(span, extensions)),
-    ),
-  ];
+  const paths = pathsIn(inlineCodeIn(readme), extensions);
 
   const missing = paths.filter(
     (path) =>
-      !tracked.has(path.replace(/\/$/u, '')) &&
+      !inTree(path, tracked) &&
       !notInTheTree.has(path) &&
       !branchPrefixes.some((prefix) => path.startsWith(prefix)),
   );
