@@ -4,6 +4,15 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   server: {
+    // No CORS headers from this server either, the same as the API server
+    // behind it (#159). Left unset, Vite answers a preflight from any
+    // `localhost` origin, so a page on another port of the same machine could
+    // post JSON to `/graphql` through the proxy below and read the answer
+    // (#187). Every request the client makes is to its own origin, which needs
+    // no CORS header, so this turns nothing of the client's away.
+    // `vite preview` takes this value too, as it takes the proxy.
+    // `src/dev-server.test.ts` holds it.
+    cors: false,
     proxy: {
       // The development server serves the API at this address and port, as
       // serverHost and serverPort in the server package's graphql/server.ts.

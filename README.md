@@ -196,7 +196,11 @@ resolver runs. So is a request addressed to any name but `127.0.0.1` or
 `localhost`, which is how a page whose own name had been pointed at the loopback
 would reach it. `packages/server/src/graphql/request-guard.test.ts` holds both.
 There is no per-request cost limit and no limit on the size of a request body,
-so it is not hardened for deployment.
+so it is not hardened for deployment. The client's development server, which
+`pnpm dev:web` starts and which passes `/graphql` on to the server, sends no
+CORS headers either, so a page on another port of the same machine can neither
+post JSON through it nor read what comes back.
+`packages/web/src/dev-server.test.ts` holds that.
 
 The list, the filter bar and the three forms carry keyboard tests, including the
 observation form on a check's own page. The rest of that page does not, and no
