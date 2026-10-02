@@ -6,8 +6,16 @@ import {
   nullVerdicts,
   refusalTest,
 } from '../testing/check-constraints.ts';
+import {
+  countOf,
+  flattened,
+  inlineCodeIn,
+  readReadme,
+  sectionOf,
+} from '../readme/readme.ts';
 import { rejectionOf, sqlStates } from '../testing/rejections.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
+import { migrationsTable } from './migrations.ts';
 
 /**
  * Every constraint in the schema, seen to refuse the row it exists for.
@@ -102,6 +110,84 @@ it('creates the four tables and the two indexes', async () => {
       'arming_observations_check_id_observed_on_index',
     ]),
   );
+});
+
+/**
+ * The README names the tables under "Stack" and counts them again under "Run
+ * it locally" (#149). Both are held to the catalog of the migrated database
+ * rather than to the list above, because that list only asks for the four to
+ * be present and would pass with a fifth beside them. The migrations'
+ * bookkeeping table is left out, as the truncation between tests leaves it out:
+ * it records the schema rather than being part of it.
+ */
+it('names in the README every table the migrations create, and counts them right', async () => {
+  const found = await database.client().query<{ name: string }>(
+    `SELECT tablename AS name FROM pg_tables
+      WHERE schemaname = 'public' AND tablename NOT LIKE $1`,
+    [`${migrationsTable}%`],
+  );
+  // Sorted here rather than by the database, whose collation need not order
+  // an underscore the way the sort below it does.
+  const tables = found.rows.map((row) => row.name).sort();
+
+  const readme = readReadme();
+  const listed = /\*\*PostgreSQL\*\*, with (\w+) tables: ([^.]+)\./u.exec(
+    flattened(sectionOf(readme, 'Stack')),
+  );
+  if (listed?.[1] === undefined || listed[2] === undefined) {
+    throw new Error('README.md names no tables under "Stack".');
+  }
+  const named = listed[2]
+    .split(/, | and /u)
+    .map((name) => name.trim().replaceAll(' ', '_'))
+    .sort();
+  expect(named).toStrictEqual(tables);
+  expect(countOf(listed[1])).toBe(tables.length);
+
+  const emptied = /empties the (\w+) tables/u.exec(
+    flattened(sectionOf(readme, 'Run it locally')),
+  );
+  if (emptied?.[1] === undefined) {
+    throw new Error(
+      'README.md no longer says how many tables the seed empties.',
+    );
+  }
+  expect(countOf(emptied[1])).toBe(tables.length);
+});
+
+/**
+ * Everything else the README names in the schema's own spelling.
+ *
+ * A span of inline code written in snake case is a name in the database: a
+ * table, the migrations' bookkeeping table, or a function. Each must be one of
+ * those in the migrated catalog, so a rename leaves no sentence naming the old
+ * one. `seen_to_fail` is the one snake-case span that is not a name in the
+ * schema: it is the role and password `.env.example` gives, and it is held to
+ * still being in the README so the exception cannot outlive its sentence.
+ */
+it('names in the README only tables and functions the migrated schema has', async () => {
+  const found = await database.client().query<{ name: string }>(
+    `SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'
+     UNION
+     SELECT p.proname AS name
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'`,
+  );
+  const inSchema = new Set(found.rows.map((row) => row.name));
+  const notInSchema = ['seen_to_fail'];
+
+  const named = [
+    ...new Set(
+      inlineCodeIn(readReadme()).filter((span) =>
+        /^[a-z]+(?:_[a-z]+)+$/u.test(span),
+      ),
+    ),
+  ];
+
+  expect(
+    named.filter((name) => !inSchema.has(name) && !notInSchema.includes(name)),
+  ).toStrictEqual([]);
+  expect(notInSchema.filter((name) => !named.includes(name))).toStrictEqual([]);
 });
 
 it('refuses a second check with the same name', async () => {

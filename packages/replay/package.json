@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Reads a replay tool's report and says what runs it means.",
+  "description": "Reads a replay tool's report and says what runs it means. It writes nothing, reads no files and knows nothing about a database.",
   "exports": {
     ".": "./src/index.ts"
   },

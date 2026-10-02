@@ -114,9 +114,12 @@ jobs:
       - name: Apply migrations
         run: pnpm db:migrate
 
-      # The five commands the README tells a contributor to run, in the order
-      # it lists them, through the same root scripts. CI cannot pass something
+      # The commands the README tells a contributor to run, in the order it
+      # lists them, through the same root scripts. CI cannot pass something
       # a local run fails, because there is only one definition of each check.
+      # The README's list of them is written from the run lines between the
+      # two steps either side, and its list of CI's steps from every name in
+      # this job, so a change here needs `pnpm readme` before the tests pass.
       - name: Type check
         run: pnpm typecheck
 
