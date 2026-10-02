@@ -27,13 +27,15 @@
 #   4. Stops the server, and kills it if it has not gone within a few seconds.
 #   5. Asks `/health` once more and requires the connection to be refused.
 #
-# Step 5 is what ties the answers to this server. The probes go to the
-# hostname the server printed, and `localhost` can resolve to more than one
-# address, so a stranger listening on one of them can answer while this server
-# listens on another. Printing the address proves this server bound somewhere;
-# only an answer that stops when this server stops proves it was the one
-# answering. A stranger on the port therefore fails the check whichever address
-# it holds, which is the right answer: the result would not mean anything.
+# Step 5 is what ties the answers to this server. The probes go to the address
+# the server printed. Printing it proves this server bound somewhere; only an
+# answer that stops when this server stops proves it was the one answering. A
+# stranger on the port therefore fails the check whichever address it holds,
+# which is the right answer: the result would not mean anything. The printed
+# address was `localhost` until #159, and `localhost` can resolve to more than
+# one address, so a stranger listening on one of them could answer while this
+# server listened on another. The server now listens on, and prints,
+# 127.0.0.1, and step 5 stays so that the check does not depend on that.
 #
 # Every failure exits non-zero, names what it was waiting for, and prints the
 # server's own output. The wait is bounded by SERVER_START_TIMEOUT, in seconds,
@@ -44,8 +46,10 @@
 # refused because the server exited before listening, and with the listen call
 # replaced by a timer that keeps the process alive it refused on the timeout.
 # With a stranger listening on ::1 at the same port, which curl reaches first
-# for `localhost` on macOS, it used to pass on the stranger's answers; step 5
-# is what now refuses that.
+# for `localhost` on macOS, it used to pass on the stranger's answers while the
+# server printed `localhost`; step 5 was added to refuse that. Since #159 the
+# probes go to 127.0.0.1, and with the same stranger on ::1 the check passes on
+# this server's own answers.
 
 set -euo pipefail
 

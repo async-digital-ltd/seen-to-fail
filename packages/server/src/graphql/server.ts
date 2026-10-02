@@ -33,6 +33,21 @@ export const readinessRoute = '/ready';
 /** The port the development server listens on. */
 export const serverPort = 4000;
 
+/**
+ * The address the development server listens on: the IPv4 loopback, and no
+ * other interface. Left out, Node listens on every interface, and anything on
+ * the same network can reach the API (#159). Binding somewhere else means
+ * changing this line on purpose.
+ *
+ * An address rather than `localhost`, because Node binds a name to one
+ * address, whichever the resolver returns first, and that differs from machine
+ * to machine. On the macOS machine this was measured on for #159, `localhost`
+ * resolved to `::1` first, and listening on `localhost` bound `::1` alone. A
+ * literal binds the same address everywhere, and the web package's proxy
+ * targets the same literal, so no request depends on a resolver falling back.
+ */
+export const serverHost = '127.0.0.1';
+
 export interface GraphQLServerOptions {
   /** Where reads go. A pool in the server, one connection in a test. */
   readonly database: Queryable;
@@ -69,6 +84,15 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
     // receives. A shell that exports it would leak that detail, and would fail
     // the masking tests for a reason that is not in the code.
     maskedErrors: { isDev: false },
+    // No cross-origin access at all. Left out, Yoga answers every origin by
+    // echoing it back with credentials allowed, so any page open in the same
+    // browser could send queries and mutations here and read the answers
+    // (#159). Nothing legitimate needs another origin: the web app reaches
+    // this endpoint through the Vite proxy, which keeps it on one origin, and
+    // GraphiQL is served from this server. Without the CORS plugin no
+    // access-control header is ever sent, so a browser refuses to hand a
+    // response to a page from anywhere else.
+    cors: false,
     plugins: [
       useReadinessCheck({
         endpoint: readinessRoute,
