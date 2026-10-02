@@ -1,7 +1,12 @@
 import { expect, it } from 'vitest';
 
 import type { Queryable } from '../database/rows.ts';
-import { createGraphQLServer, graphqlRoute } from './server.ts';
+import {
+  createGraphQLServer,
+  graphqlRoute,
+  serverHost,
+  serverPort,
+} from './server.ts';
 
 /**
  * What the server tells a browser about pages from other origins: nothing.
@@ -26,8 +31,12 @@ import { createGraphQLServer, graphqlRoute } from './server.ts';
  * It has been seen to do so.
  */
 
-/** Any origin will do for the request itself: nothing is listening. */
-const endpoint = `http://seen-to-fail.test${graphqlRoute}`;
+/**
+ * The server's own address. Nothing is listening, but the server refuses a
+ * request addressed to any other name (#183), and what is tested here is the
+ * Origin header rather than the address.
+ */
+const endpoint = `http://${serverHost}:${String(serverPort)}${graphqlRoute}`;
 
 /**
  * Origins a browser could send. A hostile page, the Vite development server's

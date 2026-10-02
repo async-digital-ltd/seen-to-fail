@@ -2,6 +2,7 @@ import { createYoga, useReadinessCheck } from 'graphql-yoga';
 
 import type { IsoDate, Queryable } from '../database/rows.ts';
 import { createRequestContext } from './context.ts';
+import { useRequestGuard } from './request-guard.ts';
 import { buildSchema } from './schema.ts';
 
 /**
@@ -47,6 +48,19 @@ export const serverPort = 4000;
  * targets the same literal, so no request depends on a resolver falling back.
  */
 export const serverHost = '127.0.0.1';
+
+/**
+ * The names a request may be addressed to: the address the server listens on,
+ * and `localhost`, which a browser also reaches it by. The Vite proxy sends one
+ * of the two. Given a target as a bare string, as the web package's config
+ * gives it, Vite rewrites the Host header to the target's, `127.0.0.1:4000`;
+ * without that rewrite it would pass on the browser's `localhost:5173`.
+ *
+ * A request for any other name is refused, because a page whose own name has
+ * been pointed at 127.0.0.1 would otherwise count as this server's origin and
+ * could read what it sends back (#183).
+ */
+export const servedHostnames: readonly string[] = [serverHost, 'localhost'];
 
 export interface GraphQLServerOptions {
   /** Where reads go. A pool in the server, one connection in a test. */
@@ -94,6 +108,11 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
     // response to a page from anywhere else.
     cors: false,
     plugins: [
+      // A POST whose body is not JSON, and a request addressed to any name
+      // but this server's own, are refused before they are parsed, so before
+      // any resolver runs. The headers above keep answers from other origins;
+      // this keeps requests from them from acting (#183).
+      useRequestGuard(servedHostnames),
       useReadinessCheck({
         endpoint: readinessRoute,
         // Cheapest statement there is. It proves a connection can be had and a
