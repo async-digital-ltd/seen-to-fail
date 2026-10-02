@@ -24,38 +24,41 @@ name: Replay a plant
 # here is weekly.
 #
 # The arithmetic, measured rather than estimated, and re-measured on 22
-# September 2026 across every replay this repository has on record rather than
-# across the one it had when this comment was first written. Four replay jobs
-# have completed here: 35429662430 took 58 seconds, 35431432957 took 36,
-# 35437095049 took 43, and the scheduled 35585966476 took 72. Actions bills a
-# job rounded up to the whole minute, so that is one billed minute each for the
-# first three and two for the last. Weekly is about 4.3 runs a month, so five to
-# nine billed minutes a month at those durations.
+# September 2026 across every replay this repository had on record that day
+# rather than across the one it had when this comment was first written. Four
+# replay jobs had completed here by then: 35429662430 took 58 seconds,
+# 35431432957 took 36, 35437095049 took 43, and the scheduled 35585966476 took
+# 72. Actions bills a job rounded up to the whole minute, so that is one billed
+# minute each for the first three and two for the last. Weekly is about 4.3
+# runs a month, so five to nine billed minutes a month at those durations.
 #
 # Every one of those four replayed `ci-type-check` alone, because it was the
 # only check declared when they ran. The checks #110 declared cost a run of
 # the build or of the validator per break, and the job now starts a
-# PostgreSQL service for the build. How long that takes on a runner is not
-# measured until the first replay to select them has run. The one figure
-# there is comes from a development machine on 27 September 2026, where a
+# PostgreSQL service for the build. Before any runner had replayed them, the
+# one figure was from a development machine on 27 September 2026, where a
 # full run of every break declared that day, seven breaks and eleven commands
-# in all, took 9 seconds of wall clock. A machine-local number, not a runner's.
+# in all, took 9 seconds of wall clock. The first replay to select them, the
+# scheduled 36412371539 on 28 September 2026, ran the same seven breaks on a
+# runner: its replay step took 18 seconds, and the whole job 64, starting the
+# PostgreSQL service included.
 #
-# Two bounds are set against that, both before any runner has measured them.
-# Each check in `canfail.json` declares a `timeout` in seconds, which canfail
-# applies to every run of that check: 120 for the type check and for each
-# build, 60 for the validator, against runs that took about a second each on
-# that machine and, for the type check, well under a minute on every runner
-# on record. A run that overruns is killed by canfail and scored `look`, which
-# the adapter records as a run that settled nothing, so a build whose database
-# connection never settles becomes a recorded outcome rather than a job killed
-# with nothing written. canfail's own default is 900 seconds, and at that
-# default one hung build would have spent fifteen of the twenty minutes this
-# job used to have. The job's `timeout-minutes` below is sized above the worst
-# case of every declared run overrunning at once, nineteen minutes as declared
-# on that day, plus the setup around them: twenty-five. A plant added later
-# adds its check's timeout to that sum, so adding one means checking the job's
-# timeout still clears it.
+# Two bounds were set against the machine-local figure, both before any runner
+# had replayed those checks. Each check in `canfail.json` declares a `timeout`
+# in seconds, which canfail applies to every run of that check: 120 for the
+# type check and for each build, 60 for the validator, against runs that took
+# about a second each on that machine and, for the type check, well under a
+# minute on every runner that had replayed it by then. A run that overruns is
+# killed by canfail and scored `look`, which the adapter records as a run that
+# settled nothing, so a build whose database connection never settles becomes
+# a recorded outcome rather than a job killed with nothing written. canfail's
+# own default is 900 seconds, and at that default one hung build would have
+# spent fifteen of the twenty minutes this job used to have. The job's
+# `timeout-minutes` below is sized above the worst case of every declared run
+# overrunning at once, nineteen minutes as declared on 27 September 2026, plus
+# the setup around them: twenty-five. A plant added later adds its check's
+# timeout to that sum, so adding one means checking the job's timeout still
+# clears it.
 #
 # What fraction of the allowance that is, this comment does not say. The
 # organisation is on the `team` plan, which `gh api /orgs/async-digital-ltd
@@ -129,11 +132,13 @@ on:
   schedule:
     # Mondays, 04:17 UTC. Off the hour because the top of the hour is where
     # everybody else's scheduled runs are, and that bought less than it looks
-    # like it should: the one scheduled run on record, 35585966476, was created
-    # at 09:55:38 UTC on Monday 21 September 2026, five hours and thirty-eight
+    # like it should: the first scheduled run, 35585966476, was created at
+    # 09:55:38 UTC on Monday 21 September 2026, five hours and thirty-eight
     # minutes after the time asked for. A cron is a request GitHub queues, not a
     # start time. What this reliably buys is about one run a week; the hour and
-    # the minute are a preference.
+    # the minute are a preference. This comment keeps no count of the scheduled
+    # runs, because a count here reads as current a week after it is written;
+    # `gh run list --workflow replay.yml --event schedule` lists them.
     - cron: '17 4 * * 1'
   workflow_dispatch:
     inputs:
