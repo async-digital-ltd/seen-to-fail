@@ -6,12 +6,19 @@ import { expect, it } from 'vitest';
 
 import { repositoryRoot } from '../ledger/location.ts';
 import {
+  contributorCommands,
   generatedBlocks,
   generatedBlocksIn,
   rewriteReadme,
   stepsOf,
 } from './generated.ts';
-import { inlineCodeIn, readReadme, sectionOf } from './readme.ts';
+import type { WorkflowStep } from './generated.ts';
+import {
+  fencedLinesIn,
+  inlineCodeIn,
+  readReadme,
+  sectionOf,
+} from './readme.ts';
 
 /**
  * The root README held to the tree it describes.
@@ -31,21 +38,31 @@ it('holds every generated block exactly as `pnpm readme` would write it today', 
   ).toStrictEqual(generatedBlocks());
 });
 
+/**
+ * The writer's own behaviour, on the README as `pnpm readme` would leave it, so
+ * a README that is merely behind its sources fails only the test above, with
+ * its message, and not this one with a diff of the whole file.
+ */
 it('puts a generated block edited by hand back as its source writes it, and changes nothing else', () => {
   const blocks = generatedBlocks();
+  const current = rewriteReadme(readme, blocks);
   const byHand = new Map(
     [...blocks.keys()].map((name) => [name, `\nTyped by hand into ${name}.\n`]),
   );
 
-  const edited = rewriteReadme(readme, byHand);
+  const edited = rewriteReadme(current, byHand);
   expect(generatedBlocksIn(edited)).toStrictEqual(byHand);
-  expect(rewriteReadme(edited, blocks)).toBe(readme);
+  expect(rewriteReadme(edited, blocks)).toBe(current);
 });
 
-it("reads a job's steps in order, and refuses one it would have to leave off the list", () => {
-  const workflow = (steps: readonly string[]): string =>
-    ['jobs:', '  checks:', '    steps:', ...steps, '  publish:', ''].join('\n');
+/** A workflow holding one job, `checks`, with these step lines. */
+function workflow(steps: readonly string[]): string {
+  return ['jobs:', '  checks:', '    steps:', ...steps, '  publish:', ''].join(
+    '\n',
+  );
+}
 
+it("reads a job's steps in order, and refuses one it would have to leave off the list", () => {
   expect(
     stepsOf(
       workflow([
@@ -54,6 +71,10 @@ it("reads a job's steps in order, and refuses one it would have to leave off the
         '      # A comment between steps.',
         '      - name: Type check',
         '        run: pnpm typecheck',
+        '      - name: Lint the workflows',
+        '        run: |',
+        '          actionlint',
+        '          zizmor .',
         "      - name: 'Publish'",
         "        if: github.ref == 'refs/heads/main'",
         '        run: pnpm publish',
@@ -61,11 +82,20 @@ it("reads a job's steps in order, and refuses one it would have to leave off the
       'checks',
     ),
   ).toStrictEqual([
-    { name: 'Check out the repository', run: null, condition: null },
-    { name: 'Type check', run: 'pnpm typecheck', condition: null },
+    {
+      name: 'Check out the repository',
+      work: { kind: 'action' },
+      condition: null,
+    },
+    {
+      name: 'Type check',
+      work: { kind: 'command', command: 'pnpm typecheck' },
+      condition: null,
+    },
+    { name: 'Lint the workflows', work: { kind: 'script' }, condition: null },
     {
       name: 'Publish',
-      run: 'pnpm publish',
+      work: { kind: 'command', command: 'pnpm publish' },
       condition: "github.ref == 'refs/heads/main'",
     },
   ]);
@@ -80,25 +110,70 @@ it("reads a job's steps in order, and refuses one it would have to leave off the
       'checks',
     ),
   ).toThrow('opens with "uses:" rather than "name:"');
+});
 
-  expect(() =>
-    stepsOf(
-      workflow([
-        '      - name: Type check',
-        '        run: |',
-        '          pnpm typecheck',
-        '          pnpm lint',
-      ]),
-      'checks',
+/** The checks job's edges, with these step lines between them and after. */
+function checksJobWith(
+  between: readonly string[],
+  after: readonly string[] = [],
+): WorkflowStep[] {
+  return stepsOf(
+    workflow([
+      '      - name: Apply migrations',
+      '        run: pnpm db:migrate',
+      '      - name: Type check',
+      '        run: pnpm typecheck',
+      ...between,
+      '      - name: Check the server starts',
+      '        run: bash scripts/check-server-starts.sh',
+      ...after,
+    ]),
+    'checks',
+  );
+}
+
+const scriptStep = [
+  '      - name: Lint the workflows',
+  '        run: |',
+  '          actionlint',
+  '          zizmor .',
+];
+
+it('lists the commands between the migrations and the server start, whatever steps come after them', () => {
+  expect(contributorCommands(checksJobWith([], scriptStep))).toBe(
+    '\n```sh\npnpm typecheck\n```\n',
+  );
+  expect(
+    contributorCommands(
+      checksJobWith(
+        [],
+        ['      - name: Keep the output', '        uses: actions/upload@v7'],
+      ),
     ),
-  ).toThrow('runs more than one line');
+  ).toBe('\n```sh\npnpm typecheck\n```\n');
+});
+
+it('refuses a step between them that a contributor cannot type, and says where to put it', () => {
+  expect(() => contributorCommands(checksJobWith(scriptStep))).toThrow(
+    'runs more than one line, which the README cannot list as one command. Move it before "Apply migrations" or after "Check the server starts", or put its lines in a script',
+  );
+  expect(() =>
+    contributorCommands(
+      checksJobWith([
+        '      - name: Keep the output',
+        '        uses: actions/upload@v7',
+      ]),
+    ),
+  ).toThrow(
+    'uses an action, which a contributor cannot run as a command. Move it before "Apply migrations" or after "Check the server starts".',
+  );
 });
 
 /**
- * The words in spans of inline code that are paths, judged by their shape
- * alone.
+ * The words in spans of inline code, and in the lines of fenced blocks, that
+ * are paths, judged by their shape alone.
  *
- * A span is split at its spaces, so a path inside a command such as
+ * A span or a line is split at its spaces, so a path inside a command such as
  * `ls ledger/checks` is read as well as a span that is only a path. A word
  * starting with a slash is an address on the running server, one with a scheme
  * is a web address, one in quotes is a value in a command or a condition, such
@@ -165,6 +240,7 @@ const notInTheTree = new Map([
   ['.env', 'The file `cp .env.example .env` writes, which git ignores.'],
   ['.graphql', 'A file extension rather than a file.'],
   ['packages/web/dist', 'What `pnpm build:web` writes, which git ignores.'],
+  ['dist/ledger', 'What `pnpm ledger:build` writes, which git ignores.'],
   ['async-digital-ltd.github.io/seen-to-fail', 'A web address.'],
   [
     'repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow',
@@ -232,7 +308,10 @@ it('names only paths that exist in the tree', () => {
       return extension === undefined ? [] : [extension];
     }),
   );
-  const paths = pathsIn(inlineCodeIn(readme), extensions);
+  const paths = pathsIn(
+    [...inlineCodeIn(readme), ...fencedLinesIn(readme)],
+    extensions,
+  );
 
   const missing = paths.filter(
     (path) =>

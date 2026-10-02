@@ -92,17 +92,33 @@ export function countOf(written: string): number {
   return index;
 }
 
+/** A fenced block at the start of a line, its fences included. */
+const fences = /^```[^\n]*\n[\s\S]*?^```$/gmu;
+
 /**
  * Every span of inline code in some Markdown, with fenced blocks left out.
  *
- * A fenced block is a listing rather than a claim made in a sentence, and its
- * backticks would otherwise pair with the ones around it. A span may run across
- * a line break, because the wrapping puts one there whenever it falls on a
- * space inside the span, so a span is returned with its whitespace flattened.
+ * A fenced block's backticks would otherwise pair with the ones around it, and
+ * its lines are read by `fencedLinesIn` instead. A span may run across a line
+ * break, because the wrapping puts one there whenever it falls on a space
+ * inside the span, so a span is returned with its whitespace flattened.
  */
 export function inlineCodeIn(markdown: string): string[] {
-  const outsideFences = markdown.replace(/^```[^\n]*\n[\s\S]*?^```$/gmu, '');
-  return [...outsideFences.matchAll(/`([^`]+)`/gu)].map((span) =>
+  return [...markdown.replace(fences, '').matchAll(/`([^`]+)`/gu)].map((span) =>
     flattened(span[1] ?? ''),
+  );
+}
+
+/**
+ * Every line inside a fenced block, its whitespace flattened, so that a
+ * command a reader is told to type can be read word by word like a span.
+ */
+export function fencedLinesIn(markdown: string): string[] {
+  return [...markdown.matchAll(fences)].flatMap((block) =>
+    block[0]
+      .split('\n')
+      .slice(1, -1)
+      .map((line) => flattened(line).trim())
+      .filter((line) => line !== ''),
   );
 }

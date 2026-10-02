@@ -163,11 +163,19 @@ export function packageList(root: string = repositoryRoot): string {
   );
 }
 
+/**
+ * What a step does: use an action, run one command written on its `run:` line,
+ * or run a script written as a block under `run: |`.
+ */
+export type StepWork =
+  | { readonly kind: 'action' }
+  | { readonly kind: 'command'; readonly command: string }
+  | { readonly kind: 'script' };
+
 /** One step of a job in a workflow file, as far as the README needs one. */
 export interface WorkflowStep {
   readonly name: string;
-  /** The step's command, or null for a step that `uses:` an action instead. */
-  readonly run: string | null;
+  readonly work: StepWork;
   /** The step's `if:` condition, or null for a step that always runs. */
   readonly condition: string | null;
 }
@@ -185,8 +193,9 @@ function unquoted(value: string): string {
  * YAML in general: the job's key indented two spaces, each step opening with
  * `- name:` at six, and its keys at eight. A step it cannot read that way is
  * refused rather than skipped, because a step missing from the list is exactly
- * the quiet wrongness the list exists to prevent. So is a multi-line `run:`,
- * which would otherwise be listed as its first line.
+ * the quiet wrongness the list exists to prevent. A `run:` written as a block
+ * is read as a script, not as its first line, and only the README's list of
+ * commands has any objection to one.
  */
 export function stepsOf(workflow: string, job: string): WorkflowStep[] {
   const lines = workflow.split('\n');
@@ -201,7 +210,7 @@ export function stepsOf(workflow: string, job: string): WorkflowStep[] {
 
   const steps: {
     name: string;
-    run: string | null;
+    work: StepWork;
     condition: string | null;
   }[] = [];
   for (const line of body) {
@@ -214,7 +223,7 @@ export function stepsOf(workflow: string, job: string): WorkflowStep[] {
       }
       steps.push({
         name: unquoted(opened[2] ?? ''),
-        run: null,
+        work: { kind: 'action' },
         condition: null,
       });
       continue;
@@ -227,12 +236,10 @@ export function stepsOf(workflow: string, job: string): WorkflowStep[] {
     }
     const value = key[2] ?? '';
     if (key[1] === 'run') {
-      if (value === '' || value.startsWith('|') || value.startsWith('>')) {
-        throw new Error(
-          `The step "${current.name}" in the ${job} job runs more than one line, which the README cannot list as one command.`,
-        );
-      }
-      current.run = unquoted(value);
+      current.work =
+        value === '' || value.startsWith('|') || value.startsWith('>')
+          ? { kind: 'script' }
+          : { kind: 'command', command: unquoted(value) };
     } else {
       current.condition = unquoted(value);
     }
@@ -296,13 +303,24 @@ export function contributorCommands(
     );
   }
 
+  // A step anywhere else in the job can be written however it needs to be.
+  // Only these are listed as commands a contributor types, so only these have
+  // to be one.
+  const fix =
+    'Move it before "Apply migrations" or after "Check the server starts"';
   const commands = between.map((step) => {
-    if (step.run === null) {
-      throw new Error(
-        `The step "${step.name}" uses an action, which a contributor cannot run as a command.`,
-      );
+    switch (step.work.kind) {
+      case 'command':
+        return step.work.command;
+      case 'action':
+        throw new Error(
+          `The step "${step.name}" uses an action, which a contributor cannot run as a command. ${fix}.`,
+        );
+      case 'script':
+        throw new Error(
+          `The step "${step.name}" runs more than one line, which the README cannot list as one command. ${fix}, or put its lines in a script under scripts/ and run that on one line.`,
+        );
     }
-    return step.run;
   });
   return spaced(['```sh', ...commands, '```'].join('\n'));
 }

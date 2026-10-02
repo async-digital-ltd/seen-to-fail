@@ -191,6 +191,40 @@ function readmeExampleLink(): string {
   return found[1];
 }
 
+/**
+ * A filter written out the way the README's prose writes one: each condition
+ * as its field, operator and argument, a group of more than one in brackets
+ * when there is more than one group, and the joiners in capitals.
+ */
+function writtenOut(filter: Filter): string {
+  if (filter.kind === 'empty') {
+    return '';
+  }
+  const condition = (written: Condition): string => {
+    switch (written.field) {
+      case 'status':
+      case 'area':
+        return `${written.field} ${written.op} ${written.value}`;
+      case 'lastCaught':
+        return written.op === 'never'
+          ? 'lastCaught never'
+          : `lastCaught ${written.op} ${String(written.days)}`;
+      case 'runs':
+        return `runs ${written.op} ${String(written.count)}`;
+    }
+  };
+  return filter.groups
+    .map((group) => {
+      const text = group.conditions
+        .map(condition)
+        .join(` ${group.joiner.toUpperCase()} `);
+      return group.conditions.length > 1 && filter.groups.length > 1
+        ? `(${text})`
+        : text;
+    })
+    .join(` ${filter.joiner.toUpperCase()} `);
+}
+
 it("reads the README's example link as the Git filter, picking as many of the seeded checks as it says", async () => {
   const parsed = parseFilterString(readmeExampleLink());
   if (!parsed.ok) {
@@ -199,6 +233,13 @@ it("reads the README's example link as the Git filter, picking as many of the se
     );
   }
   expect(parsed.filter).toStrictEqual(unprovenOrStaleInGit);
+
+  // The same filter as the sentence writes it, held to the link it says it is.
+  const written = /a filter such as `([^`]+)`, which picks/u.exec(filters);
+  if (written?.[1] === undefined) {
+    throw new Error('README.md no longer writes its example filter out.');
+  }
+  expect(written[1]).toBe(writtenOut(parsed.filter));
 
   const picks = /picks (\w+) of the (\w+) checks/u.exec(filters);
   if (picks?.[1] === undefined || picks[2] === undefined) {

@@ -6,7 +6,13 @@ import {
   nullVerdicts,
   refusalTest,
 } from '../testing/check-constraints.ts';
-import { countOf, flattened, readReadme, sectionOf } from '../readme/readme.ts';
+import {
+  countOf,
+  flattened,
+  inlineCodeIn,
+  readReadme,
+  sectionOf,
+} from '../readme/readme.ts';
 import { rejectionOf, sqlStates } from '../testing/rejections.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { migrationsTable } from './migrations.ts';
@@ -147,6 +153,41 @@ it('names in the README every table the migrations create, and counts them right
     );
   }
   expect(countOf(emptied[1])).toBe(tables.length);
+});
+
+/**
+ * Everything else the README names in the schema's own spelling.
+ *
+ * A span of inline code written in snake case is a name in the database: a
+ * table, the migrations' bookkeeping table, or a function. Each must be one of
+ * those in the migrated catalog, so a rename leaves no sentence naming the old
+ * one. `seen_to_fail` is the one snake-case span that is not a name in the
+ * schema: it is the role and password `.env.example` gives, and it is held to
+ * still being in the README so the exception cannot outlive its sentence.
+ */
+it('names in the README only tables and functions the migrated schema has', async () => {
+  const found = await database.client().query<{ name: string }>(
+    `SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'
+     UNION
+     SELECT p.proname AS name
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'`,
+  );
+  const inSchema = new Set(found.rows.map((row) => row.name));
+  const notInSchema = ['seen_to_fail'];
+
+  const named = [
+    ...new Set(
+      inlineCodeIn(readReadme()).filter((span) =>
+        /^[a-z]+(?:_[a-z]+)+$/u.test(span),
+      ),
+    ),
+  ];
+
+  expect(
+    named.filter((name) => !inSchema.has(name) && !notInSchema.includes(name)),
+  ).toStrictEqual([]);
+  expect(notInSchema.filter((name) => !named.includes(name))).toStrictEqual([]);
 });
 
 it('refuses a second check with the same name', async () => {
