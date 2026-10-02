@@ -1,5 +1,5 @@
 import type { createGraphQLServer } from '../graphql/server.ts';
-import { graphqlRoute } from '../graphql/server.ts';
+import { graphqlRoute, serverHost, serverPort } from '../graphql/server.ts';
 
 /**
  * Putting a query through the whole server, transport included.
@@ -14,8 +14,12 @@ import { graphqlRoute } from '../graphql/server.ts';
 
 type Server = ReturnType<typeof createGraphQLServer>;
 
-/** Any origin will do: nothing is listening, and only the path is read. */
-const origin = 'http://seen-to-fail.test';
+/**
+ * The address the server listens on. Nothing is listening during a test, but
+ * the server refuses a request addressed to a name it does not answer to
+ * (#183), so a test addresses it as a browser on this machine would.
+ */
+const origin = `http://${serverHost}:${String(serverPort)}`;
 
 /** One entry in a GraphQL response's errors. */
 export interface GraphQLResponseError {
