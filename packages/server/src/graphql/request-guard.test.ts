@@ -172,6 +172,42 @@ describe('refuses', () => {
   });
 });
 
+/**
+ * A GET needs no preflight either, and this guard lets it through, because the
+ * web app sends its queries that way. What keeps a GET from writing is the
+ * GraphQL server itself, which refuses a mutation sent by GET with 405 before
+ * any resolver runs. The README's claim that a page elsewhere cannot make the
+ * server write leans on that refusal as much as on this guard, so it is held
+ * here too: an upgrade or an option that let a mutation through by GET would
+ * otherwise turn the claim false with every test still green.
+ *
+ * This pins the GraphQL server's behaviour, not this project's code, so
+ * removing `useRequestGuard` leaves it passing. The control is a plant that
+ * admits mutations by GET: a plugin added to server.ts whose `onParse` blanks
+ * the request on the context, `extendContext({ request: undefined })`, which
+ * is the case the GraphQL server's own check skips. With it the mutation
+ * reaches the database and is answered 200, and this test fails. It has been
+ * seen to do so.
+ */
+describe('leaves to the GraphQL server, and holds', () => {
+  it('a mutation sent by GET from another origin is refused before any resolver runs', async () => {
+    const { database, query } = recordingDatabase();
+    const server = createGraphQLServer({ database });
+    const search = new URLSearchParams({ query: mutation });
+
+    const response = await server.fetch(
+      `http://${ownAddress}${graphqlRoute}?${search.toString()}`,
+      { headers: { origin: hostileOrigin, accept: 'application/json' } },
+    );
+
+    expect(response.status).toBe(405);
+    expect(await messages(response)).toStrictEqual([
+      'Can only perform a mutation operation from a POST request.',
+    ]);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
 describe('answers', () => {
   /** A query that reaches no resolver of this project's, so needs no rows. */
   const typename = '{ __typename }';
