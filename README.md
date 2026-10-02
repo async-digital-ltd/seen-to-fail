@@ -183,9 +183,8 @@ link must parse back into the same filter.
   saved filters. The schema carries `saved_filters` for saving a filter under a
   name, and nothing reads it yet.
 - **React** with Vite, React Router and urql.
-- **Vitest** for tests, and GitHub Actions for checking the generated types,
-  type checking, linting, format checking, tests, starting the server, a build
-  of the client, and building and checking the published page.
+- **Vitest** for tests, and GitHub Actions for CI, whose steps are listed under
+  [Tests](#tests).
 
 The server is built for local use only. It listens on `127.0.0.1` and no other
 interface, so no other machine can reach it, and it sends no CORS headers, so a
@@ -365,10 +364,10 @@ Four checks are declared for replay by a job: `ci-type-check`,
 `ledger-record-validation`, which are the four that carry a run. `canfail.json`
 declares those four, with eight declared breaks between them; `ledger/checks/`
 holds nine. So five of those nine have no plant for a job to apply, and no
-replay can ever produce a run for them. As of 1 October 2026 all four have been
-replayed: `ci-type-check` since 19 September, and the other three, declared on
-#110, since the scheduled run of 28 September. The next section says plainly
-what that leaves automatic and what it does not.
+replay can ever produce a run for them. How far replays have reached each of
+the four is the table under
+[How much of this record is automatic](#how-much-of-this-record-is-automatic),
+which also says plainly what that leaves automatic and what it does not.
 
 The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
 0.2.1 does it: handed a declaration of planted defects, it runs the check on a
@@ -731,6 +730,8 @@ plan is recorded on
 
 ## Tests
 
+<!-- generated: contributor-commands, by pnpm readme from the checks job in .github/workflows/ci.yml -->
+
 ```sh
 pnpm typecheck
 pnpm lint
@@ -738,14 +739,18 @@ pnpm format:check
 pnpm test
 ```
 
-The repository is a pnpm workspace with four packages:
+<!-- end generated: contributor-commands -->
 
-- `packages/server`, the GraphQL API,
-- `packages/web`, the React client,
-- `packages/filter`, the filter language, imported by both sides so that
-  neither one depends on the other,
-- `packages/replay`, which reads a replay tool's report and says what runs it
-  means. It writes nothing, reads no files and knows nothing about a database.
+The repository is a pnpm workspace, and these are its packages:
+
+<!-- generated: packages, by pnpm readme from packages/ and each package's own description -->
+
+- `packages/filter`: The filter language, imported by both the server and the web client so that neither one depends on the other.
+- `packages/replay`: Reads a replay tool's report and says what runs it means. It writes nothing, reads no files and knows nothing about a database.
+- `packages/server`: The GraphQL API.
+- `packages/web`: The React client, built with Vite.
+
+<!-- end generated: packages -->
 
 `typecheck` and `test` run inside every package. `lint` and `format:check` run
 once over the whole tree from the repository root. `pnpm format` rewrites files
@@ -757,6 +762,12 @@ The server's resolver types and the client's typed queries are generated from
 `pnpm codegen:check`, which regenerates both and fails when the result differs
 from what is committed.
 
+The commands above, the list of packages and the list of CI's steps below are
+written from the tree rather than by hand. `pnpm readme` rewrites them from
+`.github/workflows/ci.yml` and from each package's `package.json`, and a test
+fails while any of them differs from what it would write, so a change to either
+source needs `pnpm readme` run before it will pass.
+
 Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
 a real PostgreSQL, apply the migrations before the first of them, and empty
 every table between tests, so they are repeatable without anyone tidying up by
@@ -764,16 +775,42 @@ hand. They fail if no database is running, which is the honest answer rather
 than a quiet skip. The status rules above are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
-CI runs `pnpm codegen:check`, applies the migrations, runs the four commands
-above, and then starts the server with `scripts/check-server-starts.sh`, which
-is what proves the entry point loads: the tests put requests through the
-handler and never run it. The script waits up to 30 seconds for `/health`, then
-sends one GraphQL query, stops the server, and requires that nothing answers on
-its address afterwards, so an answer from some other process on the port fails
-the check. It runs the same way locally. Then `pnpm build:web`, which is what
-proves the page reaches the code: the tests import modules, and only the bundler
-starts from `index.html`. It finishes by reading the ledger and building the
-published page from it, and checking what came out: two files, naming the commit
+CI runs these steps, in this order, each under the name the checks job in
+`.github/workflows/ci.yml` gives it. The commands at the top of this section are
+the ones it runs between applying the migrations and starting the server.
+
+<!-- generated: ci-steps, by pnpm readme from the checks job in .github/workflows/ci.yml -->
+
+1. Check out the repository
+2. Install pnpm
+3. Install Node
+4. Install dependencies
+5. Check the generated types are current
+6. Create the databases
+7. Apply migrations
+8. Type check
+9. Lint
+10. Check formatting
+11. Test
+12. Check the server starts
+13. Build the client
+14. Check the ledger reads
+15. Build the published ledger
+16. Check the published output
+17. Keep the published ledger as an artefact
+18. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+
+<!-- end generated: ci-steps -->
+
+Starting the server is `scripts/check-server-starts.sh`, and it is what proves
+the entry point loads: the tests put requests through the handler and never run
+it. The script waits up to 30 seconds for `/health`, then sends one GraphQL
+query, stops the server, and requires that nothing answers on its address
+afterwards, so an answer from some other process on the port fails the check.
+It runs the same way locally. Building the client is what proves the page
+reaches the code: the tests import modules, and only the bundler starts from
+`packages/web/index.html`. The ledger steps read the records, build the
+published page from them, and check what came out: two files, naming the commit
 CI is running against, with no script in them.
 
 ## Licence
@@ -890,16 +927,18 @@ and whatever it has not seen.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
-  <img alt="A timeline with two points. A filled circle, version 1, manual: every step by hand, where you make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, shipped in part, automatic: replayed for you, where you write the breaking change once and a job applies it, runs the check, removes it and records the result." src="docs/roadmap-light.svg">
+  <img alt="A timeline with two points. A filled circle, version 1, by hand. Manual: every step by hand. You make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, shipped, in part. Automatic: replayed for you. You write the breaking change once. A job applies it, runs the check, removes it and records the result for you." src="docs/roadmap-light.svg">
 </picture>
 
-**Version 1 is manual, and as of 1 October 2026 five of the nine checks
-recorded here still are: the five with no plant declared.**
+**Version 1 is manual, and every check recorded here with no plant declared
+still is.**
 Proving one check means making a throwaway branch, breaking the code in the way
 that check exists to catch, running the check, confirming it failed for that
 reason and not another, deleting the branch, and then writing down what
 happened. The app holds the record. Every step that produces the record is
-yours.
+yours. The table under
+[How much of this record is automatic](#how-much-of-this-record-is-automatic)
+names the checks still proved this way.
 
 That is the weakness, and it is the one the app exists to show in checks: a
 record made that way goes stale as soon as people stop doing all of it. Thirty
@@ -914,25 +953,21 @@ runs the check, confirms it failed for that reason, puts the code back and
 records the result. Nobody opens the app. You write the plant in the format of
 the tool that replays it rather than in one this project invents, and what this
 project adds is the record. That is not a direction any more: it is
-`canfail.json`, `.github/workflows/replay.yml` and the ledger section above, and
-as of 1 October 2026 it has been through the whole route five times. Twice
-dispatched by a person on 19 September 2026 and once by the schedule on Monday
-21 September 2026, all three on `ci-type-check` alone, the scheduled one
-reaching the record as `f1348f8` with nobody having typed anything in. Then
-once more by the schedule on Monday 28 September 2026 and once dispatched on
-29 September 2026, each over all four declared checks, reaching the record as
-`6f29d42` and `bb3e011`. That is five times through for `ci-type-check` and
-twice for each of the other three. The scheduled ones are the ones the epic was
-for.
+`canfail.json`, `.github/workflows/replay.yml` and the ledger section above. The
+first replay nobody started was the scheduled run of Monday 21 September 2026,
+which reached the record as `f1348f8`, and the scheduled ones are the ones the
+epic was for. Every replay run merged to `main` is in `ledger/runs/`, and how
+far replays have reached each declared check is the table under
+[How much of this record is automatic](#how-much-of-this-record-is-automatic).
 
 **What is still only a direction** is the rest of the reach, and it is worth
 being specific about which parts:
 
-- **The other five checks.** A plant is written once, by a person, and nothing
-  writes one for you. Epic
+- **The checks with no plant declared.** A plant is written once, by a person,
+  and nothing writes one for you. Epic
   [#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) names
   writing plants automatically as out of scope, so until somebody writes them,
-  five of the nine are proved by hand or not at all.
+  those checks are proved by hand or not at all.
 - **A runner of this project's own.** An existing one was adapted rather than
   written, and writing one is only worth it if the adapter shows the ledger
   earns its keep and the tool cannot be made to fit.
