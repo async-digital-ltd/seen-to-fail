@@ -731,6 +731,7 @@ plan is recorded on
 ```sh
 pnpm typecheck
 pnpm lint
+pnpm lint:workflows
 pnpm format:check
 pnpm test
 ```
@@ -751,6 +752,16 @@ The repository is a pnpm workspace, and these are its packages:
 `typecheck` and `test` run inside every package. `lint` and `format:check` run
 once over the whole tree from the repository root. `pnpm format` rewrites files
 in place instead of reporting on them.
+
+`lint:workflows` reads every file in `.github/workflows` as a GitHub Actions
+workflow with [actionlint](https://github.com/rhysd/actionlint), and the shell
+in each of their `run:` steps with ShellCheck. Nothing else reads
+`.github/workflows/record-run.yml` or `.github/workflows/replay.yml` as a
+workflow before it runs, and neither runs on a pull request
+([#157](https://github.com/async-digital-ltd/seen-to-fail/issues/157)). It
+downloads both tools from their release pages on every run, so it needs a
+network connection, and refuses either one unless its SHA-256 matches the pin
+in `scripts/lint-workflows.sh`.
 
 The server's resolver types and the client's typed queries are generated from
 `packages/server/schema.graphql` and checked in. After changing the schema or a
@@ -786,15 +797,16 @@ the ones it runs between applying the migrations and starting the server.
 7. Apply migrations
 8. Type check
 9. Lint
-10. Check formatting
-11. Test
-12. Check the server starts
-13. Build the client
-14. Check the ledger reads
-15. Build the published ledger
-16. Check the published output
-17. Keep the published ledger as an artefact
-18. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+10. Lint the workflows
+11. Check formatting
+12. Test
+13. Check the server starts
+14. Build the client
+15. Check the ledger reads
+16. Build the published ledger
+17. Check the published output
+18. Keep the published ledger as an artefact
+19. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
 
 <!-- end generated: ci-steps -->
 
