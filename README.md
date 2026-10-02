@@ -730,6 +730,7 @@ plan is recorded on
 ```sh
 pnpm typecheck
 pnpm lint
+pnpm lint:workflows
 pnpm format:check
 pnpm test
 ```
@@ -747,6 +748,16 @@ The repository is a pnpm workspace with four packages:
 once over the whole tree from the repository root. `pnpm format` rewrites files
 in place instead of reporting on them.
 
+`lint:workflows` reads every file in `.github/workflows` as a GitHub Actions
+workflow with [actionlint](https://github.com/rhysd/actionlint), and the shell
+in each of their `run:` steps with ShellCheck. Nothing else reads
+`record-run.yml` or `replay.yml` as a workflow before it runs, and neither runs
+on a pull request
+([#157](https://github.com/async-digital-ltd/seen-to-fail/issues/157)). It
+downloads both tools from their release pages on every run, so it needs a
+network connection, and refuses either one unless its SHA-256 matches the pin
+in `scripts/lint-workflows.sh`.
+
 The server's resolver types and the client's typed queries are generated from
 `packages/server/schema.graphql` and checked in. After changing the schema or a
 `.graphql` query in `packages/web`, run `pnpm codegen`. CI runs
@@ -760,7 +771,7 @@ hand. They fail if no database is running, which is the honest answer rather
 than a quiet skip. The status rules above are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
-CI runs `pnpm codegen:check`, applies the migrations, runs the four commands
+CI runs `pnpm codegen:check`, applies the migrations, runs the five commands
 above, and then starts the server with `scripts/check-server-starts.sh`, which
 is what proves the entry point loads: the tests put requests through the
 handler and never run it. The script waits up to 30 seconds for `/health`, then

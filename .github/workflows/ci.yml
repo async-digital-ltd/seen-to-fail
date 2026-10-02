@@ -114,7 +114,7 @@ jobs:
       - name: Apply migrations
         run: pnpm db:migrate
 
-      # The four commands the README tells a contributor to run, in the order
+      # The five commands the README tells a contributor to run, in the order
       # it lists them, through the same root scripts. CI cannot pass something
       # a local run fails, because there is only one definition of each check.
       - name: Type check
@@ -122,6 +122,15 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # Every file in .github/workflows, this one included, read as a workflow
+      # by actionlint and the shell in its run steps by shellcheck, both at
+      # versions pinned by checksum in the script. It is here because two of
+      # the three workflows only run when dispatched or on the schedule, so
+      # this is the only place a mistake in them can fail before it matters
+      # (#157). The script's header says what is pinned and why.
+      - name: Lint the workflows
+        run: pnpm lint:workflows
 
       - name: Check formatting
         run: pnpm format:check

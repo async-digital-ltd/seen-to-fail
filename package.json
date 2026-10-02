@@ -11,6 +11,7 @@
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
+    "lint:workflows": "bash scripts/lint-workflows.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
