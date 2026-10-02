@@ -952,8 +952,8 @@ project adds is the record. That is not a direction any more: it is
 `canfail.json`, `.github/workflows/replay.yml` and the ledger section above. The
 first replay nobody started was the scheduled run of Monday 21 September 2026,
 which reached the record as `f1348f8`, and the scheduled ones are the ones the
-epic was for. Every run a replay has recorded is in `ledger/runs/`, and how far
-replays have reached each declared check is the table under
+epic was for. Every replay run merged to `main` is in `ledger/runs/`, and how
+far replays have reached each declared check is the table under
 [How much of this record is automatic](#how-much-of-this-record-is-automatic).
 
 **What is still only a direction** is the rest of the reach, and it is worth
