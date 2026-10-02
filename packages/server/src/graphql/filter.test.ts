@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import {
   MAX_DAYS,
   MAX_RUN_COUNT,
@@ -11,6 +9,7 @@ import { expect, it, vi } from 'vitest';
 
 import { listChecks } from '../database/checks.ts';
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
+import { countOf, flattened, readReadme, sectionOf } from '../readme/readme.ts';
 import { post, query } from '../testing/graphql.ts';
 import type { Variables } from '../testing/graphql.ts';
 import { sqlStates } from '../testing/rejections.ts';
@@ -176,25 +175,23 @@ it('selects the checks a filter matches, and counts the rest as hidden', async (
  * The root README's worked example, read off the README rather than restated
  * here, so an edit to the example fails this test instead of leaving a test
  * named for it pinning something else (#59). The README gives the example as
- * the link the list opens at. The link is read and checked against the seed as
- * it stands; the README also says how many checks it picks, and that count is
- * not read here: the two below is written into this test.
+ * the link the list opens at, under its Filters heading, and says beside it how
+ * many of how many seeded checks the example picks. All three are read from
+ * that section and held to the seed and to the server's answer (#149), so the
+ * count cannot be edited into a number the workspace does not give.
  */
-const readme = readFileSync(
-  new URL('../../../../README.md', import.meta.url),
-  'utf8',
-);
+const filters = flattened(sectionOf(readReadme(), 'Filters'));
 
-/** The text after `f=` in the `/?f=` link the README shows for its example. */
+/** The text after `f=` in the `/?f=` link the Filters section gives. */
 function readmeExampleLink(): string {
-  const found = /^\/\?f=(\S+)$/m.exec(readme);
+  const found = /^\/\?f=(\S+)$/mu.exec(sectionOf(readReadme(), 'Filters'));
   if (found?.[1] === undefined) {
-    throw new Error('README.md shows no /?f= link for its filter example.');
+    throw new Error('README.md shows no /?f= link under "Filters".');
   }
   return found[1];
 }
 
-it("reads the README's example link as the Git filter, which matches two seeded checks", async () => {
+it("reads the README's example link as the Git filter, picking as many of the seeded checks as it says", async () => {
   const parsed = parseFilterString(readmeExampleLink());
   if (!parsed.ok) {
     throw new Error(
@@ -203,12 +200,46 @@ it("reads the README's example link as the Git filter, which matches two seeded 
   }
   expect(parsed.filter).toStrictEqual(unprovenOrStaleInGit);
 
+  const picks = /picks (\w+) of the (\w+) checks/u.exec(filters);
+  if (picks?.[1] === undefined || picks[2] === undefined) {
+    throw new Error(
+      'README.md no longer says how many checks its example picks.',
+    );
+  }
+
   const server = await seededServer();
   const list = await listUnder(server, parsed.filter);
 
-  expect(seedChecks).toHaveLength(8);
-  expect(list.checks.matching).toBe(2);
-  expect(list.checks.hidden).toBe(6);
+  expect(seedChecks).toHaveLength(countOf(picks[2]));
+  expect(list.checks.matching).toBe(countOf(picks[1]));
+  expect(list.checks.hidden).toBe(countOf(picks[2]) - countOf(picks[1]));
+});
+
+it('spells the seeded areas the way the README says the sample workspace does', () => {
+  const sentence = /spells its areas ((?:`[^`]+`(?:, | and )?)+)/u.exec(
+    filters,
+  );
+  if (sentence?.[1] === undefined) {
+    throw new Error("README.md no longer lists the sample workspace's areas.");
+  }
+  const written = [...sentence[1].matchAll(/`([^`]+)`/gu)].map(
+    (area) => area[1],
+  );
+
+  expect([...written].sort()).toStrictEqual(
+    [...new Set(seedChecks.map((check) => check.area))].sort(),
+  );
+});
+
+it('seeds as many checks as the README says `pnpm db:seed` loads', () => {
+  const loads = /Loads the sample workspace of (\w+) checks/u.exec(
+    flattened(sectionOf(readReadme(), 'Run it locally')),
+  );
+  if (loads?.[1] === undefined) {
+    throw new Error('README.md no longer says how many checks the seed loads.');
+  }
+
+  expect(seedChecks).toHaveLength(countOf(loads[1]));
 });
 
 it('reads a filter written into the query text the same as one sent as a variable', async () => {
