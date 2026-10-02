@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The filter language shared by the server and the web client.",
+  "description": "The filter language, imported by both the server and the web client so that neither one depends on the other.",
   "exports": {
     ".": "./src/index.ts"
   },

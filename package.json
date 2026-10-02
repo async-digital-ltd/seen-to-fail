@@ -16,6 +16,7 @@
     "test": "pnpm -r test",
     "codegen": "pnpm -r codegen && prettier --write packages/server/src/graphql/generated packages/web/src/graphql/generated",
     "codegen:check": "pnpm codegen && git diff --exit-code -- packages/server/src/graphql/generated packages/web/src/graphql/generated",
+    "readme": "node packages/server/src/scripts/write-readme.ts",
     "dev:server": "node packages/server/src/index.ts",
     "dev:web": "pnpm --filter @seen-to-fail/web dev",
     "build:web": "pnpm --filter @seen-to-fail/web build",
