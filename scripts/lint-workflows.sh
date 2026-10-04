@@ -87,6 +87,11 @@
 # passed: the tool does not report an unquoted variable it can see was given a
 # constant with nothing in it to split. That pass was the plant being wrong and
 # not the lint, which is why a plant is watched failing before it is believed.
+#
+# The plant that failed locally, pushed to a ci-control branch on top of the
+# commit that added the script lint, failed this step in CI run 37221005997
+# with exit 1, after the workflow lint had passed, and no later step ran. Run
+# 37220995947, on that commit without the plant, passed it.
 
 set -euo pipefail
 
