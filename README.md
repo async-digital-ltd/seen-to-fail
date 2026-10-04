@@ -769,6 +769,10 @@ in each of their `run:` steps with ShellCheck. Nothing else reads
 `.github/workflows/record-run.yml` or `.github/workflows/replay.yml` as a
 workflow before it runs, and neither runs on a pull request
 ([#157](https://github.com/async-digital-ltd/seen-to-fail/issues/157)). It
+then reads every tracked shell script under `scripts/` with the same
+ShellCheck, because several of CI's steps are one of those scripts and
+actionlint reads only the shell written inside a workflow
+([#191](https://github.com/async-digital-ltd/seen-to-fail/issues/191)). It
 downloads both tools from their release pages on every run, so it needs a
 network connection, and refuses either one unless its SHA-256 matches the pin
 in `scripts/lint-workflows.sh`.
