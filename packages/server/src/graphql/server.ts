@@ -56,9 +56,11 @@ export const serverHost = '127.0.0.1';
  * gives it, Vite rewrites the Host header to the target's, `127.0.0.1:4000`;
  * without that rewrite it would pass on the browser's `localhost:5173`.
  *
- * A request for any other name is refused, because a page whose own name has
- * been pointed at 127.0.0.1 would otherwise count as this server's origin and
- * could read what it sends back (#183).
+ * A GraphQL request for any other name is refused, because a page whose own
+ * name has been pointed at 127.0.0.1 would otherwise count as this server's
+ * origin and could read what it sends back (#183). The health route, the
+ * readiness route and the GraphiQL page are not held to these names: they
+ * answer under any name, and request-guard.ts says why (#192).
  */
 export const servedHostnames: readonly string[] = [serverHost, 'localhost'];
 
@@ -109,9 +111,9 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
     cors: false,
     plugins: [
       // A POST whose body is not JSON, and a request addressed to any name
-      // but this server's own, are refused before they are parsed, so before
-      // any resolver runs. The headers above keep answers from other origins;
-      // this keeps requests from them from acting (#183).
+      // but this server's own, are refused where they would be parsed as
+      // GraphQL, so before any resolver runs. The headers above keep answers
+      // from other origins; this keeps requests from them from acting (#183).
       useRequestGuard(servedHostnames),
       useReadinessCheck({
         endpoint: readinessRoute,
