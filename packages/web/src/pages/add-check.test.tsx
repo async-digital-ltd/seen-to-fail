@@ -198,6 +198,13 @@ describe('the form', () => {
       'aria-invalid',
     );
     expect(document.querySelectorAll('.field--invalid')).toHaveLength(1);
+    // The name box is filled in, so the summary above it must not call it
+    // missing. This is the refusal a reader of this form meets most (#44).
+    const summary = screen.getByRole('alert');
+    expect(summary).toHaveTextContent(
+      'One detail needs attention. It is marked below.',
+    );
+    expect(summary).not.toHaveTextContent(/missing/iu);
   });
 
   it('keeps what was typed when the API refuses the name', async () => {

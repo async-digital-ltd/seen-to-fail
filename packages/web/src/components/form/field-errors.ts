@@ -63,11 +63,15 @@ export function invalidFields<Field extends string>(
 }
 
 /**
- * The summary line. It says "missing" whatever the refusal was, which is the
- * wording the forms were designed with.
+ * The summary line. It says how many details need attention and never what
+ * is wrong with them, because the count covers every kind of fault at once: an
+ * empty field, a date after today, a name already in use, and any refusal from
+ * the API with no field to sit beside. It used to call all of them missing,
+ * which sent a reader looking for an empty box above a field they had filled
+ * in (#44). What is wrong is the message beside each field.
  */
 export function summarySentence(count: number): string {
   return count === 1
-    ? 'One detail is missing. It is marked below.'
-    : `${String(count)} details are missing. They are marked below.`;
+    ? 'One detail needs attention. It is marked below.'
+    : `${String(count)} details need attention. They are marked below.`;
 }
