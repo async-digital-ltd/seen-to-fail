@@ -204,11 +204,19 @@ function boundedList<Element extends z.ZodType>(
     .transform((parsed) => nonEmpty(parsed, bounds.what));
 }
 
+/**
+ * The two refusals for a list over its cap. Exported so that the share-link
+ * reader, which counts a link's groups and conditions before reading any of
+ * them (#158), refuses in the same words at the same paths.
+ */
+export const TOO_MANY_CONDITIONS = `A group takes at most ${String(MAX_CONDITIONS_PER_GROUP)} conditions.`;
+export const TOO_MANY_GROUPS = `A filter takes at most ${String(MAX_GROUPS)} groups.`;
+
 const conditions = boundedList(condition, {
   what: 'conditions',
   max: MAX_CONDITIONS_PER_GROUP,
   tooFew: 'A group needs at least one condition.',
-  tooMany: `A group takes at most ${String(MAX_CONDITIONS_PER_GROUP)} conditions.`,
+  tooMany: TOO_MANY_CONDITIONS,
 });
 
 const group = z.strictObject({
@@ -220,7 +228,7 @@ const groups = boundedList(group, {
   what: 'groups',
   max: MAX_GROUPS,
   tooFew: 'A filter with groups needs at least one group.',
-  tooMany: `A filter takes at most ${String(MAX_GROUPS)} groups.`,
+  tooMany: TOO_MANY_GROUPS,
 });
 
 /**
