@@ -132,6 +132,11 @@ jobs:
       # the three workflows only run when dispatched or on the schedule, so
       # this is the only place a mistake in them can fail before it matters
       # (#157). The script's header says what is pinned and why.
+      #
+      # The same script then runs that pinned shellcheck over every tracked
+      # shell script under scripts/. Several steps of this job are one of those
+      # scripts, and actionlint reads only the shell written inside a workflow,
+      # so nothing else lints them (#191).
       - name: Lint the workflows
         run: pnpm lint:workflows
 
