@@ -212,6 +212,12 @@ parse as a URL with the `https` scheme. A run typed in by hand carries neither,
 and is refused if either holds a value: a record with a field nobody wrote is
 not something a reader can tell from one somebody did.
 
+The watching and the typing are not always one sitting. The workflow lint's hand
+run, `runs/2026-10-02-ci-workflow-lint-2189ed19db6b.json`, was typed in two days
+after the CI run that watched its plants fail, by a session that had not watched
+it and read the result back from that run's log. Its note says so. `hand` there
+means what it means everywhere: no job planted it and no job scored it.
+
 The validator checks those shapes and nothing more. Whether the commit exists,
 and whether the link reaches the run that produced the record, it cannot tell: a
 replay naming a commit nobody made and a link to somewhere else passes. A reader
