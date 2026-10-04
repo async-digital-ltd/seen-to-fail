@@ -191,9 +191,15 @@ interface, so no other machine can reach it, and it sends no CORS headers, so a
 browser will not hand its answers to a page from another origin. Nor can such a
 page make it write. A POST whose body is not JSON, which is the only kind a
 browser sends to another origin without asking first, is refused before any
-resolver runs. So is a request addressed to any name but `127.0.0.1` or
+resolver runs. So is a GraphQL request addressed to any name but `127.0.0.1` or
 `localhost`, which is how a page whose own name had been pointed at the loopback
 would reach it. `packages/server/src/graphql/request-guard.test.ts` holds both.
+Both refusals are made where a request is parsed as GraphQL, and three routes
+are answered before that point, so they answer whatever they are sent, under any
+name: `/health`, `/ready` and the GraphiQL page at `/graphql`. None of the three
+reads the record, though `/ready` passes on the database's own error message
+when the database does not answer. Those answers were measured, and are on
+[#192](https://github.com/async-digital-ltd/seen-to-fail/issues/192).
 There is no per-request cost limit and no limit on the size of a request body,
 so it is not hardened for deployment. The client's development server, which
 `pnpm dev:web` starts and which passes `/graphql` on to the server, sends no
