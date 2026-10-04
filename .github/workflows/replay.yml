@@ -59,7 +59,9 @@ name: Replay a plant
 # minutes as declared on 27 September 2026, against a timeout of twenty-five.
 # The break #141 added took it to twenty-one. The workflow lint and the server
 # start, declared on 4 October 2026 with a timeout of 120 and two breaks each
-# (#190, #146), take it to thirty-three, so the timeout is now forty. A plant
+# (#190, #146), take it to thirty-three, so the timeout is now forty. The
+# script break #200 added to the workflow lint takes it to thirty-five, which
+# forty still clears. A plant
 # added later adds its check's timeout to that sum, so adding one means
 # checking the job's timeout still clears it.
 #

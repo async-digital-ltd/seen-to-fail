@@ -156,9 +156,9 @@
         ".github/workflows",
         "canfail.json",
         "package.json",
-        "scripts/lint-workflows.sh"
+        "scripts"
       ],
-      "expected": "The workflow lint fails.",
+      "expected": "The workflow lint or the script lint fails.",
       "run": "pnpm lint:workflows",
       "timeout": 120,
       "evidence": {
@@ -178,6 +178,13 @@
           "replace": "inputs.only-due }}",
           "with": "inputs.only_due }}",
           "expect": "property \"only_due\" is not defined"
+        },
+        {
+          "name": "check-published-output.sh leaves $page unquoted in its first test, so a path to the page with a space in it would be split into separate words.",
+          "file": "scripts/check-published-output.sh",
+          "replace": "if [ ! -f \"$page\" ]; then",
+          "with": "if [ ! -f $page ]; then",
+          "expect": "In scripts/check-published-output\\.sh line [0-9]+:"
         }
       ]
     },
