@@ -464,6 +464,9 @@ The job does seven things:
    something is due; the service itself starts with the job.
 3. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
    report under the runner's temporary directory rather than into the checkout.
+   The two packages its verdicts rest on, `didrun` and `restore-verified`, are
+   installed with it, each pinned by version and hash in
+   `.github/replay-requirements.txt`.
 4. **Checks the tree came back.** `canfail` edits real files and puts them back,
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
@@ -998,8 +1001,9 @@ being specific about which parts:
 - **A runner of this project's own.** An existing one was adapted rather than
   written, and writing one is only worth it if the adapter shows the ledger
   earns its keep and the tool cannot be made to fit.
-- **A record that knows which tool produced a verdict.** The version is pinned
-  in the workflow and named in this file, which is prose rather than record: the
+- **A record that knows which tool produced a verdict.** The versions are pinned
+  in `.github/replay-requirements.txt` and named in this file, which is prose
+  rather than record: the
   ledger cannot yet tell you that a run was scored by `canfail` 0.2.1
   ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
 - **End to end without a person.** Neither recording workflow lands its own
