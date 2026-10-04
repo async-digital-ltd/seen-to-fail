@@ -368,7 +368,7 @@ is pinned to `main`, so a red control run cannot paint it red.
 Six checks are declared for replay by a job: `ci-type-check`,
 `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation`,
 `ci-workflow-lint` and `ci-server-start`, which are the six that carry a run.
-`canfail.json` declares those six, with twelve declared breaks between them;
+`canfail.json` declares those six, with thirteen declared breaks between them;
 `ledger/checks/` holds eleven. So five of those eleven have no plant for a job
 to apply, and no replay can ever produce a run for them. How far replays have
 reached each of the six is the table under
@@ -434,9 +434,10 @@ bury the runs that say something under runs that say the same thing again. Each
 replay runs a check once on a clean tree and once per declared break, so a
 dispatch that replays every declared check runs one check per declared check
 and one per declared break. With `canfail.json` as it stands on 4 October 2026,
-six checks and twelve breaks, that is eighteen: three each of `pnpm typecheck`,
-the build, the build followed by the published-output script,
-`pnpm ledger:validate`, `pnpm lint:workflows` and the server start script.
+six checks and thirteen breaks, that is nineteen: three each of
+`pnpm typecheck`, the build, the build followed by the published-output script,
+`pnpm ledger:validate` and the server start script, and four of
+`pnpm lint:workflows`.
 While the
 repository was private those
 runs also spent a finite allowance of runner minutes; that reason lapsed when it

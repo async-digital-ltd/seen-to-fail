@@ -214,7 +214,12 @@ ledger at all. Each had been seen to fail by hand and had no record:
   run 36984692843 failed on both. The command downloads its two linters on
   every run, so a replay that cannot reach them settles nothing rather than
   missing: a run that printed neither the pass line nor the failure line is
-  read as not having run, and scored `look`.
+  read as not having run, and scored `look`. Since #200 it also runs against a
+  script: `"$page"` left unquoted in the first test of
+  `scripts/check-published-output.sh`, the plant CI run 37221005997 failed on
+  when #191 added the script lint. Its `expect` is the line shellcheck prints
+  naming that file, which only the script lint prints, and its `dependsOn`
+  names all of `scripts/` rather than the lint script alone.
 - `ci-server-start` runs `scripts/check-server-starts.sh` against two entry
   points. The first imports `./environment` without its file extension, which
   the type check accepts and Node cannot resolve. That is the failure the step
