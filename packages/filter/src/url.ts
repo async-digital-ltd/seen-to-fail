@@ -1,5 +1,7 @@
 import { parseFilter } from './parse.ts';
 import type { FilterIssue, ParseFilterResult } from './parse.ts';
+import { TOO_MANY_CONDITIONS, TOO_MANY_GROUPS } from './schema.ts';
+import { MAX_CONDITIONS_PER_GROUP, MAX_GROUPS } from './types.ts';
 import type { Condition, Filter, Group } from './types.ts';
 
 /**
@@ -300,6 +302,19 @@ function rejected(path: string, message: string): ParseFilterResult {
   return { ok: false, errors: [{ path, message }] };
 }
 
+/** How many pieces the text would split into on the separator, without splitting it. */
+function piecesOf(text: string, separator: string): number {
+  let pieces = 1;
+  for (
+    let at = text.indexOf(separator);
+    at !== -1;
+    at = text.indexOf(separator, at + 1)
+  ) {
+    pieces += 1;
+  }
+  return pieces;
+}
+
 const NOT_A_FILTER = `A filter reads as a joiner and then its groups, such as and${GROUP_SEPARATOR}or${CONDITION_SEPARATOR}status.is.Unproven${CONDITION_SEPARATOR}status.is.Stale, or the single word ${EVERYTHING} when it hides nothing.`;
 
 /**
@@ -334,7 +349,19 @@ export function parseFilterString(text: unknown): ParseFilterResult {
     return rejected('', NOT_A_FILTER);
   }
   const joiner = text.slice(0, firstSeparator);
-  const groupTokens = text.slice(firstSeparator + 1).split(GROUP_SEPARATOR);
+  const body = text.slice(firstSeparator + 1);
+
+  // The groups and each group's conditions are counted before anything is
+  // split or read, so a link over a cap costs the same to refuse whatever it
+  // holds. The reader used to build a refusal per bad token first and leave
+  // the size to `parseFilter`, so 2,000,000 empty conditions came back as
+  // 2,000,000 refusals and about 434 MB of heap: the defect #38 fixed for the
+  // JSON validator, reached through the link (#158). The refusals are that
+  // validator's own, at the same paths.
+  if (piecesOf(body, GROUP_SEPARATOR) > MAX_GROUPS) {
+    return rejected('groups', TOO_MANY_GROUPS);
+  }
+  const groupTokens = body.split(GROUP_SEPARATOR);
 
   const groups: unknown[] = [];
   const errors: FilterIssue[] = [];
@@ -343,10 +370,19 @@ export function parseFilterString(text: unknown): ParseFilterResult {
     const separator = groupToken.indexOf(CONDITION_SEPARATOR);
     const groupJoiner =
       separator < 0 ? groupToken : groupToken.slice(0, separator);
+    const conditionText = separator < 0 ? '' : groupToken.slice(separator + 1);
+    if (
+      separator >= 0 &&
+      piecesOf(conditionText, CONDITION_SEPARATOR) > MAX_CONDITIONS_PER_GROUP
+    ) {
+      errors.push({
+        path: `groups[${String(groupIndex)}].conditions`,
+        message: TOO_MANY_CONDITIONS,
+      });
+      return;
+    }
     const conditionTokens =
-      separator < 0
-        ? []
-        : groupToken.slice(separator + 1).split(CONDITION_SEPARATOR);
+      separator < 0 ? [] : conditionText.split(CONDITION_SEPARATOR);
 
     const conditions: unknown[] = [];
     conditionTokens.forEach((conditionToken, conditionIndex) => {

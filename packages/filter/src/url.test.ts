@@ -465,6 +465,30 @@ it('refuses more groups than a filter takes', () => {
 });
 
 /**
+ * A link over a cap is refused on its size before any token in it is read, so
+ * the refusal is one issue however much the link holds (#158). Before, each
+ * bad token came back as a refusal of its own and the size was checked after:
+ * the first link below, about a browser's URL limit, was 2,000,000 refusals.
+ */
+it('refuses a group with too many conditions before reading any of them', () => {
+  expect(refusalOf(`and!and${'*'.repeat(2_000_000)}`)).toStrictEqual([
+    {
+      path: 'groups[0].conditions',
+      message: `A group takes at most ${String(MAX_CONDITIONS_PER_GROUP)} conditions.`,
+    },
+  ]);
+});
+
+it('refuses a link with too many groups before reading any of them', () => {
+  expect(refusalOf(`and${'!and*bad'.repeat(200_000)}`)).toStrictEqual([
+    {
+      path: 'groups',
+      message: `A filter takes at most ${String(MAX_GROUPS)} groups.`,
+    },
+  ]);
+});
+
+/**
  * #36 names a share link as one way to reach a value PostgreSQL cannot hold.
  * Both links below are well formed, so the grammar hands each one on, and the
  * refusal is the schema's, at the node at fault.
