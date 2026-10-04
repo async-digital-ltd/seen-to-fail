@@ -120,8 +120,20 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
         // Cheapest statement there is. It proves a connection can be had and a
         // round trip completed, which is the whole claim; anything heavier
         // would start reporting on the record rather than on the server.
+        //
+        // A failure is caught and answered as false, which the plugin turns
+        // into a 503 with an empty body. Left to throw, the plugin sends the
+        // error's message as the body, and the driver's message names the
+        // database. This route answers under any name (#192), so a page whose
+        // own name had been pointed at 127.0.0.1 could read it. The status is
+        // the whole answer a reader needs (#197).
         check: async () => {
-          await options.database.query('SELECT 1 AS reachable', []);
+          try {
+            await options.database.query('SELECT 1 AS reachable', []);
+            return true;
+          } catch {
+            return false;
+          }
         },
       }),
     ],
