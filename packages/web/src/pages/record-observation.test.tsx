@@ -263,7 +263,7 @@ describe('the observation form', () => {
     );
 
     expect(within(form).getByRole('alert')).toHaveTextContent(
-      '2 details are missing. They are marked below.',
+      '2 details need attention. They are marked below.',
     );
     expect(date).toHaveAccessibleDescription(
       'An observation cannot be dated after today.',
@@ -348,7 +348,7 @@ describe('the observation form', () => {
 
     const note = within(form).getByLabelText('Note (optional)');
     expect(await within(form).findByRole('alert')).toHaveTextContent(
-      'One detail is missing. It is marked below.',
+      'One detail needs attention. It is marked below.',
     );
     expect(note).toHaveAccessibleDescription(
       'This contains a character that cannot be saved.',
