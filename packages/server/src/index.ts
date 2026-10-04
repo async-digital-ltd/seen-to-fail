@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 
 import { Pool } from 'pg';
 
-import './environment.ts';
+import './environment';
 
 import { loadDatabaseConfig } from './config.ts';
 import { databaseName } from './database/databases.ts';
