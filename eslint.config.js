@@ -4,7 +4,9 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**'] },
+  // .claude/ is where agent tooling keeps its own files in a checkout, out of
+  // git status by a global gitignore that ESLint does not read (#198).
+  { ignores: ['**/dist/**', '**/coverage/**', '.claude/**'] },
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
