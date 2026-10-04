@@ -195,6 +195,43 @@ it('refuses a page that does not name the commit it was built from', () => {
 });
 
 /**
+ * A page built at the commit that added one of its runs names that commit
+ * twice over: on its "Built from" lines, and inside that run's `Recorded in`
+ * link. A guard that looked for the commit anywhere on the page found it in
+ * the row whatever the lines said, which is the defect #141 removed from the
+ * CI step (#164).
+ */
+it('refuses "Built from" lines naming another commit, though a run row names the right one', () => {
+  const input = sound();
+  const built = input.snapshot.builtFrom;
+  const snapshot: PublishedLedger = {
+    ...input.snapshot,
+    checks: input.snapshot.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((run) => ({ ...run, recordedIn: built })),
+    })),
+  };
+  const page = renderPage(snapshot);
+  const stamp = (commit: string): string =>
+    `Built from commit <a href="https://github.com/${snapshot.repository}/commit/${commit}"><code>${commit.slice(0, 7)}</code></a>`;
+  const planted = page.replaceAll(
+    stamp(built),
+    stamp('0123456789abcdef0123456789abcdef01234567'),
+  );
+
+  // The plant is the one described: both lines moved, and a row still names
+  // the commit the page was built from.
+  expect(page.split(stamp(built))).toHaveLength(3);
+  expect(planted).not.toContain(stamp(built));
+  expect(planted).toContain(built.slice(0, 7));
+
+  expect(disagreements({ ...input, snapshot, page })).toStrictEqual([]);
+  expect(
+    disagreements({ ...input, snapshot, page: planted }).join('\n'),
+  ).toContain(`does not name ${built}`);
+});
+
+/**
  * The same ledger read as a replay, so the provenance comparison has something
  * to compare. Without this the fixture's only run is hand-written with two
  * nulls beside it, and a build that published every run as hand-written would
