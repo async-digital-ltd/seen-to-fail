@@ -333,8 +333,35 @@ export function disagreements(input: VerificationInput): string[] {
     );
   }
 
-  if (!page.includes(snapshot.builtFrom.slice(0, 7))) {
+  // The page states the commit it was built from on its "Built from" lines,
+  // one under the headline and one in the footer, and those lines are what is
+  // read here. This used to look for the short commit anywhere on the page. A
+  // page built at the commit that added one of its runs names that commit in
+  // the run's `Recorded in` link too, so the search found it whatever the
+  // lines said: the defect #141 removed from the CI step, left here (#164).
+  //
+  // A line is found by the words followed by a raw `<`, the start of the
+  // renderer's link, which nothing a record contributes can produce, since
+  // every record's text is escaped. Each is held to a link to the full commit
+  // around its first seven characters, as scripts/check-published-output.sh
+  // holds them.
+  const stamps = page.match(/Built from commit <[^,]*/gu) ?? [];
+  if (stamps.length === 0) {
     found.push('The page does not name the commit it was built from.');
+  }
+  for (const stamp of stamps) {
+    const named =
+      /^Built from commit <a href="https:\/\/github\.com\/[^"]+\/commit\/([^"]+)"><code>([^<]+)<\/code><\/a>$/u.exec(
+        stamp,
+      );
+    if (
+      named?.[1] !== snapshot.builtFrom ||
+      named[2] !== snapshot.builtFrom.slice(0, 7)
+    ) {
+      found.push(
+        `The page has a "Built from" line that does not name ${snapshot.builtFrom}, the commit it was built from: ${stamp}`,
+      );
+    }
   }
 
   // The published page is a document, not an application. A script tag in it
