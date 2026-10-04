@@ -47,7 +47,7 @@ writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote one run for each break `canfail.json` declared, when it ran, for the
 checks it replayed: two for each of the first three replays, seven for the
-fourth, eight for the fifth and thirteen for the sixth. The file has declared six checks since #190
+fourth, eight for the fifth, and thirteen each for the sixth and seventh. The file has declared six checks since #190
 and #146, and thirteen breaks between them since #200. The adapter holds the
 report to the
 declaration (#128): an outcome
