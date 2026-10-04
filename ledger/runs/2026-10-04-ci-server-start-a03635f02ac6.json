@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-server-start",
+  "runOn": "2026-10-04",
+  "planted": "The entry point imports ./environment without its file extension, which the type check accepts and Node cannot resolve.",
+  "expected": "The server start check fails, so the run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "553847262d13b33d85c2f2fceb7911eb75647cae",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37229071997"
+}
