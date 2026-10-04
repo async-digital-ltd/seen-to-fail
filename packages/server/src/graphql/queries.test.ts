@@ -369,6 +369,24 @@ it('says it is not ready when the database does not answer', async () => {
   expect(response.status).toBe(503);
 });
 
+it('passes on nothing the database said when it is not ready', async () => {
+  const server = createGraphQLServer({
+    database: {
+      query: () =>
+        Promise.reject(new Error('database "seen_to_fail_dev" does not exist')),
+    },
+  });
+
+  const response = await get(server, readinessRoute);
+
+  // The route answers under any name (#192), so whatever is in this body can
+  // be read by a page whose own name was pointed at 127.0.0.1. The driver's
+  // message names the database; the status already says it is not ready
+  // (#197).
+  expect(response.status).toBe(503);
+  expect(await response.text()).toBe('');
+});
+
 /**
  * What each run did and where it came from, read back through the same path a
  * page reads it on: the check's own query, through the loader, rather than out

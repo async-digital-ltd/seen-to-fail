@@ -197,8 +197,10 @@ would reach it. `packages/server/src/graphql/request-guard.test.ts` holds both.
 Both refusals are made where a request is parsed as GraphQL, and three routes
 are answered before that point, so they answer whatever they are sent, under any
 name: `/health`, `/ready` and the GraphiQL page at `/graphql`. None of the three
-reads the record, though `/ready` passes on the database's own error message
-when the database does not answer. Those answers were measured, and are on
+reads the record, and when the database does not answer, `/ready` says so with
+a 503 and an empty body rather than the database's own error message
+(`packages/server/src/graphql/queries.test.ts` holds it). Those answers were
+measured, and are on
 [#192](https://github.com/async-digital-ltd/seen-to-fail/issues/192).
 There is no per-request cost limit and no limit on the size of a request body,
 so it is not hardened for deployment. The client's development server, which
