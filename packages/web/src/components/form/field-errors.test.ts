@@ -46,13 +46,13 @@ it('lists the fields at fault in form order, whatever order they were found in',
 describe('the summary line', () => {
   it('spells out a single detail', () => {
     expect(summarySentence(1)).toBe(
-      'One detail is missing. It is marked below.',
+      'One detail needs attention. It is marked below.',
     );
   });
 
   it('counts several', () => {
     expect(summarySentence(3)).toBe(
-      '3 details are missing. They are marked below.',
+      '3 details need attention. They are marked below.',
     );
   });
 });

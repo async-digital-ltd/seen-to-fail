@@ -168,7 +168,7 @@ describe('the form refusing a submit', () => {
     await user.click(screen.getByRole('button', { name: 'Save run' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '4 details are missing. They are marked below.',
+      '4 details need attention. They are marked below.',
     );
     expect(document.querySelectorAll('.field--invalid')).toHaveLength(4);
     expect(screen.getByLabelText('Check')).toHaveFocus();
@@ -215,7 +215,7 @@ describe('the form refusing a submit', () => {
       await user.click(screen.getByRole('button', { name: 'Save run' }));
 
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'One detail is missing. It is marked below.',
+        'One detail needs attention. It is marked below.',
       );
       expect(control()).toHaveAccessibleDescription(message);
       expect(control()).toHaveFocus();
@@ -259,7 +259,7 @@ describe('the form refusing a submit', () => {
     await user.click(screen.getByRole('button', { name: 'Save run' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'One detail is missing. It is marked below.',
+      'One detail needs attention. It is marked below.',
     );
     expect(
       screen.getByLabelText('Why it settled nothing'),
@@ -299,6 +299,13 @@ describe('the form refusing a submit', () => {
     );
     expect(date).toHaveFocus();
     expect(logCalls(calls)).toEqual([]);
+    // Every field is filled in, so the summary must not send a reader looking
+    // for an empty one (#44).
+    const summary = screen.getByRole('alert');
+    expect(summary).toHaveTextContent(
+      'One detail needs attention. It is marked below.',
+    );
+    expect(summary).not.toHaveTextContent(/missing/iu);
   });
 
   it('shows a field error from the API beside its field', async () => {
@@ -318,7 +325,7 @@ describe('the form refusing a submit', () => {
 
     const check = screen.getByLabelText('Check');
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'One detail is missing. It is marked below.',
+      'One detail needs attention. It is marked below.',
     );
     expect(check).toHaveAccessibleDescription(
       'There is no check with this id.',
@@ -348,7 +355,7 @@ describe('the form refusing a submit', () => {
     await user.click(screen.getByRole('button', { name: 'Save run' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '2 details are missing. They are marked below.',
+      '2 details need attention. They are marked below.',
     );
     expect(screen.getByLabelText('Date')).toHaveFocus();
     expect(
