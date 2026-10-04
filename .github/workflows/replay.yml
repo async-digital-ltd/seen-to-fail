@@ -8,6 +8,11 @@ name: Replay a plant
 # through `recordRun` in packages/server/src/ledger/record.ts, so a rule one of
 # them is held to is a rule the other is held to.
 #
+# What grades a replay is pinned in one place, .github/replay-requirements.txt:
+# on 4 October 2026, canfail 0.2.1 with didrun 0.1.6 and restore-verified
+# 0.1.4, each by version and by the hashes of its archives (#143). Change them
+# there, not here; the file says how.
+#
 # On a schedule, and never on a push. Each replay runs a check once on a clean
 # tree and once per declared break, so a dispatch that replays every declared
 # check runs one more command per check than that check has breaks. Which
@@ -301,13 +306,18 @@ jobs:
         with:
           python-version: '3.13'
 
-      # Pinned to the version #66 adopted and measured. An unpinned install
-      # would let the scoring change under a ledger that cannot yet see which
-      # version produced a verdict, which is the staleness condition epic #62
-      # names and the reason the tool field is worth having.
+      # Pinned to the version #66 adopted and measured, with the two packages
+      # its verdicts rest on, by version and by hash, in
+      # .github/replay-requirements.txt (#143). That file is the one place to
+      # change them, and says how. canfail alone used to be pinned, and it
+      # asks for its two dependencies with a floor and no ceiling. An unpinned
+      # install would let the scoring change under a ledger that cannot yet
+      # see which version produced a verdict, which is the staleness condition
+      # epic #62 names and the reason the tool field is worth having.
+      # --require-hashes installs nothing the file does not name with a hash.
       - name: Install the replay tool
         if: steps.select.outputs.config != ''
-        run: pip install canfail==0.2.1
+        run: pip install --require-hashes -r .github/replay-requirements.txt
 
       # canfail exits 1 when any guard was blind or failed the wrong way, and 0
       # when every declared break was caught OR every one of them settled
