@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 #
 # Lints every workflow in .github/workflows with actionlint, and the shell in
-# each of their `run:` steps with shellcheck, both at pinned versions. It
-# answers one question: would GitHub read these workflows the way they were
-# meant, before any of them runs.
+# each of their `run:` steps with shellcheck, both at pinned versions, and then
+# every tracked shell script under scripts/ with that same pinned tool. It
+# answers two questions. Would GitHub read these workflows the way they were
+# meant, before any of them runs. And does the shell in the scripts beside this
+# one, several of which the CI job runs, say what its author meant.
 #
 # Two of the three workflows run only when somebody dispatches them or on the
 # Monday schedule: `record-run.yml` and `replay.yml`. Nothing else in the build
