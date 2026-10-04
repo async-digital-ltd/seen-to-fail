@@ -668,8 +668,8 @@ You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
 all. Eleven checks are on the page, six of them are declared for replay, and
 all six have been replayed. Six of the eleven have any run at all
-behind them, and those are the six declared. As of 4 October 2026, 40 runs are
-in `ledger/runs/` and 34 of them came from a replay; the other six were typed in
+behind them, and those are the six declared. As of 4 October 2026, 53 runs are
+in `ledger/runs/` and 47 of them came from a replay; the other six were typed in
 by hand, one for each declared check: four on 18 September 2026 and two on 4
 October 2026. Both numbers grow with every replay that is merged, so count them
 again rather than trust these:
