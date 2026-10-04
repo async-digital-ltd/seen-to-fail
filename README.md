@@ -365,13 +365,13 @@ is pinned to `main`, so a red control run cannot paint it red.
 
 ### A replay, start to finish
 
-Four checks are declared for replay by a job: `ci-type-check`,
-`ci-published-output`, `ledger-export-agreement` and
-`ledger-record-validation`, which are the four that carry a run. `canfail.json`
-declares those four, with eight declared breaks between them; `ledger/checks/`
-holds nine. So five of those nine have no plant for a job to apply, and no
-replay can ever produce a run for them. How far replays have reached each of
-the four is the table under
+Six checks are declared for replay by a job: `ci-type-check`,
+`ci-published-output`, `ledger-export-agreement`, `ledger-record-validation`,
+`ci-workflow-lint` and `ci-server-start`, which are the six that carry a run.
+`canfail.json` declares those six, with twelve declared breaks between them;
+`ledger/checks/` holds eleven. So five of those eleven have no plant for a job
+to apply, and no replay can ever produce a run for them. How far replays have
+reached each of the six is the table under
 [How much of this record is automatic](#how-much-of-this-record-is-automatic),
 which also says plainly what that leaves automatic and what it does not.
 
@@ -409,7 +409,7 @@ the check and not once per break, which is what makes them a statement about the
 check's proof rather than about one plant. The list above is shown short:
 `canfail.json` carries all eight of that check's entries, `canfail`'s own keys
 beside them, and its two declared breaks, and a list of its own for each of
-the other three checks. What each of those three plants, and why, is in
+the other five checks. What each of those five plants, and why, is in
 `packages/replay/README.md`.
 
 The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
@@ -433,10 +433,11 @@ Weekly rather than on every push, because a replay filed on every merge would
 bury the runs that say something under runs that say the same thing again. Each
 replay runs a check once on a clean tree and once per declared break, so a
 dispatch that replays every declared check runs one check per declared check
-and one per declared break. With `canfail.json` as it stands on 1 October 2026,
-four checks and eight breaks, that is twelve: three each of `pnpm typecheck`,
-the build, the build followed by the published-output script, and
-`pnpm ledger:validate`. While the
+and one per declared break. With `canfail.json` as it stands on 4 October 2026,
+six checks and twelve breaks, that is eighteen: three each of `pnpm typecheck`,
+the build, the build followed by the published-output script,
+`pnpm ledger:validate`, `pnpm lint:workflows` and the server start script.
+While the
 repository was private those
 runs also spent a finite allowance of runner minutes; that reason lapsed when it
 was made public on 27 September 2026, and the cadence rests on the record alone. Weekly also
@@ -484,7 +485,7 @@ last replayed, or its newest settled run is older than an age floor,
 `REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
 days, chosen so that the weekly schedule gets two attempts at a refresh before
 the thirty-day rule takes a proof Stale. Either route can select only a check
-that has a plant in `canfail.json`, so today both reach the four checks that
+that has a plant in `canfail.json`, so today both reach the six checks that
 carry a run and none of the five that carry an observation alone. For the
 dependency route, the range is worked out per check
 rather than once for the run. The anchor is the
@@ -593,8 +594,8 @@ Monday nobody decided a replay was due, which is the whole of what the automatic
 half was for.
 
 **And since.** By 1 October 2026 two more replays had reached the record, each
-over all four declared checks. The schedule fired again on Monday 28 September
-2026 as run
+over all four checks declared at the time. The schedule fired again on Monday
+28 September 2026 as run
 [36412371539](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36412371539),
 against `33b5238`, and its seven records, the first replays of the three checks
 declared on #110, came in through
@@ -645,26 +646,27 @@ half is not automatic end to end until that is settled.
 
 ### How much of this record is automatic
 
-Four of the nine checks in `ledger/checks/` are declared for replay by a job,
-and as of 1 October 2026 all four have been replayed. The other five are not
-declared, and the whole difference is one file: `canfail.json` declares a plant
-for each of
-the four and for no other check.
+Six of the eleven checks in `ledger/checks/` are declared for replay by a job,
+and as of 4 October 2026 four of the six have been replayed. The other five are
+not declared, and the whole difference is one file: `canfail.json` declares a
+plant for each of the six and for no other check.
 
-| Checks                                                                       | What their record rests on                                                                                                                                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above since 19 September 2026. As of 1 October 2026, ten of its eleven runs came from a replay.                                                                                                                                                                                                               |
-| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Each carries one run planted, watched and typed in on 18 September 2026, and every later run came from a replay, the first of them the scheduled run of 28 September 2026. As of 1 October 2026 that is three of four runs for `ci-published-output` and four of five for each of the other two. |
-| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                                                                                                                         |
+| Checks                                                                       | What their record rests on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-type-check`                                                              | A declared plant, replayed by the workflow above since 19 September 2026. As of 1 October 2026, ten of its eleven runs came from a replay.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Each carries one run planted, watched and typed in on 18 September 2026, and every later run came from a replay, the first of them the scheduled run of 28 September 2026. As of 1 October 2026 that is three of four runs for `ci-published-output` and four of five for each of the other two.                                                                                                                                                                                                         |
+| `ci-workflow-lint`, `ci-server-start`                                        | A declared plant since [#190](https://github.com/async-digital-ltd/seen-to-fail/issues/190) and [#146](https://github.com/async-digital-ltd/seen-to-fail/issues/146), selectable by both routes, with no replay in the record yet. Each carries one run typed in by hand on 4 October 2026. The workflow lint's is the CI run of 2 October 2026 that failed on two mistyped input names, typed in from that run by a session that did not watch it. The server start's is a plant pushed to a `ci-control/` branch that day and watched failing that step alone. |
+| `ci-build-web`, `ci-codegen-check`, `ci-format-check`, `ci-lint`, `ci-test`  | An arming observation and no run at all. By the rules above that reads Unproven, which is the honest status for a check nobody has planted anything against yet.                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
 canfail.json`, and the arithmetic is the point of showing it, denominators and
-all. Nine checks are on the page, four of them are declared for replay, and all
-four have been replayed. Four of the nine have any run at all behind them, and
-those are the four declared. As of 1 October 2026, 25 runs are in `ledger/runs/`
-and 21 of them came from a replay; the other four are the hand runs of 18
-September 2026, one for each declared check. Both numbers grow with every replay
-that is merged, so count them again rather than trust these:
+all. Eleven checks are on the page, six of them are declared for replay, and
+four of those six have been replayed. Six of the eleven have any run at all
+behind them, and those are the six declared. As of 4 October 2026, 27 runs are
+in `ledger/runs/` and 21 of them came from a replay; the other six were typed in
+by hand, one for each declared check: four on 18 September 2026 and two on 4
+October 2026. Both numbers grow with every replay that is merged, so count them
+again rather than trust these:
 `ls ledger/runs | wc -l` for the first and
 `grep -l '"source": "replay"' ledger/runs/*.json | wc -l` for the second.
 

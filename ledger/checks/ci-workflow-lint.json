@@ -1,0 +1,7 @@
+{
+  "id": "ci-workflow-lint",
+  "name": "Workflow lint",
+  "area": "Code",
+  "protects": "A workflow GitHub would read differently from how it was written: a mistyped input name, which GitHub reads as an empty string rather than refusing, a bad expression or a wrong key, in a workflow that runs only on dispatch or on the schedule and so fails nowhere before it matters.",
+  "howToTellArmed": "The \"Lint the workflows\" step appears in every run of the CI workflow."
+}

@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-server-start",
+  "runOn": "2026-10-04",
+  "planted": "The entry point's import of ./environment.ts lost its file extension, on a ci-control branch pushed to this repository.",
+  "expected": "The Check the server starts step fails, so the CI run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": "Planted on the ci-control lane the README documents. Run 37219973975 on branch ci-control/146-server-start-plant at e50ff76 concluded failure, with Check the server starts the only step that failed, on exit 1, every step before it green and every step after it skipped: the type check accepts the import and Node cannot resolve it. Run 36991152739 on main at a7cd00d, the same tree without the plant, passed the step. The pull request that added the step, #145, gives an account of more plants watched failing it locally on 27 September 2026, which nothing here can check (#146).",
+  "source": "hand",
+  "sourceCommit": null,
+  "sourceRunUrl": null
+}

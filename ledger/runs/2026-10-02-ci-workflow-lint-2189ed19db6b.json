@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-workflow-lint",
+  "runOn": "2026-10-02",
+  "planted": "inputs.check-id typed as inputs.check_id in record-run.yml and inputs.only-due typed as inputs.only_due in replay.yml, pushed as fcf8ee3 to the pull request for #157.",
+  "expected": "The Lint the workflows step fails, so the CI run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": "Run 36984692843 of the CI workflow at fcf8ee3 concluded failure, with Lint the workflows the step that failed, on exit 1, and every step after it skipped. It named both lines. Run 36984912818 at c89be24, with both plants removed, passed. Typed in on 4 October 2026 from those two runs and from the account on #157, by a session that did not watch them (#190).",
+  "source": "hand",
+  "sourceCommit": null,
+  "sourceRunUrl": null
+}

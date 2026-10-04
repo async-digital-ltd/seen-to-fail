@@ -55,10 +55,13 @@ name: Replay a plant
 # own default is 900 seconds, and at that default one hung build would have
 # spent fifteen of the twenty minutes this job used to have. The job's
 # `timeout-minutes` below is sized above the worst case of every declared run
-# overrunning at once, nineteen minutes as declared on 27 September 2026, plus
-# the setup around them: twenty-five. A plant added later adds its check's
-# timeout to that sum, so adding one means checking the job's timeout still
-# clears it.
+# overrunning at once, plus the setup around them. That sum was nineteen
+# minutes as declared on 27 September 2026, against a timeout of twenty-five.
+# The break #141 added took it to twenty-one. The workflow lint and the server
+# start, declared on 4 October 2026 with a timeout of 120 and two breaks each
+# (#190, #146), take it to thirty-three, so the timeout is now forty. A plant
+# added later adds its check's timeout to that sum, so adding one means
+# checking the job's timeout still clears it.
 #
 # What fraction of the allowance that is, this comment does not say. The
 # organisation is on the `team` plan, which `gh api /orgs/async-digital-ltd
@@ -111,9 +114,11 @@ name: Replay a plant
 # cannot reach such a check either, since it hands the same declaration to the
 # tool and the record step refuses a check the declaration does not declare.
 # Every check that carries a run has a plant there: `ci-type-check` from the
-# start, and the three published-record checks since #110, before which their
+# start, the three published-record checks since #110, before which their
 # only runs were typed in through the `Record a run` workflow and nothing could
-# refresh them. A check that carries an observation and no run reads Unproven
+# refresh them, and the workflow lint and the server start since #190 and
+# #146, which gave each its record and its plant in one change. A check that
+# carries an observation and no run reads Unproven
 # and has no proof for a floor to keep alive; a plant for it is written by a
 # person, and nothing here writes one.
 #
@@ -157,7 +162,7 @@ jobs:
   replay:
     name: Replay the declared plants and record what happened
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
 
     env:
       # The commit the plants are applied to, which is what a replay records as
@@ -172,7 +177,9 @@ jobs:
       # below, the same shape as CI. Every declared check whose `run` is the
       # build needs one: the build derives every status in a database and
       # refuses to run without it. Both variables are read here. The step that
-      # creates the databases creates both, and the build reads the first.
+      # creates the databases creates both, and the build reads the first. The
+      # server start check needs both set as well: the entry point refuses to
+      # load without them, though its two probes reach neither database.
       DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
       TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
 
