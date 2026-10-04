@@ -53,7 +53,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 page="$directory/index.html"
 export_file="$directory/ledger.json"
 
-if [ ! -f "$page" ]; then
+if [ ! -f $page ]; then
   echo "The published page is not there: $page." >&2
   exit 1
 fi
