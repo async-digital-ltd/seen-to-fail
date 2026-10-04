@@ -13,10 +13,24 @@
 # real observation or by the next scheduled replay. A mistyped input is not
 # even an error to GitHub: it reads as an empty string (#157).
 #
+# It then runs the same pinned shellcheck over every tracked shell script
+# under scripts/, this one included (#191). actionlint hands shellcheck only
+# the `run:` blocks written inside a workflow, never a file one of those
+# blocks calls, so nothing read the scripts the CI job runs. A quoting or
+# word-splitting defect in one of them can make a check pass that should fail,
+# which is the failure this repository exists to catch. It is done here rather
+# than in a script of its own so that there is one download and one pin: what
+# reads the scripts is the same shellcheck that reads the `run:` steps.
+#
+# A comment in any of those scripts must not begin a line with the tool's name
+# followed by a space. That is how a directive to it is written, so it reads a
+# sentence starting that way as a directive it cannot parse and fails on it
+# (SC1073). This header was caught by it while #191 was being written.
+#
 # One script rather than a run block in the CI workflow, so a local run and the
 # CI step are the same check. CI runs it as `pnpm lint:workflows`, and so can
-# anyone with a clone. It needs bash, curl, tar and a network connection, and
-# nothing installed beforehand.
+# anyone with a clone. It needs bash, curl, git, tar and a network connection,
+# and nothing installed beforehand.
 #
 # Both tools are downloaded from their own GitHub release pages on every run,
 # into a temporary directory that is removed afterwards, and each download is
@@ -64,6 +78,15 @@
 # a run step of record-run.yml, it exited 1 on SC2086, so the one answering is
 # the pinned one. A copy with one character of a pinned sum changed refused the
 # download and exited 1 before running anything.
+#
+# The script lint was watched failing too, on 4 October 2026 (#191). With
+# `"$page"` left unquoted in the first test of check-published-output.sh, it
+# exited 1 on SC2086 and named the line, after the workflow lint had passed.
+# With the quotes put back it exited 0 and named all six scripts. The first
+# plant tried was `"$service"` left unquoted in db-down.sh, and that one
+# passed: the tool does not report an unquoted variable it can see was given a
+# constant with nothing in it to split. That pass was the plant being wrong and
+# not the lint, which is why a plant is watched failing before it is believed.
 
 set -euo pipefail
 
@@ -104,7 +127,7 @@ case "$platform" in
     ;;
 esac
 
-for tool in curl tar; do
+for tool in curl git tar; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "The workflow lint needs $tool, and there is none on the PATH." >&2
     exit 1
@@ -155,10 +178,25 @@ if [ "${#workflows[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# Every tracked shell script under scripts/ by name as well, for the same two
+# reasons. The list is read from git rather than written here, so a script
+# added later is linted without anybody remembering to add it, and tracked
+# rather than globbed, so a scratch file left beside them does not fail a
+# local run that CI would pass. If git cannot answer, the loop is handed
+# nothing and the refusal below is what says so.
+scripts=()
+while IFS= read -r -d '' script; do
+  scripts+=("$script")
+done < <(git ls-files -z -- 'scripts/*.sh')
+if [ "${#scripts[@]}" -eq 0 ]; then
+  echo "The script lint found no tracked .sh file under scripts/ to read." >&2
+  exit 1
+fi
+
 # actionlint exits 1 when it finds something, and 2 or 3 when it could not run
 # at all. Either way the status is passed on unchanged. It is collected rather
-# than left to `set -e`, so that the pass line below is printed only by a run
-# that reached the end.
+# than left to `set -e`, so that a failure gets a line of its own saying which
+# lint failed, and a pass line is printed only by a lint that found nothing.
 status=0
 "$actionlint" -shellcheck="$shellcheck" -pyflakes= "${workflows[@]}" || status=$?
 if [ "$status" -ne 0 ]; then
@@ -167,3 +205,18 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo "The workflow lint passed: actionlint $actionlint_version, with shellcheck $shellcheck_version, found nothing in ${workflows[*]}."
+
+# The scripts, read by the pinned shellcheck directly. It exits 1 when it finds
+# something and higher when it could not run at all, and the status is passed
+# on unchanged and collected, for the reasons given above for actionlint. No
+# severity is set, so everything it reports fails the run, down to a note about
+# style: a finding somebody decided to live with is suppressed where it is,
+# with the reason written beside it, rather than waved through here.
+status=0
+"$shellcheck" "${scripts[@]}" || status=$?
+if [ "$status" -ne 0 ]; then
+  echo "The script lint failed: shellcheck $shellcheck_version exited $status." >&2
+  exit "$status"
+fi
+
+echo "The script lint passed: shellcheck $shellcheck_version found nothing in ${scripts[*]}."
