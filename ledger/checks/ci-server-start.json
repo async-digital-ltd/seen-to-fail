@@ -1,0 +1,7 @@
+{
+  "id": "ci-server-start",
+  "name": "The server starts",
+  "area": "Build",
+  "protects": "A server whose entry point does not load, or never listens, which the tests cannot see because they put requests through the handler and never run the entry point.",
+  "howToTellArmed": "The \"Check the server starts\" step appears in every run of the CI workflow."
+}

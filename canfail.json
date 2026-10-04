@@ -148,6 +148,75 @@
           "expect": "There is no check in the ledger with the id"
         }
       ]
+    },
+    {
+      "name": "Workflow lint",
+      "checkId": "ci-workflow-lint",
+      "dependsOn": [
+        ".github/workflows",
+        "canfail.json",
+        "package.json",
+        "scripts/lint-workflows.sh"
+      ],
+      "expected": "The workflow lint fails.",
+      "run": "pnpm lint:workflows",
+      "timeout": 120,
+      "evidence": {
+        "expect": "The workflow lint (passed|failed)"
+      },
+      "breaks": [
+        {
+          "name": "record-run.yml reads inputs.check_id where the input is named check-id, which GitHub reads as an empty string rather than an error.",
+          "file": ".github/workflows/record-run.yml",
+          "replace": "          INPUT_CHECK_ID: ${{ inputs.check-id }}\n          INPUT_RUN_ON: ${{ inputs.run-on }}\n          INPUT_PLANTED:",
+          "with": "          INPUT_CHECK_ID: ${{ inputs.check_id }}\n          INPUT_RUN_ON: ${{ inputs.run-on }}\n          INPUT_PLANTED:",
+          "expect": "property \"check_id\" is not defined"
+        },
+        {
+          "name": "replay.yml reads inputs.only_due where the input is named only-due, so a dispatch ticked to replay only what is due would replay everything.",
+          "file": ".github/workflows/replay.yml",
+          "replace": "inputs.only-due }}",
+          "with": "inputs.only_due }}",
+          "expect": "property \"only_due\" is not defined"
+        }
+      ]
+    },
+    {
+      "name": "The server starts",
+      "checkId": "ci-server-start",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "packages/server",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "scripts/check-server-starts.sh"
+      ],
+      "expected": "The server start check fails, so the run does not go green.",
+      "run": "bash scripts/check-server-starts.sh",
+      "timeout": 120,
+      "evidence": {
+        "expect": "The server start(ed:| check failed:)"
+      },
+      "breaks": [
+        {
+          "name": "The entry point imports ./environment without its file extension, which the type check accepts and Node cannot resolve.",
+          "file": "packages/server/src/index.ts",
+          "replace": "import './environment.ts';",
+          "with": "import './environment';",
+          "expect": "the server exited with status [0-9]+ before it was listening\\.[\\s\\S]*ERR_MODULE_NOT_FOUND"
+        },
+        {
+          "name": "The entry point starts a timer where it would listen, so the process stays up and never binds the port.",
+          "file": "packages/server/src/index.ts",
+          "replace": "server.listen(serverPort, serverHost, () => {",
+          "with": "setInterval(() => undefined, 60_000);\nvoid (() => {",
+          "expect": "the server never said it was listening within [0-9]+ seconds"
+        }
+      ]
     }
   ]
 }

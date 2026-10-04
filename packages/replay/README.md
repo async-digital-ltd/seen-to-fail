@@ -170,13 +170,13 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: the four checks that carry runs.** The ledger holds
-nine checks. Four of them carry runs, and so have a status the backstop can
+**Which checks this covers: the six checks that carry runs.** The ledger holds
+eleven checks. Six of them carry runs, and so have a status the backstop can
 age; the other five carry an arming observation and no run at all, so they read
 Unproven and there is no proof for a floor to keep alive.
 
-`canfail.json` declares all four. `ci-type-check` was declared first, with two
-breaks against `pnpm typecheck`. The other three were declared on #110, which
+`canfail.json` declares all six. `ci-type-check` was declared first, with two
+breaks against `pnpm typecheck`. Three more were declared on #110, which
 found them reading Stale from 19 October 2026 with no route back: their only
 runs were typed in on 18 September, and a check the declaration does not
 declare is not selectable by either route however old its proof is. Each of
@@ -202,6 +202,27 @@ them now carries a plant against the command CI runs for it:
   each other, so the build's own checks pass them, and only the step, which
   reads the commit from the checkout, can see that the "Built from" lines name
   a commit the page was not built from.
+
+The last two were declared on #190 and #146, in the change that put them in the
+ledger at all. Each had been seen to fail by hand and had no record:
+
+- `ci-workflow-lint` runs `pnpm lint:workflows` against two workflows with an
+  input name mistyped: `inputs.check_id` in `record-run.yml` and
+  `inputs.only_due` in `replay.yml`. GitHub reads a mistyped input as an empty
+  string rather than refusing it, so nothing else says so before the workflow
+  runs. They are the two plants #157 pushed to its own pull request, where CI
+  run 36984692843 failed on both. The command downloads its two linters on
+  every run, so a replay that cannot reach them settles nothing rather than
+  missing: a run that printed neither the pass line nor the failure line is
+  read as not having run, and scored `look`.
+- `ci-server-start` runs `scripts/check-server-starts.sh` against two entry
+  points. The first imports `./environment` without its file extension, which
+  the type check accepts and Node cannot resolve. That is the failure the step
+  was written for (#35), where every step before it is green, and it is the
+  plant CI run 37219973975 failed on. The second starts a timer where it would
+  listen, so the process stays up and never binds the port, and the script
+  refuses on its timeout rather than on an exit. That plant costs the script's
+  whole wait, thirty seconds, each time it is replayed.
 
 The build derives every status in PostgreSQL, so the replay job now starts the
 same service container CI does and creates and migrates the databases before

@@ -1,0 +1,6 @@
+{
+  "checkId": "ci-server-start",
+  "observedOn": "2026-10-02",
+  "armed": true,
+  "note": "Read on 4 October 2026 from run 36991152739 of the CI workflow on main at a7cd00d, which ran on 2 October 2026: the \"Check the server starts\" step ran and the run concluded success."
+}

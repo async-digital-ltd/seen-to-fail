@@ -45,9 +45,11 @@ and typed in. Given `--source replay` with a commit and a link it writes a
 replay record too, though nothing here calls it that way. `pnpm ledger:replay`
 writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
-wrote two runs, one for each of the two breaks `canfail.json` declared when it
-ran; it has declared four checks since #110, and eight breaks between them
-since #141. The adapter holds the report to the declaration (#128): an outcome
+wrote one run for each break `canfail.json` declared, when it ran, for the
+checks it replayed: two for each of the first three replays, seven for the
+fourth and eight for the fifth. The file has declared six checks, and twelve
+breaks between them, since #190 and #146. The adapter holds the report to the
+declaration (#128): an outcome
 for a break the declaration does not declare, a declared break with no outcome,
 or a check it does not declare, is refused by name, and nothing at all is
 written.
@@ -100,9 +102,9 @@ of surrounding spaces, and an empty `note`, `inconclusiveReason`,
 
 A run typed in by hand, in the shape `pnpm ledger:record` writes one today:
 every key present, and the empty ones null. The values are made up for the
-example. No hand record in `runs/` has this shape yet, because the four there
-were written before `source` existed and carry six keys, as
-[Where a run came from](#where-a-run-came-from) explains.
+example. Two hand records in `runs/` have this shape, both typed in on 4
+October 2026. The four before them were written before `source` existed and
+carry six keys, as [Where a run came from](#where-a-run-came-from) explains.
 
 ```json
 {
@@ -246,8 +248,9 @@ ten keys. Which was which is on the run each `sourceRunUrl` links to, and
 nowhere in this directory.
 
 A record that says nothing about its source is read as one typed in by hand.
-Every run in `runs/` typed in by hand is of that kind, with six keys and no
-`source`, and every run from a replay carries all ten. That is how the runs
+The four runs in `runs/` typed in on 18 September 2026 are of that kind, with
+six keys and no `source`. The two typed in on 4 October 2026 say `hand` and
+carry all ten keys, as every run from a replay does. That is how the runs
 recorded before `source` existed stay valid: their
 filenames are digests of their own contents, so adding a key to them would have
 meant an append-only record rewriting its own past.
