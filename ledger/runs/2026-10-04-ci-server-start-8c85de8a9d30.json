@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-server-start",
+  "runOn": "2026-10-04",
+  "planted": "The entry point starts a timer where it would listen, so the process stays up and never binds the port.",
+  "expected": "The server start check fails, so the run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "754b74f4d32569592d8f979d53545abf6fc94671",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37220648439"
+}

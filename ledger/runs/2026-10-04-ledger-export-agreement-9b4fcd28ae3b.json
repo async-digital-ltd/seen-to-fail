@@ -1,0 +1,12 @@
+{
+  "checkId": "ledger-export-agreement",
+  "runOn": "2026-10-04",
+  "planted": "The status tally counts nothing, so every tile on the page says zero however many checks hold that status.",
+  "expected": "The build refuses to publish, exits non-zero, and writes no files at all.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "754b74f4d32569592d8f979d53545abf6fc94671",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37220648439"
+}
