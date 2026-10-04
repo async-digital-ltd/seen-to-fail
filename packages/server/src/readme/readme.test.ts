@@ -1,10 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parsePlantedChecks } from '@seen-to-fail/replay';
 import { expect, it } from 'vitest';
 
-import { repositoryRoot } from '../ledger/location.ts';
+import { checksDirectory } from '../ledger/load.ts';
+import { ledgerDirectory, repositoryRoot } from '../ledger/location.ts';
 import {
   contributorCommands,
   generatedBlocks,
@@ -14,7 +16,9 @@ import {
 } from './generated.ts';
 import type { WorkflowStep } from './generated.ts';
 import {
+  countOf,
   fencedLinesIn,
+  flattened,
   inlineCodeIn,
   readReadme,
   sectionOf,
@@ -390,4 +394,86 @@ it('gives the roadmap picture alt text that says every word the drawing shows, i
       `${drawing}: lines the alt text does not say, in order`,
     ).toStrictEqual([]);
   }
+});
+
+/**
+ * The ledger's own counts as the README's ledger section states them: the
+ * checks in `ledger/checks/`, the checks `canfail.json` declares for replay,
+ * and the breaks it declares between them (#199).
+ *
+ * Only a hand-written change moves these, so a test can hold them without
+ * tripping a replay. The counts a replay moves, how many runs there are and how
+ * many came from one, stay dated prose with the command to count them again
+ * beside it, because the recording workflows commit `ledger/` alone and a test
+ * on those would fail every replay pull request until somebody edited the
+ * README (#186).
+ */
+it("states the ledger's checks, declared checks and declared breaks as the tree holds them", () => {
+  const records = readdirSync(join(ledgerDirectory, checksDirectory)).filter(
+    (name) => name.endsWith('.json'),
+  ).length;
+
+  const parsed = parsePlantedChecks(
+    JSON.parse(
+      readFileSync(join(repositoryRoot, 'canfail.json'), 'utf8'),
+    ) as unknown,
+  );
+  if (!parsed.ok) {
+    throw new Error(`canfail.json does not read: ${parsed.problems.join(' ')}`);
+  }
+  const declared = parsed.value.size;
+  const breaks = [...parsed.value.values()].reduce(
+    (sum, check) => sum + check.breaks.length,
+    0,
+  );
+
+  const prose = flattened(sectionOf(readme, 'The published ledger'));
+
+  /**
+   * The counts one sentence states, in the order it states them. A sentence
+   * reworded so the pattern no longer finds it, or written twice, is refused,
+   * so a count can neither go unread nor be read off the wrong copy.
+   */
+  function countsIn(sentence: RegExp): number[] {
+    const found = [...prose.matchAll(sentence)];
+    const [only] = found;
+    if (only === undefined || found.length > 1) {
+      throw new Error(
+        `README.md's ledger section has ${String(found.length)} sentences matching ${String(sentence)}, and exactly one was expected.`,
+      );
+    }
+    return only.slice(1).map((written) => countOf(written));
+  }
+
+  expect(
+    countsIn(/(\w+) checks are declared for replay by a job:/gu),
+  ).toStrictEqual([declared]);
+  expect(
+    countsIn(
+      /`canfail\.json` declares those (\w+), with (\w+) declared breaks between them; `ledger\/checks\/` holds (\w+)\./gu,
+    ),
+  ).toStrictEqual([declared, breaks, records]);
+  expect(
+    countsIn(
+      /a list of its own for each of the other (\w+) checks\. What each of those (\w+) plants/gu,
+    ),
+  ).toStrictEqual([declared - 1, declared - 1]);
+  // A full dispatch runs each declared check once on a clean tree and once
+  // per declared break.
+  expect(
+    countsIn(/(\w+) checks and (\w+) breaks, that is (\w+):/gu),
+  ).toStrictEqual([declared, breaks, declared + breaks]);
+  expect(
+    countsIn(
+      /today both reach the (\w+) checks that carry a run and none of the (\w+) that carry an observation alone/gu,
+    ),
+  ).toStrictEqual([declared, records - declared]);
+  expect(
+    countsIn(
+      /(\w+) of the (\w+) checks in `ledger\/checks\/` are declared for replay by a job/gu,
+    ),
+  ).toStrictEqual([declared, records]);
+  expect(
+    countsIn(/(\w+) checks are on the page, (\w+) of them are declared/gu),
+  ).toStrictEqual([records, declared]);
 });

@@ -71,11 +71,20 @@ const numberWords = [
   'ten',
   'eleven',
   'twelve',
+  'thirteen',
+  'fourteen',
+  'fifteen',
+  'sixteen',
+  'seventeen',
+  'eighteen',
+  'nineteen',
+  'twenty',
 ];
 
 /**
- * A count as the README writes it, which is in words up to twelve and in
- * figures beyond.
+ * A count as the README writes it, which is in words up to twenty and in
+ * figures beyond. The ledger section counts its breaks and its replay commands
+ * in words past twelve (#199).
  *
  * A word it does not know is refused rather than read as nothing, so a count
  * the README spells some other way fails the test that reads it instead of
