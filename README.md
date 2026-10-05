@@ -17,6 +17,73 @@ Those counts are not a snapshot: the sample workspace dates every run and
 observation from the day it is loaded, so `pnpm db:seed` reaches the same five
 counts whenever it is run.
 
+## Using it on your own repository
+
+This repository records its own checks. Nothing here is a service you can point
+at your pipeline, and the code is not published as a package. Of the three ways
+you might hope to use it, two work today and one does not.
+
+**The verdict alone: run `canfail` in your repository.** The replaying is done
+by [`canfail`](https://pypi.org/project/canfail/), a separate tool that needs
+nothing from this project, not even git. Write a `canfail.json` at your root
+naming each check's command and the breaks to plant, in `canfail`'s own format,
+and run it:
+
+```sh
+pip install canfail
+canfail canfail.json
+```
+
+It runs each check on a clean tree, applies each break, runs the check again,
+puts the file back and says whether the check caught it. That tells you whether
+a check catches its defect today. It keeps no record, so it cannot tell you
+whether a check has ever caught one or when that proof goes stale; that is what
+the rest of this repository adds. This repository's own declaration, and the
+version it pins, are described under
+[A replay, start to finish](#a-replay-start-to-finish).
+
+**The ledger and the weekly replay: copy this repository and make it yours.**
+The replay runs `canfail` over the checkout it is running in, reads `dependsOn`
+against that checkout's history, and links every commit on the published page
+into the repository the page was built from. So the checks, the code they check
+and the ledger must all live in one repository: forking this one records
+nothing about yours unless your code moves in with it. The copy brings the whole
+stack, so CI needs Node, pnpm and a PostgreSQL service, and the layout under
+`packages/` has to stay as it is, because the scripts find `ledger/` from where
+they sit. Starting from a copy:
+
+1. Replace the files in `ledger/checks/` with one per check of yours, and empty
+   `ledger/runs/` and `ledger/observations/`, which are this repository's own
+   record. `ledger/README.md` gives the shape of each file.
+2. Replace `canfail.json` with your declaration, adding `checkId` and
+   `dependsOn` beside each check.
+3. In `.github/workflows/ci.yml`, keep the steps that create the databases and
+   that validate, build and check the ledger, and replace the other checks,
+   which are this repository's own. Drop the `ci-control/` branch
+   trigger unless you will plant defects by hand that way. Delete the Pages
+   upload step and the publish job unless the ledger should be public, and read
+   [What belongs on a public ledger](#what-belongs-on-a-public-ledger) before
+   deciding.
+4. Keep `.github/workflows/replay.yml` and `.github/workflows/record-run.yml`
+   as they are; neither names a check of this repository's.
+5. Rewrite or remove this README. `packages/server/src/readme/` holds its
+   counts to the tree, so `pnpm test` fails once your ledger differs. The
+   published page also carries a "Made by" link to this project's studio, in
+   `packages/server/src/ledger/page.ts`. The sample workspace `pnpm db:seed`
+   loads is invented data for the local app and never touches the ledger, so it
+   can stay.
+
+**Recording another repository's checks from this one is not supported.**
+Nothing here checks out a second repository. A run typed in by hand names no
+commit, so nothing stops one describing a check that lives elsewhere, but
+nothing ties it to that repository either. No ticket adds this.
+[#180](https://github.com/async-digital-ltd/seen-to-fail/issues/180) is about
+each repository running a ledger of its own, without copying this one, and is
+not built.
+[#236](https://github.com/async-digital-ltd/seen-to-fail/issues/236) replays
+defects that must be committed to a branch of this repository, and reaches no
+other.
+
 ## How it works
 
 Each check has a log of **test runs**. A test run is one planted defect, and
