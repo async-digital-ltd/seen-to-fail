@@ -185,13 +185,16 @@ activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
 **Which checks this covers: ten of the eleven.** The ledger holds eleven
-checks. Six of them carry runs, and so have a status the backstop can age. Four
-more were declared on #228 and carry an arming observation and no run until
-their first replay is merged; a check never replayed is measured against the
-empty tree, so the dependency route selects each of them at the first replay
-after the declaration lands. The eleventh, `ci-codegen-check`, has no plant,
-for the reason given at the end of this section, so it reads Unproven and
-there is no proof for a floor to keep alive.
+checks, and all eleven carry runs, so each has a status the backstop can age.
+Ten have a plant, and all ten have been replayed: the four declared on #228
+carried an arming observation and no run until the replay dispatched on 5
+October 2026 was merged, because a check never replayed is measured against the
+empty tree and the dependency route selects it at the first replay after its
+declaration lands. The eleventh, `ci-codegen-check`, has no plant, for the
+reason given at the end of this section. Its one run was planted and typed in
+by a person on 5 October 2026 (#231), so it reads Proven, but there is no route
+here for a floor to keep that proof alive, and it goes Stale unless a person
+plants it again or #236 is built.
 
 `canfail.json` declares the first six like this. `ci-type-check` was declared first, with two
 breaks against `pnpm typecheck`. Three more were declared on #110, which

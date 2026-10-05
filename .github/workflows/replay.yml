@@ -123,14 +123,16 @@ name: Replay a plant
 # file is the whole of what the selection reads checks from. The dispatch below
 # cannot reach such a check either, since it hands the same declaration to the
 # tool and the record step refuses a check the declaration does not declare.
-# Every check that carries a run has a plant there: `ci-type-check` from the
-# start, the three published-record checks since #110, before which their
-# only runs were typed in through the `Record a run` workflow and nothing could
-# refresh them, and the workflow lint and the server start since #190 and
+# Every check that carries a replayed run has a plant there: `ci-type-check`
+# from the start, the three published-record checks since #110, before which
+# their only runs were typed in through the `Record a run` workflow and nothing
+# could refresh them, and the workflow lint and the server start since #190 and
 # #146, which gave each its record and its plant in one change. The format
 # check, the lint, the tests and the client build were given plants on #228
-# while they still carried an observation and no run. A check that carries an
-# observation and no run reads Unproven
+# while they still carried an observation and no run. `ci-codegen-check`
+# carries a run typed in by hand (#231) and no plant, so neither route here
+# can refresh it and its proof goes Stale unless a person plants it again or
+# #236 is built. A check that carries an observation and no run reads Unproven
 # and has no proof for a floor to keep alive; a plant for it is written by a
 # person, and nothing here writes one.
 #
