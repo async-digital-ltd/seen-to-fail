@@ -333,12 +333,22 @@ function observationItem(
   return `<li><span class="run-day">${escapeHtml(readableDay(observation.observedOn))}</span> Seen switched ${observation.armed ? 'on' : 'off'}. <span class="muted">Recorded in ${commitCell(ledger, observation.recordedIn)}.</span>${note}</li>`;
 }
 
-/** The last time anyone looked, or a plain statement that nobody has. */
+/**
+ * The last time anyone looked, or a plain statement that nobody has.
+ *
+ * Both the reading and the day come from one observation: the first in the
+ * list, which is the latest, and which the build holds to be the one the
+ * derivation named before anything is published (see verify.ts). The day is
+ * never lastSeenArmedOn. That is the last day the check was seen switched on,
+ * so beside "off" it named a day the check was on, and for a check only ever
+ * seen switched off it is empty though somebody did look (#215).
+ */
 function lastSeen(check: PublishedCheck): string {
-  if (check.lastSeenArmedOn === null || check.lastArmed === null) {
+  const [latest] = check.observations;
+  if (latest === undefined) {
     return '<span class="muted">Not yet observed.</span>';
   }
-  return `Seen switched ${check.lastArmed ? 'on' : 'off'}, ${escapeHtml(readableDay(check.lastSeenArmedOn))}.`;
+  return `Seen switched ${latest.armed ? 'on' : 'off'}, ${escapeHtml(readableDay(latest.observedOn))}.`;
 }
 
 function observationsList(

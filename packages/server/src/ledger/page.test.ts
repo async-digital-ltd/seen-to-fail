@@ -400,6 +400,89 @@ it('tells a check with a run and no observation apart from one with neither', ()
 });
 
 /**
+ * The "Last seen" line reports one observation: the latest, which heads the
+ * list beneath it and is the one the build holds the derivation to. Its day and
+ * its reading both come from that observation. The summary also carries the
+ * last day a check was seen switched on, which answers a different question,
+ * and a line that took its day from there printed a day the check was on
+ * beside the word off, or said a check seen only switched off had never been
+ * observed (#215).
+ */
+it('names the day of the latest observation on the last seen line, on or off', () => {
+  const snapshot = fixtureSnapshot();
+  const observed = snapshot.checks.find((check) => check.id === 'second-check');
+  const [seenOn] = observed?.observations ?? [];
+  if (observed === undefined || seenOn === undefined) {
+    throw new Error('The fixture holds a check seen switched on.');
+  }
+  // The fixture's observed check was seen switched on once, on 1 September,
+  // and its summary says so; the two checks below are only built on that if
+  // it still is.
+  expect(seenOn.armed).toBe(true);
+  expect(seenOn.observedOn).toBe('2026-09-01');
+  expect(observed.lastSeenArmedOn).toBe('2026-09-01');
+
+  const onThenOff: PublishedCheck = {
+    ...observed,
+    id: 'on-then-off-check',
+    name: 'A check seen switched on and later seen switched off',
+    lastSeenArmedOn: '2026-09-01',
+    lastArmed: false,
+    observations: [
+      {
+        ...seenOn,
+        id: 'on-then-off-latest',
+        observedOn: '2026-09-20',
+        armed: false,
+      },
+      seenOn,
+    ],
+  };
+  const onlyOff: PublishedCheck = {
+    ...observed,
+    id: 'only-off-check',
+    name: 'A check only ever seen switched off',
+    lastSeenArmedOn: null,
+    lastArmed: false,
+    observations: [
+      {
+        ...seenOn,
+        id: 'only-off-latest',
+        observedOn: '2026-09-05',
+        armed: false,
+      },
+    ],
+  };
+  const page = renderPage({
+    ...snapshot,
+    checks: [...snapshot.checks, onThenOff, onlyOff],
+    statusCounts: { ...snapshot.statusCounts, Unproven: 3 },
+  });
+  const lastSeenLine = (id: string): string => {
+    const match = new RegExp(
+      `<details class="check" id="${id}">[\\s\\S]*?<dt>Last seen</dt><dd>([\\s\\S]*?)</dd>`,
+    ).exec(page);
+    if (match?.[1] === undefined) {
+      throw new Error(`The page has no last seen line for ${id}.`);
+    }
+    return match[1];
+  };
+
+  expect
+    .soft(lastSeenLine('second-check'))
+    .toBe(`Seen switched on, ${readableDay('2026-09-01')}.`);
+  expect
+    .soft(lastSeenLine('on-then-off-check'))
+    .toBe(`Seen switched off, ${readableDay('2026-09-20')}.`);
+  expect
+    .soft(lastSeenLine('only-off-check'))
+    .toBe(`Seen switched off, ${readableDay('2026-09-05')}.`);
+  expect
+    .soft(lastSeenLine('first-check'))
+    .toBe('<span class="muted">Not yet observed.</span>');
+});
+
+/**
  * A record is text somebody wrote and the page is a document. A check named
  * with a tag should read as a check named with a tag.
  */
