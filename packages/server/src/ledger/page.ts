@@ -663,7 +663,7 @@ ${style}
 <div class="strip" role="img" aria-label="${escapeHtml(cellsLabel(ordered))}">${cells(ordered, 'large')}</div>
 <div class="pills">
 ${publishedStatusOrder.map((status) => statusPill(status, ledger.statusCounts[status])).join('\n')}
-<span class="hint">Tap a status to see what it means.</span>
+<span class="hint">Select a status to see what it means.</span>
 </div>
 ${meanings(ledger)}
 <p class="idea">A check earns trust only after someone plants the defect it exists to catch, runs it, and watches it go red.</p>
@@ -689,8 +689,8 @@ ${areas(ledger)
 <p>The checks on this page are recorded in a ledger kept in this repository, and the page is built from it at the commit named below.</p>
 <p>To prove a check, a defect it should catch is planted on purpose, the check is run, and the result is recorded as one of three outcomes.</p>
 <dl class="pair"><dt>Caught</dt><dd>The check went red.</dd><dt>Missed</dt><dd>The check stayed green.</dd><dt>Settled nothing</dt><dd>The run told us nothing about the check, and the reason is shown as it was written. No status is read from it.</dd></dl>
-<p>A run by hand is one somebody planted, watched and recorded. A replay was planted and scored by a job against newer code, so a check keeps being tested after its first proof. A proof older than ${String(ledger.staleAfterDays)} days turns Stale.</p>
-<p>Every run is a file in the repository, added by a commit like any other change, so a record that is wrong has an author, a diff and a revert.</p>
+<p>A run by hand is one somebody planted, watched, and recorded. A replay was planted and scored by a job against newer code, so a check declared for replay keeps being tested after its first proof. A check that is not declared is tested only when somebody plants a defect by hand. A proof older than ${String(ledger.staleAfterDays)} days turns Stale.</p>
+<p>Every run is a file in the repository, added by a commit like any other change, so a record that is wrong has an author, a diff, and a revert.</p>
 <p>This page is read-only: it has no filter bar and no server behind it. The filter works when you run the app locally. The same ledger is published beside this page as <a href="ledger.json"><code>ledger.json</code></a>.</p>
 </div>
 </details>
