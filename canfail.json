@@ -224,6 +224,124 @@
           "expect": "the server never said it was listening within [0-9]+ seconds"
         }
       ]
+    },
+    {
+      "name": "Format check",
+      "checkId": "ci-format-check",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        ".prettierignore",
+        ".prettierrc.json",
+        "canfail.json",
+        "package.json",
+        "packages/server/src/staleness.ts",
+        "pnpm-lock.yaml"
+      ],
+      "expected": "The format check fails.",
+      "run": "pnpm format:check",
+      "timeout": 60,
+      "evidence": {
+        "expect": "Checking formatting\\.\\.\\."
+      },
+      "breaks": [
+        {
+          "name": "REPLAY_AFTER_DAYS loses the semicolon every other statement ends with, which the type check and the tests both accept.",
+          "file": "packages/server/src/staleness.ts",
+          "replace": "export const REPLAY_AFTER_DAYS = 14;",
+          "with": "export const REPLAY_AFTER_DAYS = 14",
+          "expect": "\\[warn\\] packages/server/src/staleness\\.ts"
+        }
+      ]
+    },
+    {
+      "name": "Lint",
+      "checkId": "ci-lint",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "eslint.config.js",
+        "package.json",
+        "packages/web",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The lint fails.",
+      "run": "pnpm lint",
+      "timeout": 120,
+      "evidence": {
+        "expect": "\\$ eslint \\."
+      },
+      "breaks": [
+        {
+          "name": "The filter hook drops the promise navigate returns without marking it as dropped, which the type check accepts.",
+          "file": "packages/web/src/filter/use-filter.ts",
+          "replace": "      void navigate(paths.checks({ filter: next }));",
+          "with": "      navigate(paths.checks({ filter: next }));",
+          "expect": "use-filter\\.ts\\s+[0-9]+:[0-9]+ +error .*@typescript-eslint/no-floating-promises"
+        }
+      ]
+    },
+    {
+      "name": "Tests",
+      "checkId": "ci-test",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The tests fail.",
+      "run": "pnpm test",
+      "timeout": 300,
+      "evidence": {
+        "expect": "Tests +[0-9]+ (passed|failed)"
+      },
+      "breaks": [
+        {
+          "name": "A link's day count accepts a leading zero, so one filter has two links, which the type check accepts.",
+          "file": "packages/filter/src/url.ts",
+          "replace": "const WHOLE_NUMBER = /^(?:0|[1-9][0-9]*)$/;",
+          "with": "const WHOLE_NUMBER = /^[0-9]+$/;",
+          "expect": "FAIL +src/url\\.test\\.ts > refuses a day count with a leading zero, and says why"
+        }
+      ]
+    },
+    {
+      "name": "The client builds",
+      "checkId": "ci-build-web",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "packages/web",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The client build fails.",
+      "run": "pnpm build:web",
+      "timeout": 120,
+      "evidence": {
+        "expect": "vite v[0-9.]+ building"
+      },
+      "breaks": [
+        {
+          "name": "The page's script names /src/main.ts where the entry is /src/main.tsx, which the type check cannot see because it never reads the page.",
+          "file": "packages/web/index.html",
+          "replace": "<script type=\"module\" src=\"/src/main.tsx\"></script>",
+          "with": "<script type=\"module\" src=\"/src/main.ts\"></script>",
+          "expect": "Failed to resolve /src/main\\.ts from [^\\n]*index\\.html"
+        }
+      ]
     }
   ]
 }

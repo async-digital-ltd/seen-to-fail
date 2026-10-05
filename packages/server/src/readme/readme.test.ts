@@ -465,7 +465,7 @@ it("states the ledger's checks, declared checks and declared breaks as the tree 
   ).toStrictEqual([declared, breaks, declared + breaks]);
   expect(
     countsIn(
-      /today both reach the (\w+) checks that carry a run and none of the (\w+) that carry an observation alone/gu,
+      /today both reach the (\w+) checks declared there and not the (\w+) left out of it/gu,
     ),
   ).toStrictEqual([declared, records - declared]);
   expect(

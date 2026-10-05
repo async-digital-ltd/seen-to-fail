@@ -66,7 +66,10 @@ name: Replay a plant
 # start, declared on 4 October 2026 with a timeout of 120 and two breaks each
 # (#190, #146), take it to thirty-three, so the timeout is now forty. The
 # script break #200 added to the workflow lint takes it to thirty-five, which
-# forty still clears. A plant
+# forty still clears. The four checks #228 declared, one break each, add twenty:
+# the format check at 60 seconds, the lint and the client build at 120, and the
+# tests at 300, against 4, 15, 1 and 49 seconds in CI run 37287748519. That is
+# fifty-five, so the timeout is now sixty. A plant
 # added later adds its check's timeout to that sum, so adding one means
 # checking the job's timeout still clears it.
 #
@@ -124,8 +127,10 @@ name: Replay a plant
 # start, the three published-record checks since #110, before which their
 # only runs were typed in through the `Record a run` workflow and nothing could
 # refresh them, and the workflow lint and the server start since #190 and
-# #146, which gave each its record and its plant in one change. A check that
-# carries an observation and no run reads Unproven
+# #146, which gave each its record and its plant in one change. The format
+# check, the lint, the tests and the client build were given plants on #228
+# while they still carried an observation and no run. A check that carries an
+# observation and no run reads Unproven
 # and has no proof for a floor to keep alive; a plant for it is written by a
 # person, and nothing here writes one.
 #
@@ -169,7 +174,7 @@ jobs:
   replay:
     name: Replay the declared plants and record what happened
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     env:
       # The commit the plants are applied to, which is what a replay records as
