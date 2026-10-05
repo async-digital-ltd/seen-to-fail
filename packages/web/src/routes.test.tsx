@@ -2,7 +2,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import type { CheckDetailQuery } from './graphql/generated/graphql';
 import {
   AreasDocument,
   CheckDetailDocument,
@@ -15,6 +14,7 @@ import { paths } from './paths';
 import { createRoutes } from './routes';
 import type { Answer } from './testing/client';
 import { answer } from './testing/client';
+import { aRecordedCheck, aRun } from './testing/records';
 import { renderApp } from './testing/render';
 
 const footerSentence =
@@ -58,7 +58,7 @@ const listed: readonly ListedCheck[] = [
   },
 ];
 
-const recorded: NonNullable<CheckDetailQuery['check']> = {
+const recorded = aRecordedCheck({
   ...lint,
   protects: 'A file that no longer lints reaching the main branch.',
   howToTellArmed: 'The lint job is listed on every push.',
@@ -67,24 +67,15 @@ const recorded: NonNullable<CheckDetailQuery['check']> = {
   lastSettledOn: '2026-09-12',
   runCount: 1,
   caughtCount: 1,
-  missedCount: 0,
-  inconclusiveCount: 0,
   runs: [
-    {
+    aRun({
       id: 'run-1',
       runOn: '2026-09-12',
       planted: 'An unused import.',
       expected: 'The push is refused.',
-      outcome: 'CAUGHT',
-      inconclusiveReason: null,
-      note: null,
-      source: 'HAND',
-      sourceCommit: null,
-      sourceRunUrl: null,
-    },
+    }),
   ],
-  armingObservations: [],
-};
+});
 
 const areas = answer(AreasDocument, { areas: ['CI', 'Git'] });
 

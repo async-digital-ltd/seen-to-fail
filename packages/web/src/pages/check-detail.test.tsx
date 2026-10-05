@@ -2,18 +2,16 @@ import { STATUSES } from '@seen-to-fail/filter';
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CheckDetailQuery } from '../graphql/generated/graphql';
 import { CheckDetailDocument } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import type { StatusName } from '../status';
 import { statusFromName } from '../status';
 import { holdClockIn } from '../testing/clock';
 import { answer, networkFailure, pending } from '../testing/client';
+import { aRecordedCheck, aReplayRun, aRun } from '../testing/records';
+import type { RecordedCheck, RecordedRun as Run } from '../testing/records';
 import { renderApp, renderWithProviders } from '../testing/render';
 import { CheckDetail } from './check-detail';
-
-type RecordedCheck = NonNullable<CheckDetailQuery['check']>;
-type Run = RecordedCheck['runs'][number];
 
 /**
  * Every "days ago" on the page is counted from today, which is the UTC day
@@ -31,47 +29,7 @@ afterEach(() => {
 const id = 'check-1';
 
 function aCheck(overrides: Partial<RecordedCheck> = {}): RecordedCheck {
-  return {
-    id,
-    name: 'Type check on every push',
-    area: 'CI',
-    protects: 'Code that no longer compiles reaching the main branch.',
-    howToTellArmed: 'A type check job is listed on every pull request.',
-    status: 'UNARMED',
-    lastCaughtOn: null,
-    lastSettledOn: null,
-    runCount: 0,
-    caughtCount: 0,
-    missedCount: 0,
-    inconclusiveCount: 0,
-    runs: [],
-    armingObservations: [],
-    ...overrides,
-  };
-}
-
-function aRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
-  return {
-    planted: 'A string passed where a number is expected',
-    expected: 'The job fails and names the line',
-    outcome: 'CAUGHT',
-    inconclusiveReason: null,
-    note: null,
-    source: 'HAND',
-    sourceCommit: null,
-    sourceRunUrl: null,
-    ...overrides,
-  };
-}
-
-/** The same run, recorded by a replay rather than typed in. */
-function aReplayRun(overrides: Partial<Run> & Pick<Run, 'id' | 'runOn'>): Run {
-  return aRun({
-    source: 'REPLAY',
-    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
-    sourceRunUrl: 'https://ci.example.com/runs/91',
-    ...overrides,
-  });
+  return aRecordedCheck({ id, ...overrides });
 }
 
 /** The reason the runs below that settled nothing give for settling nothing. */
