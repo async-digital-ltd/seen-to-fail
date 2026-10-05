@@ -1,6 +1,6 @@
 import type { Status } from '@seen-to-fail/filter';
 
-import { newestRunFirst } from '../database/rows.ts';
+import { newestObservationFirst, newestRunFirst } from '../database/rows.ts';
 import type {
   IsoDate,
   TestRunOutcome,
@@ -92,7 +92,7 @@ export interface PublishedCheck {
   readonly lastArmed: boolean | null;
   /** Newest first, by newestRunFirst in rows.ts, as the app lists them. */
   readonly runs: readonly PublishedRun[];
-  /** Newest first. */
+  /** Newest first, by newestObservationFirst in rows.ts, as the app lists them. */
   readonly observations: readonly PublishedObservation[];
 }
 
@@ -129,28 +129,6 @@ export interface SnapshotInput {
 /** Where a record's file sits in the repository. */
 function sourceFileOf(ledgerPath: string, entry: LedgerEntry<unknown>): string {
   return `${ledgerPath}/${entry.file}`;
-}
-
-/**
- * Observations newest first, by the day, then by the file each is recorded in.
- *
- * The file is the last key, and it is what makes the order the same on every
- * build. Sorting by the day alone leaves the rest to whatever the directory
- * listing happened to give, so the same records could publish in two
- * different orders and a reader comparing two builds would see a change that
- * is not one.
- *
- * Runs are not sorted by this. They are sorted by newestRunFirst, the rule the
- * app's table and the derivation share, once each run has the id it is
- * published under.
- */
-function byNewest<Record extends { readonly file: string }>(
-  dayOf: (record: Record) => IsoDate,
-) {
-  return (left: Record, right: Record): number => {
-    const days = dayOf(right).localeCompare(dayOf(left));
-    return days === 0 ? right.file.localeCompare(left.file) : days;
-  };
 }
 
 /**
@@ -192,9 +170,7 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
   }
 
   const observationsByCheck = new Map<string, PublishedObservation[]>();
-  for (const entry of [...input.contents.observations].sort(
-    byNewest((entry) => entry.record.observedOn),
-  )) {
+  for (const entry of input.contents.observations) {
     const sourceFile = sourceFileOf(input.ledgerPath, entry);
     const observations = observationsByCheck.get(entry.record.checkId) ?? [];
     observations.push({
@@ -206,6 +182,9 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       recordedIn: input.recordingCommits.get(sourceFile) ?? null,
     });
     observationsByCheck.set(entry.record.checkId, observations);
+  }
+  for (const observations of observationsByCheck.values()) {
+    observations.sort(newestObservationFirst);
   }
 
   const checks: PublishedCheck[] = [];

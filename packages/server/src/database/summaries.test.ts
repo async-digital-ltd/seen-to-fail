@@ -54,7 +54,7 @@ function daysBefore(days: number): IsoDate {
     .slice(0, 10);
 }
 
-/** The day the two same day fixtures put both of their runs on. */
+/** The day the same day fixtures put both of their runs or observations on. */
 const sharedDay = daysBefore(3);
 
 /**
@@ -91,6 +91,13 @@ interface RunFixture {
 interface ObservationFixture {
   readonly observedOn: IsoDate;
   readonly armed: boolean;
+  /**
+   * When the observation was written down. Pinned only where two share a day,
+   * for the reason it is pinned on runs: the fixtures pin it both ways round
+   * and expect the same status from each, so the order they were recorded in
+   * is shown not to decide which is latest.
+   */
+  readonly createdAt?: string;
 }
 
 interface CheckFixture {
@@ -142,9 +149,14 @@ async function insertCheck(fixture: CheckFixture): Promise<string> {
 
   for (const observation of fixture.observations ?? []) {
     await database.client().query(
-      `INSERT INTO arming_observations (check_id, observed_on, armed)
-         VALUES ($1, $2, $3)`,
-      [id, observation.observedOn, observation.armed],
+      `INSERT INTO arming_observations (check_id, observed_on, armed, created_at)
+         VALUES ($1, $2, $3, coalesce($4::timestamptz, now()))`,
+      [
+        id,
+        observation.observedOn,
+        observation.armed,
+        observation.createdAt ?? null,
+      ],
     );
   }
 
@@ -189,6 +201,21 @@ async function runIdOn(checkId: string, day: IsoDate): Promise<string> {
   return row.id;
 }
 
+/** The id of the one observation a check holds on a day, read off the table. */
+async function observationIdOn(checkId: string, day: IsoDate): Promise<string> {
+  const rows = await database
+    .client()
+    .query<{ id: string }>(
+      'SELECT id FROM arming_observations WHERE check_id = $1 AND observed_on = $2',
+      [checkId, day],
+    );
+  const [row] = rows.rows;
+  if (row === undefined || rows.rows.length !== 1) {
+    throw new Error('Expected exactly one observation on that day.');
+  }
+  return row.id;
+}
+
 interface StatusCase extends CheckFixture {
   /** The rule this fixture is reached by, as the status table words it. */
   readonly rule: string;
@@ -229,6 +256,40 @@ const statusCases: readonly StatusCase[] = [
     status: 'Unarmed',
     runs: [{ runOn: daysBefore(10), outcome: 'caught' }],
     observations: [{ observedOn: daysBefore(10), armed: false }],
+  },
+  {
+    name: 'a check seen switched off and on on one day, the off written later',
+    rule: '1, an off and an on observation on one day read as off',
+    status: 'Unarmed',
+    observations: [
+      {
+        observedOn: sharedDay,
+        armed: false,
+        createdAt: `${sharedDay}T17:00:00Z`,
+      },
+      {
+        observedOn: sharedDay,
+        armed: true,
+        createdAt: `${sharedDay}T09:00:00Z`,
+      },
+    ],
+  },
+  {
+    name: 'a check seen switched off and on on one day, the on written later',
+    rule: '1, what was found decides, not the order it was written down',
+    status: 'Unarmed',
+    observations: [
+      {
+        observedOn: sharedDay,
+        armed: true,
+        createdAt: `${sharedDay}T17:00:00Z`,
+      },
+      {
+        observedOn: sharedDay,
+        armed: false,
+        createdAt: `${sharedDay}T09:00:00Z`,
+      },
+    ],
   },
   {
     name: 'a check whose latest run missed',
@@ -529,6 +590,7 @@ it('returns a row for a check with no runs and no observations', async () => {
     inconclusiveCount: 0,
     lastSeenArmedOn: null,
     lastArmed: null,
+    latestObservationId: null,
   });
 });
 
@@ -559,6 +621,7 @@ it('counts the runs and dates the evidence behind the status', async () => {
     inconclusiveCount: 0,
     lastSeenArmedOn: daysBefore(7),
     lastArmed: true,
+    latestObservationId: await observationIdOn(checkId, daysBefore(7)),
   });
 });
 

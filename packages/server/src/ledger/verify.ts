@@ -37,7 +37,11 @@ import type { PublishedLedger } from './snapshot.ts';
  *    derivation says its status was read from, which catches the table and the
  *    status being headed by two different runs. The order is sorted in
  *    TypeScript and the pick is made in SQL, so the two are separate answers
- *    to one question.
+ *    to one question,
+ *  - the first observation in each check's exported list against the
+ *    observation the derivation says its armed state was read from, which
+ *    catches the same thing for the other kind of evidence, sorted and picked
+ *    the same two separate ways.
  *
  * The one thing that genuinely is a copy, a check's status, is held to the
  * database by a test rather than by a comparison here, because a test can ask
@@ -81,6 +85,17 @@ function describeRun(id: string | null): string {
   return id === null
     ? 'no run, because none settled anything'
     : `the run ${id}`;
+}
+
+/**
+ * An observation named in a refusal, or what its absence means. No
+ * observation means nobody has recorded one, which is a statement, not a
+ * missing value to print as "null".
+ */
+function describeObservation(id: string | null): string {
+  return id === null
+    ? 'no observation, because none is recorded'
+    : `the observation ${id}`;
 }
 
 function compare(
@@ -238,6 +253,21 @@ export function disagreements(input: VerificationInput): string[] {
       if (headedBy !== summary.latestSettledRunId) {
         found.push(
           `${label}: the status was read from ${describeRun(summary.latestSettledRunId)}, and the first run in the export that settled anything is ${describeRun(headedBy)}.`,
+        );
+      }
+
+      // Which observation the armed state was read from, derivation against
+      // export, for the same reason as the runs above. Two observations on
+      // one day that found the same thing carry the same day and the same
+      // reading, so every date and every flag still agrees when the two name
+      // different rows; only identity can tell. Where they found different
+      // things the status itself can follow the pick, and this is the
+      // comparison that says the page's list was not headed by the reading
+      // the status came from.
+      const observedFirst = check.observations[0]?.id ?? null;
+      if (observedFirst !== summary.latestObservationId) {
+        found.push(
+          `${label}: the armed state was read from ${describeObservation(summary.latestObservationId)}, and the first observation in the export is ${describeObservation(observedFirst)}.`,
         );
       }
     }

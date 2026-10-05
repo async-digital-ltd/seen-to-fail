@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { expect, it } from 'vitest';
 
-import { listRunsForChecks } from '../database/checks.ts';
+import {
+  listArmingObservationsForChecks,
+  listRunsForChecks,
+} from '../database/checks.ts';
 import { listCheckSummaries } from '../database/summaries.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { writeTemporaryLedger } from '../testing/ledger.ts';
@@ -243,6 +246,135 @@ it('heads the page, the app and the status with the same run when two runs tie',
   const earlierOnPage = page.indexOf('A second rule violation.');
   expect(earlierOnPage).toBeGreaterThan(-1);
   expect(earlierOnPage).toBeLessThan(page.indexOf('A rule violation.'));
+});
+
+/** The file an observation of a day is recorded in, with a digest to tell two apart. */
+function observationFile(day: string, digest: string): string {
+  return `observations/${day}-ci-lint-${digest}.json`;
+}
+
+/**
+ * Two observation files on one day whose filename order and id order
+ * disagree: the later filename has the smaller uuid.
+ *
+ * The page used to break a tie on the day by filename, and the app and the
+ * derivation by created_at and then id, which the build makes one instant for
+ * every record. With these two names those keys put the pair in opposite
+ * orders, so a surface still using either of them heads its list differently
+ * from one using the rule. The tests below assert that before the build runs,
+ * so a fixture that has stopped discriminating says so rather than passing
+ * whatever the tie-break does.
+ */
+const observedEarlierFile = observationFile(oneDay, 'aaaaaaaaaaaa');
+const observedLaterFile = observationFile(oneDay, 'eeeeeeeeeeee');
+
+function expectObservationFilesToDiscriminate(): void {
+  expect(observedLaterFile > observedEarlierFile).toBe(true);
+  expect(
+    ledgerFileUuid(`ledger/${observedLaterFile}`) <
+      ledgerFileUuid(`ledger/${observedEarlierFile}`),
+  ).toBe(true);
+}
+
+/**
+ * Two observations sharing a day and what they found, which nothing recorded
+ * about them can order, headed the same way on the published page, in the
+ * app, and in the derivation.
+ *
+ * The status is the same whichever of them wins, so what is tested is which
+ * row heads the list. Before the rule, the page headed it with the later
+ * filename and the app and the derivation with the larger id.
+ */
+it('heads the page, the app and the derivation with the same observation when two tie', async () => {
+  expectObservationFilesToDiscriminate();
+
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    [observedEarlierFile]: {
+      checkId: 'ci-lint',
+      observedOn: oneDay,
+      armed: true,
+      note: 'Seen in the first run.',
+    },
+    [observedLaterFile]: {
+      checkId: 'ci-lint',
+      observedOn: oneDay,
+      armed: true,
+      note: 'Seen in the second run.',
+    },
+  });
+
+  const { ledger, page } = await build(directory);
+  const published = ledger.checks[0]?.observations.map(
+    (observation) => observation.id,
+  );
+  const inTheApp = (
+    await listArmingObservationsForChecks(database.client(), [
+      ledgerCheckUuid('ci-lint'),
+    ])
+  ).map((observation) => observation.id);
+  const [summary] = await listCheckSummaries(database.client(), asOf);
+
+  expect(published).toEqual(inTheApp);
+  expect(published).toEqual([
+    ledgerFileUuid(`ledger/${observedEarlierFile}`),
+    ledgerFileUuid(`ledger/${observedLaterFile}`),
+  ]);
+  expect(summary?.latestObservationId).toBe(published?.[0]);
+  // The rendered page, read rather than assumed to follow the export.
+  const firstOnPage = page.indexOf('Seen in the first run.');
+  expect(firstOnPage).toBeGreaterThan(-1);
+  expect(firstOnPage).toBeLessThan(page.indexOf('Seen in the second run.'));
+});
+
+/**
+ * The planted disagreement #139 names: one check, one day, one observation
+ * finding it on and one finding it off, and no runs, so the latest
+ * observation alone decides between Unproven and Unarmed.
+ *
+ * The off reading is in the later file and has the smaller id. Under the old
+ * keys the page listed it first, by filename, while the derivation read the
+ * armed state from the on reading, by id: the page headed the check's list
+ * with "switched off" under a status read from "switched on". Under the rule
+ * every surface puts the off reading first, and the check reads Unarmed. A
+ * rule that dropped the off-before-on key and kept the id would put the on
+ * reading first everywhere and publish Unproven, which this also refuses.
+ */
+it('reads the armed state from the observation the page lists first when one day holds an off and an on', async () => {
+  expectObservationFilesToDiscriminate();
+
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    [observedEarlierFile]: {
+      checkId: 'ci-lint',
+      observedOn: oneDay,
+      armed: true,
+    },
+    [observedLaterFile]: {
+      checkId: 'ci-lint',
+      observedOn: oneDay,
+      armed: false,
+    },
+  });
+
+  const { ledger, page } = await build(directory);
+  const [published] = ledger.checks;
+  const [listedFirst] = published?.observations ?? [];
+  const [inTheApp] = await listArmingObservationsForChecks(database.client(), [
+    ledgerCheckUuid('ci-lint'),
+  ]);
+  const [summary] = await listCheckSummaries(database.client(), asOf);
+
+  expect(summary?.lastArmed).toBe(listedFirst?.armed);
+  expect(summary?.latestObservationId).toBe(listedFirst?.id);
+  expect(inTheApp?.id).toBe(listedFirst?.id);
+  expect(listedFirst?.id).toBe(ledgerFileUuid(`ledger/${observedLaterFile}`));
+  expect(listedFirst?.armed).toBe(false);
+  expect(published?.lastArmed).toBe(false);
+  expect(published?.status).toBe('Unarmed');
+  const offOnPage = page.indexOf('Seen switched off.');
+  expect(offOnPage).toBeGreaterThan(-1);
+  expect(offOnPage).toBeLessThan(page.indexOf('Seen switched on.'));
 });
 
 /**

@@ -104,6 +104,15 @@ later one beneath the earlier, with nothing on either row saying why. The first
 run in a check's log that settled anything is the run its status was read from,
 and the build checks that for every check before it publishes.
 
+Observations are ordered the same way, for the same reasons. An observation is
+dated to a day and nothing finer, so of two on one day, one that found the check
+switched off outranks one that found it on: a check seen switched off that day
+is unarmed whatever else was said about it that day. Two that share both a day
+and what they found are ordered by the observation's id, in the app, on the page
+and in the derivation alike, and not by when they were typed in. The first
+observation in a check's log is the one its armed state was read from, and the
+build checks that as well.
+
 Thirty days is the one judgment in the model, and it is one constant,
 `STALE_AFTER_DAYS`, in one module. A catch exactly thirty days old still reads
 Proven, and one day older reads Stale. Moving that line is changing the constant
@@ -692,7 +701,8 @@ compares the files on disk with the rows the database ended up holding, with the
 export, and with the rendered page, and writes nothing if any of those disagree.
 It also compares the run each check's status was read from with the first run in
 the check's published table that settled anything, and refuses when they are
-different runs. A page listing nine runs where the ledger holds ten looks
+different runs, and does the same for the observation its armed state was read
+from and the first observation in its published list. A page listing nine runs where the ledger holds ten looks
 exactly like a page listing ten, which is the kind of quiet wrongness this
 project is about.
 

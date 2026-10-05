@@ -5,6 +5,7 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import {
   armingObservationColumns,
   checkColumnsFrom,
+  newestObservationFirstSql,
   newestRunFirstSql,
   selectRows,
   testRunColumns,
@@ -254,8 +255,14 @@ export async function listRunsForChecks(
 
 /**
  * Every arming observation recorded about any of the given checks, newest
- * first, batched like the runs above: by the day, then by when the row was
- * written, then by id.
+ * first, batched like the runs above.
+ *
+ * Newest first is newestObservationFirst in rows.ts: by the day, then an off
+ * reading before an on one, then by id. The ORDER BY is built from that rule
+ * rather than written out here, so the app's list and the published page's
+ * list cannot put the same rows in two different orders. When the row was
+ * written is not a key, although it is recorded, because the page cannot see
+ * it; newestObservationFirst says why that is the chosen cost.
  */
 export async function listArmingObservationsForChecks(
   database: Queryable,
@@ -269,7 +276,7 @@ export async function listArmingObservationsForChecks(
     database,
     `SELECT ${armingObservationColumns} FROM arming_observations
       WHERE check_id = ANY($1)
-      ORDER BY observed_on DESC, created_at DESC, id DESC`,
+      ORDER BY ${newestObservationFirstSql('arming_observations')}`,
     [[...checkIds]],
   );
 }

@@ -153,13 +153,7 @@ export interface RunOrderKeys {
  * build compares the two on every publish and refuses when they differ, in
  * verify.ts.
  *
- * The ids are lowercased and then compared as text, not with localeCompare.
- * A lowercase uuid is hex at fixed positions, so plain comparison of the text
- * is the same order as PostgreSQL's comparison of the sixteen bytes, and a
- * locale-aware comparison would be free not to be. They are lowercased first
- * because the id check at the API boundary accepts either case, and an
- * upper-case B sorts before a lower-case a as text while the byte b sorts
- * after the byte a.
+ * The ids are compared by largerIdFirst below, which says how and why.
  */
 export function newestRunFirst(
   left: RunOrderKeys,
@@ -173,8 +167,24 @@ export function newestRunFirst(
   if (ranks !== 0) {
     return ranks;
   }
-  const leftId = left.id.toLowerCase();
-  const rightId = right.id.toLowerCase();
+  return largerIdFirst(left.id, right.id);
+}
+
+/**
+ * The last resort of every newest-first order: two ids, the larger first, as
+ * PostgreSQL's `id DESC` orders the same two values.
+ *
+ * The ids are lowercased and then compared as text, not with localeCompare.
+ * A lowercase uuid is hex at fixed positions, so plain comparison of the text
+ * is the same order as PostgreSQL's comparison of the sixteen bytes, and a
+ * locale-aware comparison would be free not to be. They are lowercased first
+ * because the id check at the API boundary accepts either case, and an
+ * upper-case B sorts before a lower-case a as text while the byte b sorts
+ * after the byte a.
+ */
+function largerIdFirst(left: string, right: string): number {
+  const leftId = left.toLowerCase();
+  const rightId = right.toLowerCase();
   if (leftId === rightId) {
     return 0;
   }
@@ -209,6 +219,85 @@ export function newestRunFirstSql(source: string): string {
   return (
     `${source}.run_on DESC, ` +
     `CASE ${source}.outcome ${ranks} ELSE ${unranked} END, ` +
+    `${source}.id DESC`
+  );
+}
+
+/** The three fields an observation's place in a newest-first list is decided by. */
+export interface ObservationOrderKeys {
+  readonly id: string;
+  readonly observedOn: IsoDate;
+  readonly armed: boolean;
+}
+
+/**
+ * The order every list of arming observations is read in, newest first: by
+ * the day it was made, then an observation that found the check switched off
+ * before one that found it on, then by the observation's id, descending.
+ *
+ * One rule for every surface that lists observations, as newestRunFirst is for
+ * runs. The app's list is ordered by newestObservationFirstSql, which is this
+ * rule spelled for PostgreSQL; the published page's list is sorted by this
+ * function; and the derivation in the migrations picks a check's latest
+ * observation by the same three keys. Until all three used it, the app broke a
+ * tie on the day by when the row was written and then by id, the page by
+ * filename, and the derivation by when the row was written, so the same two
+ * rows could head the two lists differently and the status could be read from
+ * a third choice.
+ *
+ * Off before on, because an observation is dated to a day and nothing finer,
+ * so two on one day have no recorded order to read, and something still has
+ * to decide which of them a status is read from. Here that decides the status
+ * itself: the latest observation saying off is what makes a check Unarmed. A
+ * check seen switched off that day is unarmed whatever else was said about it
+ * that day, and a rule that could hide the off reading behind an on one would
+ * be this product failing at its own subject. It is the reason a miss outranks
+ * a catch in outcomePrecedence, applied to the other kind of evidence, and the
+ * status table already leans the same way where an observation and a run share
+ * a day: an off reading dated the day of the latest run makes the check
+ * Unarmed.
+ *
+ * The id is the last resort, and it is arbitrary, for the same reason it is
+ * for runs: the app records when each observation was typed in, but the ledger
+ * build writes every record in one transaction, so they all share one
+ * created_at, and a page built from files has no created_at to read at all. A
+ * key one surface cannot see is a key the surfaces cannot share. The cost is in
+ * the app: two observations typed in on the same day saying the same thing, an
+ * hour apart, can list the later one beneath the earlier, and neither row says
+ * why.
+ *
+ * With this order, the first observation in a check's list is the observation
+ * its armed state was read from. That is not left to this sentence: the build
+ * compares the two on every publish and refuses when they differ, in
+ * verify.ts.
+ */
+export function newestObservationFirst(
+  left: ObservationOrderKeys,
+  right: ObservationOrderKeys,
+): number {
+  if (left.observedOn !== right.observedOn) {
+    return left.observedOn > right.observedOn ? -1 : 1;
+  }
+  if (left.armed !== right.armed) {
+    return left.armed ? 1 : -1;
+  }
+  return largerIdFirst(left.id, right.id);
+}
+
+/**
+ * newestObservationFirst as an ORDER BY list over the columns of
+ * arming_observations.
+ *
+ * PostgreSQL orders false before true, so ascending on armed is off before
+ * on. The column is NOT NULL, so there is no third value for the order to
+ * place somewhere nobody chose. The derivation in the migrations spells the
+ * same three keys in its own ORDER BY, and rows.test.ts holds both spellings
+ * to this function on a day with an off and an on reading as well as on a tie.
+ */
+export function newestObservationFirstSql(source: string): string {
+  return (
+    `${source}.observed_on DESC, ` +
+    `${source}.armed ASC, ` +
     `${source}.id DESC`
   );
 }
