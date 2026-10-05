@@ -8,7 +8,9 @@
 # built from, and it carries no script, so nothing on it is worked out anywhere
 # but at build time. Since #237 it also holds that the page can be found and
 # shared: no `noindex`, the link-preview tags, the image they name, and the
-# line at the top that says what the page is.
+# line at the top that says what the page is. Since #240 it holds the line
+# under the headline that says what its count covers and links why checks about
+# security are left off.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
@@ -215,4 +217,20 @@ if [ -z "$about_at" ] || [ -z "$headline_at" ] || [ "$about_at" -ge "$headline_a
   exit 1
 fi
 
-echo "The published output in $directory is sound: three files, built from $commit, with no script, open to search, and with a link preview at $og_url."
+# The line straight under the headline that says what its count covers (#240):
+# the areas on the page, and that checks about security are left off on
+# purpose, with a link to the README section that says why. The link has to
+# name an anchor a heading in this checkout's README makes, the way GitHub makes
+# one: the heading's words, lowercased, joined by hyphens.
+anchor="what-belongs-on-a-public-ledger"
+scope_at="$({ grep -n "^<p class=\"eyebrow scope\">\(These are the project&#39;s checks in [^<]*\. \)\{0,1\}Checks about security, such as secret scanning, are left off a public ledger on purpose; <a href=\"https://github\.com/[^\"#]\{1,\}#$anchor\">why</a>\.</p>\$" "$page" || true; } | head -n 1 | cut -d: -f1)"
+if [ -z "$scope_at" ] || [ -z "$headline_at" ] || [ "$scope_at" -ne $((headline_at + 1)) ]; then
+  echo "The published page does not say, straight under its headline, that checks about security are left off it on purpose, with a link to why." >&2
+  exit 1
+fi
+if ! grep -qix '#\{1,6\} what belongs on a public ledger' README.md; then
+  echo "The published page links the README anchor #$anchor, and no heading in README.md makes it." >&2
+  exit 1
+fi
+
+echo "The published output in $directory is sound: three files, built from $commit, with no script, open to search, with a link preview at $og_url, and with its count scoped under the headline."

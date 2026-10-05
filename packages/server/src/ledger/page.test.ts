@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { STATUSES } from '@seen-to-fail/filter';
 import { expect, it } from 'vitest';
 
@@ -15,10 +18,12 @@ import {
 } from '../testing/ledger.ts';
 import {
   escapeHtml,
+  publicLedgerAnchor,
   publishedStatusOrder,
   readableDay,
   renderPage,
 } from './page.ts';
+import { repositoryRoot } from './location.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedCheck } from './snapshot.ts';
 
@@ -102,6 +107,80 @@ it('says what it is above the headline, and links the repository', () => {
     '<p class="eyebrow about">Seen to Fail is a record of whether each of this project&#39;s own checks has been seen to catch a defect planted on purpose, kept in <a href="https://github.com/async-digital-ltd/seen-to-fail">its repository on GitHub</a>.</p>';
   expect(page).toContain(line);
   expect(page.indexOf(line)).toBeLessThan(page.indexOf('<h1>'));
+});
+
+/**
+ * The headline's count is a count of the checks on this ledger, and a reader
+ * takes it for all of the project's checks unless told otherwise (#240). The
+ * line straight under the headline names the areas the count covers, says
+ * checks about security are left off on purpose, and links the README section
+ * that says why. It says nothing of a record kept elsewhere, because there is
+ * none.
+ */
+it('says under the headline what the count covers, and why security checks are left off', () => {
+  const page = renderPage(fixtureSnapshot());
+  const line =
+    '<p class="eyebrow scope">These are the project&#39;s checks in two areas: CI and Review. Checks about security, such as secret scanning, are left off a public ledger on purpose; <a href="https://github.com/async-digital-ltd/seen-to-fail#what-belongs-on-a-public-ledger">why</a>.</p>';
+  expect(page).toContain(`</h1>\n${line}\n<div class="strip"`);
+  expect(line).not.toMatch(/private|elsewhere|[–—]/);
+});
+
+/**
+ * The areas in that line are read from the checks, in the order their cards
+ * follow, so a check moved to a new area changes the line with it.
+ */
+it('names the areas in the line from the checks themselves', () => {
+  const snapshot = fixtureSnapshot();
+  const [first, second] = snapshot.checks;
+  if (first === undefined || second === undefined) {
+    throw new Error('The fixture holds two checks.');
+  }
+  const one = renderPage({
+    ...snapshot,
+    checks: [
+      { ...first, area: 'Code' },
+      { ...second, area: 'Code' },
+    ],
+  });
+  expect(one).toContain('checks in one area: Code. Checks about security');
+
+  const three = renderPage({
+    ...snapshot,
+    checks: [
+      { ...first, area: 'Build' },
+      { ...second, area: 'Published record' },
+      { ...second, id: 'third', area: 'Code' },
+    ],
+  });
+  const named =
+    /checks in three areas: ([A-Za-z ]+), ([A-Za-z ]+) and ([A-Za-z ]+)\./.exec(
+      three,
+    );
+  expect(named?.slice(1).sort()).toEqual(['Build', 'Code', 'Published record']);
+
+  const none = renderPage({ ...snapshot, checks: [] });
+  expect(none).toContain(
+    '<p class="eyebrow scope">Checks about security, such as secret scanning',
+  );
+});
+
+/**
+ * The link goes to a README heading on GitHub, which turns the heading's words
+ * into its anchor. Nothing can ask GitHub what anchor it made, so this reads
+ * the README and makes the anchor the same way: a renamed heading fails here
+ * rather than leaving the link to land at the top of the page.
+ */
+it('links an anchor that a heading in the README makes', () => {
+  const readme = readFileSync(join(repositoryRoot, 'README.md'), 'utf8');
+  const anchors = [...readme.matchAll(/^#{1,6} (.+)$/gm)].map((match) =>
+    (match[1] ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9 -]/g, '')
+      .replaceAll(' ', '-'),
+  );
+  expect(publicLedgerAnchor).toBe('what-belongs-on-a-public-ledger');
+  expect(anchors).toContain(publicLedgerAnchor);
 });
 
 it('holds the same statuses the filter knows in its reading order, and no others', () => {
@@ -254,9 +333,10 @@ it('carries no script at all', () => {
 });
 
 /**
- * Five destinations and no sixth: a commit in this repository, the run a
- * replay named, the export beside the page, the repository itself, and the
- * studio that built it. The page's own address and its preview image are also
+ * Six destinations and no seventh: a commit in this repository, the run a
+ * replay named, the export beside the page, the repository itself, the README
+ * section on what belongs on a public ledger (#240), and the studio that built
+ * it. The page's own address and its preview image are also
  * written out, absolute, in the link-preview tags (#237); they are not places
  * the page sends a reader, but they are addresses on it, so they are named
  * here too. Nothing here is fetched; these are places a reader can
@@ -269,7 +349,7 @@ it('carries no script at all', () => {
  * that is not a commit. Rendering the other would let a page that dropped the
  * run link pass.
  */
-it('links only to a commit, a run a record named, the export, the repository or the studio', () => {
+it('links only to a commit, a run a record named, the export, the repository, its public-ledger section or the studio', () => {
   const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
   const urls = [...page.matchAll(/https?:\/\/[^"'\s]+/g)].map(
     (match) => match[0],
@@ -277,7 +357,9 @@ it('links only to a commit, a run a record named, the export, the repository or 
 
   const repository = 'https://github.com/async-digital-ltd/seen-to-fail';
   const studio = 'https://async-digital.com';
+  const why = `${repository}#what-belongs-on-a-public-ledger`;
   expect(urls).toContain(fixtureReplayRunUrl);
+  expect(urls).toContain(why);
   expect(urls).toContain(repository);
   expect(urls).toContain(studio);
   expect(urls).toContain(livePage);
@@ -289,6 +371,7 @@ it('links only to a commit, a run a record named, the export, the repository or 
     if (
       url === fixtureReplayRunUrl ||
       url === repository ||
+      url === why ||
       url === studio ||
       url === livePage ||
       url === livePreview ||

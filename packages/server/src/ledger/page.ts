@@ -71,6 +71,73 @@ const whatItIs =
 const pageDescription = `${whatItIs.charAt(0).toUpperCase()}${whatItIs.slice(1)}.`;
 
 /**
+ * The README section that says why checks about security are not on a public
+ * ledger, which the line under the headline links to (#240).
+ *
+ * GitHub gives a heading in a README an anchor made from its words, lowercased
+ * and joined by hyphens. Nothing in the build can ask GitHub what anchor it
+ * made, so page.test.ts and check-published-output.sh both read README.md and
+ * refuse this anchor when no heading there would produce it.
+ */
+export const publicLedgerAnchor = 'what-belongs-on-a-public-ledger';
+
+const numberWords = [
+  'no',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+];
+
+/** A count as a reader would write it in a sentence: words up to ten. */
+function counted(count: number, noun: string): string {
+  const number = numberWords[count] ?? String(count);
+  return `${number} ${count === 1 ? noun : `${noun}s`}`;
+}
+
+/** Names joined as a list is written: "A", "A and B", "A, B and C". */
+function listed(names: readonly string[]): string {
+  const last = names.at(-1);
+  if (last === undefined) {
+    return '';
+  }
+  return names.length === 1
+    ? last
+    : `${names.slice(0, -1).join(', ')} and ${last}`;
+}
+
+/**
+ * The line under the headline that says what the count is a count of (#240).
+ *
+ * The headline's "N of M checks" reads as all of the project's checks, and it
+ * is not: the repository's secret scanning and push protection are checks
+ * about security, and they are left off on purpose. This line says so, and
+ * links the README section that says why. It does not say they are recorded
+ * somewhere else, because they are not: there is no private ledger.
+ *
+ * The areas are read from the checks themselves, in the order their cards
+ * follow below, so the line cannot name an area the page does not have or miss
+ * one it does.
+ */
+function scopeLine(
+  ledger: PublishedLedger,
+  areaNames: readonly string[],
+): string {
+  const areasSentence =
+    areaNames.length === 0
+      ? ''
+      : `These are the project&#39;s checks in ${counted(areaNames.length, 'area')}: ${escapeHtml(listed(areaNames))}. `;
+  const why = `${repositoryHref(ledger)}#${publicLedgerAnchor}`;
+  return `<p class="eyebrow scope">${areasSentence}Checks about security, such as secret scanning, are left off a public ledger on purpose; <a href="${escapeHtml(why)}">why</a>.</p>`;
+}
+
+/**
  * The order the statuses are read in, from the one a reader can trust to the
  * one they know least about.
  *
@@ -581,6 +648,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .hero { display: flex; flex-direction: column; gap: 1.5rem; padding: 3.5rem 0 3rem; }
 .eyebrow { margin: 0; color: var(--muted); font-size: 0.875rem; }
 .about { max-width: 60ch; }
+.scope { max-width: 60ch; margin-top: -0.75rem; }
 h1 { margin: 0; max-width: 18ch; font-size: clamp(2.1rem, 6vw, 3.25rem); line-height: 1.08; letter-spacing: -0.025em; }
 h1 .result { color: var(--success-ink); }
 .strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.75rem, 1fr)); gap: 0.375rem; max-width: 32.5rem; }
@@ -671,6 +739,8 @@ export function renderPage(ledger: PublishedLedger): string {
   const proven = ledger.statusCounts.Proven;
   const ordered = [...ledger.checks].sort(byReadingOrder);
   const repository = repositoryHref(ledger);
+  const grouped = areas(ledger);
+  const areaNames = grouped.map((area) => area.name);
   const built = `Built from commit <a href="${escapeHtml(commitHref(ledger, ledger.builtFrom))}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, read as of ${escapeHtml(readableDay(ledger.builtOn))}.`;
   const headline =
     checkCount === 0
@@ -711,6 +781,7 @@ ${style}
 <section class="hero">
 <p class="eyebrow about">Seen to Fail is ${escapeHtml(whatItIs)}, kept in <a href="${escapeHtml(repository)}">its repository on GitHub</a>.</p>
 <h1>${headline}</h1>
+${scopeLine(ledger, areaNames)}
 <div class="strip" role="img" aria-label="${escapeHtml(cellsLabel(ordered))}">${cells(ordered, 'large')}</div>
 <div class="pills">
 ${publishedStatusOrder.map((status) => statusPill(status, ledger.statusCounts[status])).join('\n')}
@@ -729,9 +800,7 @@ ${meanings(ledger)}
 <span class="hint">Open an area, then a check, to see its proof.</span>
 </div>
 <div class="areas">
-${areas(ledger)
-  .map((area) => areaSection(ledger, area))
-  .join('\n')}
+${grouped.map((area) => areaSection(ledger, area)).join('\n')}
 </div>
 </section>
 <details class="how">
