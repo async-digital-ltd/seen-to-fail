@@ -358,10 +358,22 @@ jobs:
       # RUNNER_TEMP. Every break inside it still names its file relative to the
       # checkout, which is what `--cwd` is for: where the declaration lives and
       # where the files it breaks live are two different questions.
+      #
+      # NO_COLOR, because every `expect` and every `evidence` line in
+      # canfail.json is matched against plain text. On a runner, CI and
+      # GITHUB_ACTIONS are set, and Prettier, Vite and Vitest read that as
+      # permission to colour their output, which puts escape codes inside the
+      # very words a pattern looks for: `[warn]` becomes `[`, ESC[33m, `warn`.
+      # Replay run 37295171855 scored three of #228's plants inconclusive for
+      # exactly that reason, and the same three reproduce with CI=true and
+      # GITHUB_ACTIONS=true on a development machine. Turning colour off here
+      # keeps each pattern a statement about what the check says, rather than
+      # about how a terminal would have painted it.
       - name: Replay the declared plants
         if: steps.select.outputs.config != ''
         env:
           CANFAIL_CONFIG: ${{ steps.select.outputs.config }}
+          NO_COLOR: '1'
         run: |
           set -euo pipefail
           status=0
