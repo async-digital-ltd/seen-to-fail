@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   checksTouchedBy,
+  declarationChangeFor,
   declarationOf,
   dependencyMatches,
   parseDeclaredChecks,
@@ -264,5 +265,115 @@ describe('the declaration handed back to canfail', () => {
 
   it('writes no checks when nothing was selected', () => {
     expect(declarationOf([])).toEqual({ checks: [] });
+  });
+});
+
+/**
+ * An edit to the declaration itself, which every check lists because its plant
+ * lives there (#165). Each case is held on both checks, so a comparison that
+ * answered "changed" for everything, which is the path rule this replaces,
+ * fails the cases that expect one check left out.
+ */
+describe('an edit to the declaration itself', () => {
+  type Entry = (typeof declaration.checks)[number];
+
+  /** The declaration with one check's entry changed by `edit`. */
+  function withEntry(checkId: string, edit: (entry: Entry) => Entry) {
+    return {
+      ...declaration,
+      checks: declaration.checks.map((entry) =>
+        entry.checkId === checkId ? edit(entry) : entry,
+      ),
+    };
+  }
+
+  const ids = declaration.checks.map((entry) => entry.checkId);
+
+  function changedIds(before: unknown, after: unknown): string[] {
+    const changed = declarationChangeFor(before, after);
+    return ids.filter((id) => changed(id));
+  }
+
+  it('touches only the check whose own entry changed', () => {
+    const after = withEntry('ci-type-check', (entry) => ({
+      ...entry,
+      timeout: 180,
+    }));
+
+    expect(changedIds(declaration, after)).toEqual(['ci-type-check']);
+  });
+
+  it('touches nothing when only the order of keys moved', () => {
+    const after = withEntry('ci-type-check', (entry) => {
+      const { name, ...rest } = entry;
+      return { ...rest, name };
+    });
+
+    expect(changedIds(declaration, after)).toEqual([]);
+  });
+
+  it('touches every check when a field outside the entries changed', () => {
+    expect(changedIds(declaration, { ...declaration, version: 2 })).toEqual(
+      ids,
+    );
+  });
+
+  it('touches every check when there was no earlier copy to compare', () => {
+    expect(changedIds(undefined, declaration)).toEqual(ids);
+  });
+
+  it('touches every check when a copy names one check twice', () => {
+    const [first] = declaration.checks;
+    expect(
+      changedIds(declaration, {
+        ...declaration,
+        checks: [...declaration.checks, first],
+      }),
+    ).toEqual(ids);
+  });
+
+  it('selects only the touched check when the declaration is the only change', () => {
+    const before = parseDeclaredChecks(declaration);
+    const after = withEntry('ci-type-check', (entry) => ({
+      ...entry,
+      timeout: 180,
+    }));
+    if (!before.ok) {
+      throw new Error(before.problems.join(' '));
+    }
+    const listing = before.value.map((check) => ({
+      ...check,
+      dependsOn: [...check.dependsOn, 'canfail.json'],
+    }));
+
+    const touched = checksTouchedBy({
+      checks: listing,
+      changedPaths: ['canfail.json'],
+      declaration: {
+        path: 'canfail.json',
+        changed: declarationChangeFor(declaration, after),
+      },
+    });
+
+    expect(touched.map((check) => check.checkId)).toEqual(['ci-type-check']);
+  });
+
+  it('still selects a check for its other dependencies when its entry is unchanged', () => {
+    const parsed = parseDeclaredChecks(declaration);
+    if (!parsed.ok) {
+      throw new Error(parsed.problems.join(' '));
+    }
+    const listing = parsed.value.map((check) => ({
+      ...check,
+      dependsOn: [...check.dependsOn, 'canfail.json'],
+    }));
+
+    const touched = checksTouchedBy({
+      checks: listing,
+      changedPaths: ['canfail.json', '.github/workflows/ci.yml'],
+      declaration: { path: 'canfail.json', changed: () => false },
+    });
+
+    expect(touched.map((check) => check.checkId)).toEqual(['ci-type-check']);
   });
 });

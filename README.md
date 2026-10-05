@@ -406,7 +406,10 @@ project defines no format of its own. Two keys sit beside each check that
 `checkId` is the check's address in the ledger and the only way anything outside
 the app names a check. `dependsOn` is the paths that bear on the check's proof,
 spelled as git spells them, relative to the root; an entry matches a changed
-path when it is that path or when the path sits inside it. Both keys sit once on
+path when it is that path or when the path sits inside it. `canfail.json` itself
+is the one exception: listed by every check, a change to it counts against a
+check only when that check's own entry, or something every check shares,
+changed (#165). Both keys sit once on
 the check and not once per break, which is what makes them a statement about the
 check's proof rather than about one plant. The list above is shown short:
 `canfail.json` carries all eight of that check's entries, `canfail`'s own keys
