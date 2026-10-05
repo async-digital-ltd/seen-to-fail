@@ -2,7 +2,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
-  CheckDetailQuery,
   RecordArmingObservationInput,
   RecordArmingObservationMutation,
 } from '../graphql/generated/graphql';
@@ -14,9 +13,9 @@ import { paths } from '../paths';
 import { holdClockIn } from '../testing/clock';
 import type { Answer } from '../testing/client';
 import { answer, networkFailure, pending } from '../testing/client';
+import { aRecordedCheck, aRun } from '../testing/records';
+import type { RecordedCheck } from '../testing/records';
 import { renderApp } from '../testing/render';
-
-type RecordedCheck = NonNullable<CheckDetailQuery['check']>;
 
 const id = 'b7d1c2e3-4f50-4a61-9b72-8c93d4e5f607';
 const testDay = '2026-09-15';
@@ -31,22 +30,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const unarmedWithNoRuns: RecordedCheck = {
+const unarmedWithNoRuns = aRecordedCheck({
   id,
   name: 'Release notes present',
   area: 'Release',
   protects: 'A release going out with nothing said about what changed.',
   howToTellArmed: 'The release job lists the notes step.',
-  status: 'UNARMED',
-  lastCaughtOn: null,
-  lastSettledOn: null,
-  runCount: 0,
-  caughtCount: 0,
-  missedCount: 0,
-  inconclusiveCount: 0,
-  runs: [],
-  armingObservations: [],
-};
+});
 
 const proven: RecordedCheck = {
   ...unarmedWithNoRuns,
@@ -57,18 +47,12 @@ const proven: RecordedCheck = {
   runCount: 1,
   caughtCount: 1,
   runs: [
-    {
+    aRun({
       id: 'e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b',
       runOn: '2026-09-10',
       planted: 'A string where a number belongs.',
       expected: 'The job fails.',
-      outcome: 'CAUGHT',
-      inconclusiveReason: null,
-      note: null,
-      source: 'HAND',
-      sourceCommit: null,
-      sourceRunUrl: null,
-    },
+    }),
   ],
   armingObservations: [
     {
