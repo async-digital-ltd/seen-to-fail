@@ -477,3 +477,44 @@ it("states the ledger's checks, declared checks and declared breaks as the tree 
     countsIn(/(\w+) checks are on the page, (\w+) of them are declared/gu),
   ).toStrictEqual([records, declared]);
 });
+
+/**
+ * The README says this ledger is safe to publish because every check in it is
+ * about quality, and reads that off the areas the checks are filed under
+ * (#216). A check added under any other area fails here, so the claim is read
+ * again by a person before a check about security can reach a public page
+ * under it.
+ */
+it('names every area the ledger files its checks under, and counts the checks', () => {
+  const directory = join(ledgerDirectory, checksDirectory);
+  const areas = readdirSync(directory)
+    .filter((name) => name.endsWith('.json'))
+    .map(
+      (name) =>
+        (
+          JSON.parse(readFileSync(join(directory, name), 'utf8')) as {
+            area: string;
+          }
+        ).area,
+    );
+
+  const prose = flattened(sectionOf(readme, 'The published ledger'));
+  const found = [
+    ...prose.matchAll(
+      /All (\w+) checks in `ledger\/checks\/` have an `area` of Code, Build or Published record\./gu,
+    ),
+  ];
+  const [only] = found;
+  if (only === undefined || found.length > 1) {
+    throw new Error(
+      `README.md's ledger section has ${String(found.length)} sentences naming the areas, and exactly one was expected.`,
+    );
+  }
+
+  expect(countOf(only[1] ?? '')).toBe(areas.length);
+  expect([...new Set(areas)].sort()).toStrictEqual([
+    'Build',
+    'Code',
+    'Published record',
+  ]);
+});

@@ -755,6 +755,38 @@ the rest of the repository to be read. What was and was not measured about the
 plan is recorded on
 [#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76).
 
+### What belongs on a public ledger
+
+A ledger is a map of where a project's checks have and have not been seen to
+work. For a check about quality, such as a type check, a lint or a build step,
+that map is harmless. For a check about security, such as a secret scanner, an
+access control test or a leak gate, a status of Unproven or Broken on a public
+page tells an attacker where to look. So the split is this: a public ledger is
+for checks about quality, and a ledger of checks about security is kept private.
+
+A private repository is not a private ledger. On the Free, Pro and Team plans a
+GitHub Pages site is public whatever the repository's visibility; publishing one
+privately needs GitHub Enterprise Cloud
+([GitHub's documentation](https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site)).
+If you copy this pattern for checks about security, run `pnpm ledger:build` and
+read `dist/ledger` where only the people who should see it can, rather than
+handing it to Pages.
+
+This ledger is safe to publish because every check it declares is about
+quality. All eleven checks in `ledger/checks/` have an `area` of Code, Build or
+Published record. Between them they catch a type error, a lint or formatting
+breach, a failing test, stale generated types, a workflow read differently from
+how it was written, a client that does not bundle, a server that does not start,
+and a published record that is malformed or disagrees with what it was built
+from. None of them guards a secret, an access rule or a leak.
+
+Publishing the breaks themselves is not the risk. Every declared break in
+`canfail.json` is an edit to this project's own source, applied on a
+GitHub-hosted runner that is thrown away when the job ends. Declaring a new one
+takes a merge to `main`, and running one against this repository, by
+dispatching the replay workflow or pushing to a `ci-control/` branch, takes
+write access to it.
+
 ## Tests
 
 <!-- generated: contributor-commands, by pnpm readme from the checks job in .github/workflows/ci.yml -->
