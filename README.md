@@ -818,7 +818,12 @@ a shared link previews as a card with the project's mark rather than a bare
 address ([#237](https://github.com/async-digital-ltd/seen-to-fail/issues/237)).
 The preview image is a static PNG committed beside the renderer and copied into
 `dist/ledger` by the build, which fetches nothing to make it. The first line
-under the page's header says what the page is and links this repository.
+under the page's header says what the page is and links this repository. The
+line under the headline says what its count covers: the areas the checks on the
+page are in, read from the checks themselves, and that checks about security,
+such as secret scanning, are left off on purpose, with a link to
+[What belongs on a public ledger](#what-belongs-on-a-public-ledger)
+([#240](https://github.com/async-digital-ltd/seen-to-fail/issues/240)).
 
 Pull requests and pushes to a `ci-control/` branch build and check the same page
 and keep it as a build artefact for seven days, but never serve it. A proposed
@@ -858,6 +863,13 @@ breach, a failing test, stale generated types, a workflow read differently from
 how it was written, a client that does not bundle, a server that does not start,
 and a published record that is malformed or disagrees with what it was built
 from. None of them guards a secret, an access rule or a leak.
+
+This project keeps no private ledger either. The repository has GitHub secret
+scanning and push protection switched on, and both are checks about security,
+so neither is on this ledger, and no record says whether either has been seen
+to catch anything. The page says so under its headline, so its count is not
+read as every check the project has
+([#240](https://github.com/async-digital-ltd/seen-to-fail/issues/240)).
 
 Publishing the breaks themselves is not the risk. Every declared break in
 `canfail.json` is an edit to this project's own source, applied on a
@@ -966,7 +978,8 @@ reaches the code: the tests import modules, and only the bundler starts from
 `packages/web/index.html`. The ledger steps read the records, build the
 published page from them, and check what came out: the page, the export and
 the preview image, naming the commit CI is running against, with no script, no
-`noindex`, and link-preview tags that point at the live address.
+`noindex`, link-preview tags that point at the live address, and a line under
+the headline that scopes its count and links a heading this README has.
 
 ## Licence
 

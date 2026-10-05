@@ -434,3 +434,47 @@ it('refuses a page that says what it is only below its headline, and exits 1', a
 
   expect(await exitCodeFor(moved)).toBe(1);
 });
+
+/** The line under the headline that scopes its count (#240), as one line. */
+const scopeLine = /<p class="eyebrow scope">[^\n]*<\/p>\n/;
+
+it('refuses a page that does not scope its count under the headline, and exits 1', async () => {
+  const sound = await aSoundPage();
+  expect(sound).toMatch(scopeLine);
+  expect(await exitCodeFor(sound)).toBe(0);
+
+  expect(await exitCodeFor(sound.replace(scopeLine, ''))).toBe(1);
+  expect(
+    await exitCodeFor(
+      swapped(sound, 'left off a public ledger on purpose', 'kept private'),
+    ),
+  ).toBe(1);
+});
+
+it('refuses a scoping line whose link is missing or names another anchor, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const unlinked = sound.replace(
+    /<a href="[^"]*#what-belongs-on-a-public-ledger">why<\/a>/,
+    'why',
+  );
+  const wrongAnchor = swapped(
+    sound,
+    '#what-belongs-on-a-public-ledger',
+    '#what-belongs-on-a-private-ledger',
+  );
+
+  expect(unlinked).not.toBe(sound);
+  expect(await exitCodeFor(unlinked)).toBe(1);
+  expect(await exitCodeFor(wrongAnchor)).toBe(1);
+});
+
+it('refuses a scoping line that has moved away from the headline, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const line = scopeLine.exec(sound)?.[0];
+  expect(line).toBeDefined();
+  const moved = sound
+    .replace(line ?? '', '')
+    .replace('<p class="idea">', `${line ?? ''}<p class="idea">`);
+
+  expect(await exitCodeFor(moved)).toBe(1);
+});
