@@ -429,6 +429,67 @@ describe('which checks a change touches', () => {
   });
 });
 
+/**
+ * Every check in the real declaration lists `canfail.json`, because its plant
+ * lives there. Matched as a path, an edit to one check's entry made every
+ * check due (#165). These two hold the rule that replaced it, end to end.
+ */
+describe('an edit to the declaration itself', () => {
+  /** The fixture repository, with both checks listing the declaration. */
+  async function aRepositoryListingTheDeclaration(): Promise<{
+    readonly directory: string;
+    readonly listed: string;
+    readonly listing: typeof declaration;
+  }> {
+    const { directory } = await aRepository();
+    const listing = {
+      ...declaration,
+      checks: declaration.checks.map((check) => ({
+        ...check,
+        dependsOn: [...check.dependsOn, 'canfail.json'],
+      })),
+    };
+    await write(directory, { 'canfail.json': listing });
+    return {
+      directory,
+      listed: await commit(directory, 'Both checks list the declaration.'),
+      listing,
+    };
+  }
+
+  it('selects only the check whose own entry changed', async () => {
+    const { directory, listed, listing } =
+      await aRepositoryListingTheDeclaration();
+    await write(directory, {
+      'canfail.json': {
+        ...listing,
+        checks: listing.checks.map((check) =>
+          check.checkId === 'ci-type-check'
+            ? { ...check, expected: 'The type check fails, naming the line.' }
+            : check,
+        ),
+      },
+    });
+    await commit(directory, "Edit the type check's entry alone.");
+
+    expect(await selectIn(directory, ['--since', listed])).toBe(0);
+    expect(await dueIn(directory)).toEqual(['ci-type-check']);
+  });
+
+  it('selects every check when a field outside the entries changed', async () => {
+    const { directory, listed, listing } =
+      await aRepositoryListingTheDeclaration();
+    await write(directory, { 'canfail.json': { ...listing, version: 2 } });
+    await commit(directory, 'Add a field every check shares.');
+
+    expect(await selectIn(directory, ['--since', listed])).toBe(0);
+    expect(await dueIn(directory)).toEqual([
+      'ci-type-check',
+      'ledger-record-validation',
+    ]);
+  });
+});
+
 describe('what a check was last replayed against', () => {
   /**
    * With no `--since`, the range comes from the ledger: the commit the newest

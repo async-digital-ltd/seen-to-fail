@@ -103,6 +103,18 @@ matches a changed path when it is that path or when the path sits inside it, so
 `packages` matches `packages/filter/src/types.ts` and does not match
 `packages-elsewhere/a.ts`.
 
+**One path is read more closely: the declaration itself.** Every check lists
+`canfail.json`, because its plant lives there, and matched as a path an edit to
+one check's entry made every check due (#165). So when `canfail.json` is among
+the changed paths, the selection reads it as it stood at the commit the check is
+measured from, and counts the change against a check only when that check's own
+entry differs, keyed by `checkId` and compared with its keys in order, or when
+anything outside `checks` differs, which every check shares. An earlier copy
+that is missing or cannot be read by check id counts as a change to every
+check, which is the path rule again and the safe direction.
+`declarationChangeFor` in `src/dependencies.ts` holds the rule, and the script
+logs each check whose entry it found unchanged.
+
 Paths and not globs, deliberately. A glob dialect is a second language inside
 the configuration, and which of `*` and `**` crosses a directory, whether a
 leading dot is matched, and whether a slashless pattern matches at every depth

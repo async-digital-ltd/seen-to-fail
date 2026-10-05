@@ -61,10 +61,12 @@
 
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 
 import {
   checksTouchedBy,
+  declarationChangeFor,
   declarationOf,
   parseDeclaredChecks,
 } from '@seen-to-fail/replay';
@@ -372,16 +374,56 @@ for (const check of declared.value) {
   grouped.set(anchor, group);
 }
 
+// The declaration's own path, as git spells it, when it sits in the checkout.
+// Every check lists it, because its plant lives there, so a change to it is
+// read entry by entry rather than as a path: an edit to one check's entry
+// touches that check, and an edit outside the entries touches every check
+// (#165). A declaration outside the checkout never appears among the changed
+// paths, so it needs no path here.
+const fromRoot = relative(resolve(root), resolve(configPath));
+const declarationPath =
+  fromRoot === '' || fromRoot.startsWith('..') || isAbsolute(fromRoot)
+    ? undefined
+    : fromRoot.split(sep).join('/');
+
+/**
+ * The declaration as it stood at a commit, or undefined when it was not there
+ * or was not JSON. The empty tree an unreplayed check is measured from has no
+ * declaration in it, and that reads as every entry having changed.
+ */
+async function declarationAt(anchor: string, path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await git(root, 'show', `${anchor}:${path}`)) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 const due = new Set<DeclaredCheck>();
 for (const [anchor, checks] of grouped) {
   const changedPaths = await changedSince(root, anchor);
-  for (const check of checksTouchedBy({ checks, changedPaths })) {
+  const declaration =
+    declarationPath !== undefined && changedPaths.includes(declarationPath)
+      ? {
+          path: declarationPath,
+          changed: declarationChangeFor(
+            await declarationAt(anchor, declarationPath),
+            configInput,
+          ),
+        }
+      : undefined;
+  for (const check of checksTouchedBy({ checks, changedPaths, declaration })) {
     due.add(check);
   }
   for (const check of checks) {
     console.log(
       `${check.name} (${check.checkId}) is measured against ${anchor}, where ${String(changedPaths.length)} path(s) changed.`,
     );
+    if (declaration !== undefined && !declaration.changed(check.checkId)) {
+      console.log(
+        `  ${declaration.path} is one of them, and ${check.checkId}'s own entry in it and its shared fields are as they were.`,
+      );
+    }
   }
 }
 

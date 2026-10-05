@@ -31,6 +31,7 @@ export type { PlantedCheck, PlantedChecks } from './plants.ts';
 
 export {
   checksTouchedBy,
+  declarationChangeFor,
   declarationOf,
   dependencyMatches,
   parseDeclaredChecks,

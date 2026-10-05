@@ -202,10 +202,103 @@ export function dependencyMatches(
   return changedPath === dependency || changedPath.startsWith(`${dependency}/`);
 }
 
+/** A value written out with every object's keys in order, so moving a key is not a change. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonical).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    const object = value as Record<string, unknown>;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * A declaration's entries by check id, and everything outside them, each
+ * written canonically. Null when the copy cannot be read that way: not an
+ * object, no list of checks, an entry with no id, or an id twice.
+ */
+function readEntries(
+  declaration: unknown,
+): { readonly shared: string; readonly entries: Map<string, string> } | null {
+  if (declaration === null || typeof declaration !== 'object') {
+    return null;
+  }
+  const { checks } = declaration as { checks?: unknown };
+  if (!Array.isArray(checks)) {
+    return null;
+  }
+  const entries = new Map<string, string>();
+  for (const entry of checks as unknown[]) {
+    const checkId =
+      entry !== null && typeof entry === 'object'
+        ? (entry as { checkId?: unknown }).checkId
+        : undefined;
+    if (typeof checkId !== 'string' || entries.has(checkId)) {
+      return null;
+    }
+    entries.set(checkId, canonical(entry));
+  }
+  const shared = Object.fromEntries(
+    Object.entries(declaration).filter(([key]) => key !== 'checks'),
+  );
+  return { shared: canonical(shared), entries };
+}
+
+/**
+ * Which checks an edit to the declaration itself touches, given the copy from
+ * before the edit and the copy after it.
+ *
+ * Every check lists the declaration among its dependencies, because its plant
+ * lives there. Matched as a path, an edit to one check's entry was a change to
+ * all of them, so the checks whose entries nobody touched were replayed again
+ * and filed runs their unchanged plants had just proved (#165). So a check is
+ * touched by an edit to the declaration only when its own entry differs,
+ * compared whole and keyed by `checkId`, with keys put in order first so that
+ * moving a key is not a change and changing a value is.
+ *
+ * Anything outside `checks` is shared by every check, so a difference there
+ * touches every check. So does an earlier copy that is missing or cannot be
+ * read by check id, and so does a later one that cannot: a change that cannot
+ * be pinned on one entry is a change to all of them, which is the path rule
+ * this replaces, and too broad is the safe direction here.
+ */
+export function declarationChangeFor(
+  before: unknown,
+  after: unknown,
+): (checkId: string) => boolean {
+  const earlier = readEntries(before);
+  const later = readEntries(after);
+  if (earlier === null || later === null) {
+    return () => true;
+  }
+  if (earlier.shared !== later.shared) {
+    return () => true;
+  }
+  return (checkId) =>
+    earlier.entries.get(checkId) !== later.entries.get(checkId);
+}
+
 export interface TouchedOptions {
   readonly checks: readonly DeclaredCheck[];
   /** What changed, as git prints it: relative to the root, with forward slashes. */
   readonly changedPaths: readonly string[];
+  /**
+   * Where the declaration itself sits, as git spells the path, and which
+   * checks a change to it touches, from `declarationChangeFor`. Left out, the
+   * declaration is a path like any other and a change to it touches every
+   * check that lists it.
+   */
+  readonly declaration?:
+    | {
+        readonly path: string;
+        readonly changed: (checkId: string) => boolean;
+      }
+    | undefined;
 }
 
 /**
@@ -222,9 +315,17 @@ export interface TouchedOptions {
 export function checksTouchedBy(
   options: TouchedOptions,
 ): readonly DeclaredCheck[] {
+  const { declaration } = options;
+  // Any changed path counts against a check except the declaration's own,
+  // which counts only when that check's entry or the shared fields changed.
+  const counts = (path: string, checkId: string): boolean =>
+    declaration?.path !== path || declaration.changed(checkId);
   return options.checks.filter((check) =>
     check.dependsOn.some((dependency) =>
-      options.changedPaths.some((path) => dependencyMatches(dependency, path)),
+      options.changedPaths.some(
+        (path) =>
+          dependencyMatches(dependency, path) && counts(path, check.checkId),
+      ),
     ),
   );
 }
