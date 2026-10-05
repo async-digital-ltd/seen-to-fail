@@ -746,6 +746,13 @@ that serves it builds nothing of its own: it deploys the directory the checks
 built and checked on the same commit, so the page served is the page that
 passed.
 
+The page is open to search engines and carries Open Graph and Twitter tags, so
+a shared link previews as a card with the project's mark rather than a bare
+address ([#237](https://github.com/async-digital-ltd/seen-to-fail/issues/237)).
+The preview image is a static PNG committed beside the renderer and copied into
+`dist/ledger` by the build, which fetches nothing to make it. The first line
+under the page's header says what the page is and links this repository.
+
 Pull requests and pushes to a `ci-control/` branch build and check the same page
 and keep it as a build artefact for seven days, but never serve it. A proposed
 change or a planted defect cannot alter what a reader sees until it is on
@@ -890,8 +897,9 @@ afterwards, so an answer from some other process on the port fails the check.
 It runs the same way locally. Building the client is what proves the page
 reaches the code: the tests import modules, and only the bundler starts from
 `packages/web/index.html`. The ledger steps read the records, build the
-published page from them, and check what came out: two files, naming the commit
-CI is running against, with no script in them.
+published page from them, and check what came out: the page, the export and
+the preview image, naming the commit CI is running against, with no script, no
+`noindex`, and link-preview tags that point at the live address.
 
 ## Licence
 

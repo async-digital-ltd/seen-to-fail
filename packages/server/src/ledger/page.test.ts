@@ -32,6 +32,78 @@ import type { PublishedCheck } from './snapshot.ts';
  * after the build.
  */
 
+/**
+ * Where the page is served, written out here rather than imported, so a change
+ * to the address in the renderer has to be made a second time on purpose. It
+ * is the domain GitHub Pages serves this repository at (#137), which nothing in
+ * the build can read.
+ */
+const livePage = 'https://seen-to-fail.async-digital.com/';
+const livePreview = 'https://seen-to-fail.async-digital.com/preview.png';
+
+/** The one value the page gives a tag in its head, or every value if more. */
+function headValues(page: string, attribute: string, key: string): string[] {
+  const head = page.slice(0, page.indexOf('</head>'));
+  return [
+    ...head.matchAll(
+      new RegExp(`<meta ${attribute}="${key}" content="([^"]*)">`, 'g'),
+    ),
+  ].map((match) => match[1] ?? '');
+}
+
+/**
+ * The page is meant to be found and shared (#237). It used to carry
+ * `noindex`, from when it was not yet ready to be linked; this holds that it
+ * no longer asks search engines to leave it out.
+ */
+it('lets search engines index it', () => {
+  const page = renderPage(fixtureSnapshot());
+  expect(page).not.toMatch(/noindex/i);
+  expect(headValues(page, 'name', 'robots')).toEqual([]);
+});
+
+/**
+ * A link to the page previews as a card rather than a bare address (#237).
+ * Each tag appears once, and the addresses are absolute and point at the live
+ * page and the image the build writes beside it, because a crawler has no page
+ * to resolve a relative one against.
+ */
+it('carries the link-preview tags, once each, with absolute addresses', () => {
+  const page = renderPage(fixtureSnapshot());
+  const description =
+    "A record of whether each of this project's own checks has been seen to catch a defect planted on purpose.";
+  const escaped = description.replace("'", '&#39;');
+
+  expect(headValues(page, 'name', 'description')).toEqual([escaped]);
+  expect(headValues(page, 'property', 'og:type')).toEqual(['website']);
+  expect(headValues(page, 'property', 'og:title')).toEqual(['Seen to Fail']);
+  expect(headValues(page, 'property', 'og:description')).toEqual([escaped]);
+  expect(headValues(page, 'property', 'og:url')).toEqual([livePage]);
+  expect(headValues(page, 'property', 'og:image')).toEqual([livePreview]);
+  expect(headValues(page, 'property', 'og:image:width')).toEqual(['1200']);
+  expect(headValues(page, 'property', 'og:image:height')).toEqual(['630']);
+  expect(headValues(page, 'property', 'og:image:alt')).toHaveLength(1);
+  expect(headValues(page, 'name', 'twitter:card')).toEqual([
+    'summary_large_image',
+  ]);
+  expect(headValues(page, 'name', 'twitter:title')).toEqual(['Seen to Fail']);
+  expect(headValues(page, 'name', 'twitter:description')).toEqual([escaped]);
+  expect(headValues(page, 'name', 'twitter:image')).toEqual([livePreview]);
+  expect(headValues(page, 'name', 'twitter:image:alt')).toHaveLength(1);
+});
+
+/**
+ * A reader arriving cold is told what the page is before the result, and
+ * where the code behind it lives (#237).
+ */
+it('says what it is above the headline, and links the repository', () => {
+  const page = renderPage(fixtureSnapshot());
+  const line =
+    '<p class="eyebrow about">Seen to Fail is a record of whether each of this project&#39;s own checks has been seen to catch a defect planted on purpose, kept in <a href="https://github.com/async-digital-ltd/seen-to-fail">its repository on GitHub</a>.</p>';
+  expect(page).toContain(line);
+  expect(page.indexOf(line)).toBeLessThan(page.indexOf('<h1>'));
+});
+
 it('holds the same statuses the filter knows in its reading order, and no others', () => {
   expect([...publishedStatusOrder].sort()).toEqual([...STATUSES].sort());
 });
@@ -184,7 +256,10 @@ it('carries no script at all', () => {
 /**
  * Five destinations and no sixth: a commit in this repository, the run a
  * replay named, the export beside the page, the repository itself, and the
- * studio that built it. Nothing here is fetched; these are places a reader can
+ * studio that built it. The page's own address and its preview image are also
+ * written out, absolute, in the link-preview tags (#237); they are not places
+ * the page sends a reader, but they are addresses on it, so they are named
+ * here too. Nothing here is fetched; these are places a reader can
  * go, and the list is closed so that a page which started reaching somewhere
  * else would fail rather than be noticed by somebody reading the HTML. Every
  * link is held to it, and so is every absolute address, which also lets the
@@ -205,6 +280,8 @@ it('links only to a commit, a run a record named, the export, the repository or 
   expect(urls).toContain(fixtureReplayRunUrl);
   expect(urls).toContain(repository);
   expect(urls).toContain(studio);
+  expect(urls).toContain(livePage);
+  expect(urls).toContain(livePreview);
   const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   const exported = 'ledger.json';
   expect(hrefs).toContain(exported);
@@ -213,6 +290,8 @@ it('links only to a commit, a run a record named, the export, the repository or 
       url === fixtureReplayRunUrl ||
       url === repository ||
       url === studio ||
+      url === livePage ||
+      url === livePreview ||
       url === exported ||
       url === 'http://www.w3.org/2000/svg'
     ) {

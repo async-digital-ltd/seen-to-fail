@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
 
 import { repositoryRoot } from '../ledger/location.ts';
-import { renderPage } from '../ledger/page.ts';
+import { previewImageFilename, renderPage } from '../ledger/page.ts';
 import { fixtureSnapshot } from '../testing/ledger.ts';
 
 /**
@@ -85,13 +85,18 @@ function swapped(page: string, from: string, to: string): string {
 
 const anExport = '{\n  "checks": []\n}\n';
 
+/** The preview image the build copies beside the page, read from its source. */
+const aPreview = await readFile(
+  join(repositoryRoot, 'packages', 'server', 'src', 'ledger', 'preview.png'),
+);
+
 /** A directory holding exactly these files, under the system's temporary one. */
 async function anOutputWith(
-  files: Readonly<Record<string, string>>,
+  files: Readonly<Record<string, string | Buffer>>,
 ): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'seen-to-fail-output-'));
   for (const [file, contents] of Object.entries(files)) {
-    await writeFile(join(directory, file), contents, 'utf8');
+    await writeFile(join(directory, file), contents);
   }
   return directory;
 }
@@ -119,10 +124,14 @@ async function exitCodeAgainst(directory: string): Promise<number> {
   });
 }
 
-/** The code the script exits on for a page beside a sound export. */
+/** The code the script exits on for a page beside a sound export and image. */
 async function exitCodeFor(page: string): Promise<number> {
   return exitCodeAgainst(
-    await anOutputWith({ 'index.html': page, 'ledger.json': anExport }),
+    await anOutputWith({
+      'index.html': page,
+      'ledger.json': anExport,
+      [previewImageFilename]: aPreview,
+    }),
   );
 }
 
@@ -269,4 +278,159 @@ it('refuses a page carrying a script, whatever its case, and exits 1', async () 
   expect(await exitCodeFor(`${aPage(commit, commit)}<SCRIPT></SCRIPT>\n`)).toBe(
     1,
   );
+});
+
+/**
+ * The page is meant to be found and shared (#237). Each of the properties
+ * below is planted out of a sound page one at a time, so a step that stopped
+ * reading one of them fails here rather than letting a page that previews as
+ * a bare address, or asks not to be indexed, reach Pages.
+ */
+
+const livePage = 'https://seen-to-fail.async-digital.com/';
+const livePreview = `${livePage}${previewImageFilename}`;
+
+/** A sound page at the checkout's commit, to plant one defect into. */
+async function aSoundPage(): Promise<string> {
+  const commit = await head();
+  return aPage(commit, commit);
+}
+
+it('refuses a page that asks not to be indexed, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    '<meta name="viewport"',
+    '<meta name="robots" content="noindex">\n<meta name="viewport"',
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it.each([
+  ['property', 'og:type'],
+  ['property', 'og:title'],
+  ['property', 'og:description'],
+  ['property', 'og:url'],
+  ['property', 'og:image'],
+  ['name', 'twitter:card'],
+  ['name', 'twitter:title'],
+  ['name', 'twitter:description'],
+  ['name', 'twitter:image'],
+])(
+  'refuses a page with no %s="%s" tag, and exits 1',
+  async (attribute, key) => {
+    const page = await aSoundPage();
+    const tag = new RegExp(`<meta ${attribute}="${key}" content="[^"]*">\\n`);
+    expect(page).toMatch(tag);
+
+    expect(await exitCodeFor(page.replace(tag, ''))).toBe(1);
+  },
+);
+
+it('refuses a page that gives a link-preview tag twice, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    `<meta property="og:url" content="${livePage}">`,
+    `<meta property="og:url" content="${livePage}">\n<meta property="og:url" content="https://example.com/">`,
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a relative og:url, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    `<meta property="og:url" content="${livePage}">`,
+    '<meta property="og:url" content="/">',
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses an og:image that is not on the page’s own site, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    livePreview,
+    `https://example.com/${previewImageFilename}`,
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a relative og:image, and exits 1', async () => {
+  const page = swapped(await aSoundPage(), livePreview, previewImageFilename);
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a page of the wrong type or card, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const article = swapped(
+    sound,
+    '<meta property="og:type" content="website">',
+    '<meta property="og:type" content="article">',
+  );
+  const small = swapped(
+    sound,
+    '<meta name="twitter:card" content="summary_large_image">',
+    '<meta name="twitter:card" content="summary">',
+  );
+
+  expect(await exitCodeFor(article)).toBe(1);
+  expect(await exitCodeFor(small)).toBe(1);
+});
+
+it('refuses twitter tags that say something other than the og tags, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    '<meta name="twitter:title" content="Seen to Fail">',
+    '<meta name="twitter:title" content="Something else">',
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses an output with no preview image, and exits 1', async () => {
+  const directory = await anOutputWith({
+    'index.html': await aSoundPage(),
+    'ledger.json': anExport,
+  });
+
+  expect(await exitCodeAgainst(directory)).toBe(1);
+});
+
+it('refuses a preview image that is not 1200 by 630, and exits 1', async () => {
+  const resized = Buffer.from(aPreview);
+  resized.writeUInt32BE(1280, 16);
+  const directory = await anOutputWith({
+    'index.html': await aSoundPage(),
+    'ledger.json': anExport,
+    [previewImageFilename]: resized,
+  });
+
+  expect(await exitCodeAgainst(directory)).toBe(1);
+});
+
+it('refuses a page that does not say what it is, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const line = /<p class="eyebrow about">[^\n]*<\/p>\n/;
+  expect(sound).toMatch(line);
+  const unlinked = sound.replace(
+    /kept in <a href="[^"]*">its repository on GitHub<\/a>/,
+    'kept in its repository on GitHub',
+  );
+
+  expect(await exitCodeFor(sound.replace(line, ''))).toBe(1);
+  expect(await exitCodeFor(unlinked)).toBe(1);
+});
+
+it('refuses a page that says what it is only below its headline, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const line = /(<p class="eyebrow about">[^\n]*<\/p>\n)/.exec(sound)?.[1];
+  expect(line).toBeDefined();
+  const moved = sound
+    .replace(line ?? '', '')
+    .replace('<div class="strip"', `${line ?? ''}<div class="strip"`);
+
+  expect(await exitCodeFor(moved)).toBe(1);
 });

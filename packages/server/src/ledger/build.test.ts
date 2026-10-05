@@ -16,6 +16,7 @@ import {
   exportFilename,
   LedgerRefusedError,
   pageFilename,
+  previewImageFilename,
 } from './build.ts';
 import type { BuildResult } from './build.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
@@ -586,19 +587,28 @@ it('publishes the statuses the check_summaries function derives', async () => {
 });
 
 /**
- * Nothing in the published output needs a running server: two files, no script,
- * and nothing fetched. The directory listing is part of the claim, because a
- * third file nobody accounted for is a dependency nobody accounted for.
+ * Nothing in the published output needs a running server: three files, no
+ * script, and nothing fetched. The directory listing is part of the claim,
+ * because a fourth file nobody accounted for is a dependency nobody accounted
+ * for. The third is the link-preview image the page's `og:image` names (#237),
+ * and it is held here because a page naming an image the build did not write
+ * previews as a broken picture.
  */
-it('writes a page and an export, and nothing else', async () => {
+it('writes a page, an export and the preview image, and nothing else', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
   });
 
-  const { outputDirectory } = await build(directory);
+  const { outputDirectory, written } = await build(directory);
   expect((await readdir(outputDirectory)).sort()).toEqual(
-    [exportFilename, pageFilename].sort(),
+    [exportFilename, pageFilename, previewImageFilename].sort(),
   );
+  expect(written).toHaveLength(3);
+
+  const image = await readFile(join(outputDirectory, previewImageFilename));
+  expect(image.subarray(1, 4).toString('latin1')).toBe('PNG');
+  expect(image.readUInt32BE(16)).toBe(1200);
+  expect(image.readUInt32BE(20)).toBe(630);
 
   const page = await readFile(join(outputDirectory, pageFilename), 'utf8');
   expect(page).not.toMatch(/<script/i);

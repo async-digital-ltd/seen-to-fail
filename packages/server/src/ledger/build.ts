@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { Client } from 'pg';
 
@@ -11,7 +12,7 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { describeIssues, loadLedger } from './load.ts';
 import type { LedgerContents } from './load.ts';
-import { renderExport, renderPage } from './page.ts';
+import { previewImageFilename, renderExport, renderPage } from './page.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { disagreements, LedgerDisagreementError } from './verify.ts';
@@ -38,6 +39,16 @@ import type { DatabaseTotals } from './verify.ts';
 /** The files the build writes, under the output directory. */
 export const pageFilename = 'index.html';
 export const exportFilename = 'ledger.json';
+export { previewImageFilename };
+
+/**
+ * The link-preview image, committed beside the renderer and copied out as it
+ * is. Nothing about it comes from the record, so there is nothing for the build
+ * to check it against; the published-output check reads its size off disk.
+ */
+const previewImageSource = fileURLToPath(
+  new URL(`./${previewImageFilename}`, import.meta.url),
+);
 
 /** Thrown when the ledger itself is refused, naming every issue. */
 export class LedgerRefusedError extends Error {
@@ -244,6 +255,12 @@ export async function buildLedger(
   const exportPath = join(options.outputDirectory, exportFilename);
   await writeFile(pagePath, page, 'utf8');
   await writeFile(exportPath, renderExport(snapshot), 'utf8');
+  const previewPath = join(options.outputDirectory, previewImageFilename);
+  await copyFile(previewImageSource, previewPath);
 
-  return { ledger: snapshot, page, written: [pagePath, exportPath] };
+  return {
+    ledger: snapshot,
+    page,
+    written: [pagePath, exportPath, previewPath],
+  };
 }

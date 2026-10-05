@@ -34,6 +34,43 @@ import { studioMark } from './studio-mark.ts';
  */
 
 /**
+ * Where the page is served, as the address a reader shares.
+ *
+ * GitHub Pages serves it there because the repository's Pages settings name
+ * that custom domain; nothing in the build can read those settings, so the
+ * address is written here once and every tag that needs it reads it from here.
+ * Link previews need it absolute: a crawler reading `og:url` or `og:image` has
+ * no page to resolve a relative address against (#237).
+ */
+export const publishedUrl = 'https://seen-to-fail.async-digital.com/';
+
+/**
+ * The image a link preview shows, written beside the page by the build.
+ *
+ * A static PNG committed beside this file, 1200 by 630, the size Open Graph
+ * and the large Twitter card both expect: the Seen to Fail mark and the words
+ * "Seen to Fail", the same image the studio's own site uses for this project.
+ * It is copied, not drawn at build time, so the build fetches nothing and needs
+ * no font.
+ */
+export const previewImageFilename = 'preview.png';
+export const previewImageWidth = 1200;
+export const previewImageHeight = 630;
+const previewImageUrl = new URL(previewImageFilename, publishedUrl).href;
+const previewImageAlt =
+  'The Seen to Fail mark, an eye with a cross for its pupil, beside the words Seen to Fail.';
+
+/**
+ * What the page is, said once, for a reader who arrives with no context.
+ *
+ * The same words open the page and fill the link preview's description, so the
+ * two cannot come to describe different things.
+ */
+const whatItIs =
+  "a record of whether each of this project's own checks has been seen to catch a defect planted on purpose";
+const pageDescription = `${whatItIs.charAt(0).toUpperCase()}${whatItIs.slice(1)}.`;
+
+/**
  * The order the statuses are read in, from the one a reader can trust to the
  * one they know least about.
  *
@@ -543,6 +580,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .top .name { font-weight: 600; font-size: 1rem; }
 .hero { display: flex; flex-direction: column; gap: 1.5rem; padding: 3.5rem 0 3rem; }
 .eyebrow { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.about { max-width: 60ch; }
 h1 { margin: 0; max-width: 18ch; font-size: clamp(2.1rem, 6vw, 3.25rem); line-height: 1.08; letter-spacing: -0.025em; }
 h1 .result { color: var(--success-ink); }
 .strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.75rem, 1fr)); gap: 0.375rem; max-width: 32.5rem; }
@@ -645,8 +683,21 @@ export function renderPage(ledger: PublishedLedger): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="robots" content="noindex">
 <title>Seen to Fail: the record of this repository's own checks</title>
+<meta name="description" content="${escapeHtml(pageDescription)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Seen to Fail">
+<meta property="og:description" content="${escapeHtml(pageDescription)}">
+<meta property="og:url" content="${escapeHtml(publishedUrl)}">
+<meta property="og:image" content="${escapeHtml(previewImageUrl)}">
+<meta property="og:image:width" content="${String(previewImageWidth)}">
+<meta property="og:image:height" content="${String(previewImageHeight)}">
+<meta property="og:image:alt" content="${escapeHtml(previewImageAlt)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Seen to Fail">
+<meta name="twitter:description" content="${escapeHtml(pageDescription)}">
+<meta name="twitter:image" content="${escapeHtml(previewImageUrl)}">
+<meta name="twitter:image:alt" content="${escapeHtml(previewImageAlt)}">
 <style>
 ${style}
 </style>
@@ -658,7 +709,7 @@ ${style}
 <a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a>
 </header>
 <section class="hero">
-<p class="eyebrow">The record of this repository's own checks</p>
+<p class="eyebrow about">Seen to Fail is ${escapeHtml(whatItIs)}, kept in <a href="${escapeHtml(repository)}">its repository on GitHub</a>.</p>
 <h1>${headline}</h1>
 <div class="strip" role="img" aria-label="${escapeHtml(cellsLabel(ordered))}">${cells(ordered, 'large')}</div>
 <div class="pills">
