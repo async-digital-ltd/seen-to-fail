@@ -56,6 +56,12 @@ export interface CheckSummary {
    * which are different things to show a reader.
    */
   readonly lastArmed: boolean | null;
+  /**
+   * The observation lastArmed was read from, or null when there has never
+   * been one. The build holds it against the first observation in the
+   * published list, which is worked out by different code.
+   */
+  readonly latestObservationId: string | null;
 }
 
 /**
@@ -85,6 +91,7 @@ export function derivedSummaryColumnsFrom(source: string): string {
     `${source}.inconclusive_count AS "inconclusiveCount"`,
     `${isoDate(`${source}.last_seen_armed_on`)} AS "lastSeenArmedOn"`,
     `${source}.last_armed AS "lastArmed"`,
+    `${source}.latest_observation_id AS "latestObservationId"`,
   ].join(', ');
 }
 

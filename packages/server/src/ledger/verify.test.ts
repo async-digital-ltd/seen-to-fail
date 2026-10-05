@@ -544,6 +544,140 @@ it('says a status was read from no run, rather than from "null"', () => {
   expect(found.join('\n')).not.toContain('null');
 });
 
+/** The file of a second observation, on the same day as the fixture's first. */
+const tiedObservationFile = 'observations/2026-09-01-second-check-b.json';
+
+/**
+ * The ids of the two tied observations: the one with the larger id, which is
+ * the observation the armed state is read from, and the other.
+ */
+function tiedObservationIds(): {
+  readonly latest: string;
+  readonly other: string;
+} {
+  const [first] = fixtureContents().observations;
+  if (first === undefined) {
+    throw new Error('The fixture has no observations.');
+  }
+  const [one, two] = [first.file, tiedObservationFile].map((file) =>
+    ledgerFileUuid(`${fixtureLedgerPath}/${file}`),
+  ) as [string, string];
+  return one > two ? { latest: one, other: two } : { latest: two, other: one };
+}
+
+/**
+ * The fixture with a second observation on the second check's day, finding
+ * what the first found, so the observation its armed state was read from is
+ * one of two candidates rather than the only one.
+ *
+ * The summary names whichever of the two has the larger id, worked out here
+ * from the ids themselves rather than by sorting, so this does not borrow the
+ * exporter's order to describe what the exporter should have produced.
+ */
+function soundTiedObservations(): VerificationInput {
+  const base = fixtureContents();
+  const [first] = base.observations;
+  if (first === undefined) {
+    throw new Error('The fixture has no observations.');
+  }
+  const contents = {
+    ...base,
+    observations: [
+      ...base.observations,
+      {
+        file: tiedObservationFile,
+        record: { ...first.record, note: 'Seen again.' },
+      },
+    ],
+  };
+  const { latest } = tiedObservationIds();
+  const summaries = fixtureSummaries().map((summary) =>
+    summary.checkId === ledgerCheckUuid('second-check')
+      ? { ...summary, latestObservationId: latest }
+      : summary,
+  );
+  const snapshot = fixtureSnapshot(contents, summaries);
+  const totals = fixtureDatabaseTotals();
+  return {
+    ...sound(),
+    contents,
+    snapshot,
+    page: renderPage(snapshot),
+    databaseTotals: { ...totals, observations: totals.observations + 1 },
+    summaries,
+  };
+}
+
+it('finds nothing wrong when two tied observations head the list the way the armed state was read', () => {
+  expect(disagreements(soundTiedObservations())).toEqual([]);
+});
+
+/**
+ * The class #139 is about: a list headed by one observation and an armed
+ * state read from another. Every count and date agrees, because the two tie
+ * on the day and on what they found; only which comes first differs.
+ */
+it('finds a list headed by a different observation from the one the armed state was read from', () => {
+  const input = soundTiedObservations();
+  const snapshot = {
+    ...input.snapshot,
+    checks: input.snapshot.checks.map((check) => ({
+      ...check,
+      observations: [...check.observations].reverse(),
+    })),
+  };
+  const found = disagreements({
+    ...input,
+    snapshot,
+    page: renderPage(snapshot),
+  });
+
+  const { latest, other } = tiedObservationIds();
+  expect(found).toEqual([
+    `The check second-check: the armed state was read from the observation ${latest}, and the first observation in the export is the observation ${other}.`,
+  ]);
+});
+
+/** The same disagreement from the other side: the export is right, the derivation is not. */
+it('finds an armed state read from the other of two tied observations than the one the export heads its list with', () => {
+  const input = soundTiedObservations();
+  const { latest, other } = tiedObservationIds();
+  const found = disagreements({
+    ...input,
+    summaries: input.summaries.map((summary) =>
+      summary.latestObservationId === latest
+        ? { ...summary, latestObservationId: other }
+        : summary,
+    ),
+  });
+
+  expect(found).toEqual([
+    `The check second-check: the armed state was read from the observation ${other}, and the first observation in the export is the observation ${latest}.`,
+  ]);
+});
+
+/**
+ * An armed state the derivation says was read from no observation, above a
+ * list headed by one. The refusal says what the absence means rather than
+ * printing it.
+ */
+it('says an armed state was read from no observation, rather than from "null"', () => {
+  const input = soundTiedObservations();
+  const found = disagreements({
+    ...input,
+    summaries: input.summaries.map((summary) => ({
+      ...summary,
+      latestObservationId: null,
+    })),
+  });
+
+  expect(found).toHaveLength(1);
+  expect(found.join('\n')).toContain(
+    'the armed state was read from no observation, because none is recorded',
+  );
+  expect(found.join('\n')).not.toContain('null');
+});
+
 /**
  * A check handed to the guard with no summary at all. The build cannot get
  * here, because buildSnapshot refuses first, so this is the only place the

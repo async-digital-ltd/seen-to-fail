@@ -234,6 +234,7 @@ export function fixtureSummaries(): CheckSummary[] {
       inconclusiveCount: 0,
       lastSeenArmedOn: null,
       lastArmed: null,
+      latestObservationId: null,
     },
     {
       checkId: ledgerCheckUuid('second-check'),
@@ -248,6 +249,9 @@ export function fixtureSummaries(): CheckSummary[] {
       inconclusiveCount: 0,
       lastSeenArmedOn: '2026-09-01',
       lastArmed: true,
+      latestObservationId: ledgerFileUuid(
+        `${fixtureLedgerPath}/observations/2026-09-01-second-check.json`,
+      ),
     },
   ];
 }

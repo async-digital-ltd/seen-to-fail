@@ -98,8 +98,8 @@
         {
           "name": "One observation dropped from the export, inside the function that builds it, so the page holds one fewer than the ledger.",
           "file": "packages/server/src/ledger/snapshot.ts",
-          "replace": "[...input.contents.observations].sort(",
-          "with": "[...input.contents.observations].slice(1).sort(",
+          "replace": "for (const entry of input.contents.observations) {",
+          "with": "for (const entry of input.contents.observations.slice(1)) {",
           "expect": "The number of observations published: the record says [0-9]+ and the export says [0-9]+"
         },
         {

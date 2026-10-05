@@ -1,10 +1,14 @@
 import { expect, it } from 'vitest';
 
 import { useTestDatabase } from '../testing/test-database.ts';
-import { listRunsForChecks } from './checks.ts';
+import {
+  listArmingObservationsForChecks,
+  listRunsForChecks,
+} from './checks.ts';
 import {
   armingObservationColumns,
   checkColumns,
+  newestObservationFirst,
   newestRunFirst,
   outcomePrecedence,
   savedFilterColumns,
@@ -444,6 +448,196 @@ it('orders ids written in either case as PostgreSQL orders them', async () => {
     .map((id) => ({ id, runOn: '2026-09-19', outcome: 'caught' as const }))
     .sort(newestRunFirst)
     .map((run) => run.id.toLowerCase());
+  // Handed over in the order the database does not return, so a comparison
+  // that changed nothing would leave them in the wrong order.
+  const observationsByFunction = [lower, upper]
+    .map((id) => ({ id, observedOn: '2026-09-19', armed: true }))
+    .sort(newestObservationFirst)
+    .map((observation) => observation.id.toLowerCase());
 
   expect(byFunction).toEqual(byDatabase.map((row) => row.id));
+  expect(observationsByFunction).toEqual(byDatabase.map((row) => row.id));
+});
+
+/** An observation id that sorts by the number it ends in. */
+function observationIdEndingIn(digit: number): string {
+  return `00000000-0000-4000-8000-00000000010${String(digit)}`;
+}
+
+/**
+ * newestObservationFirst on its own, without a database: a later day first
+ * whatever it found, then off before on, then the larger id.
+ *
+ * Each pair below is given ids that would put it the other way round if the
+ * id decided, so only the key the test names can produce the order expected.
+ */
+it('puts a later day first, whatever the observation found', () => {
+  const earlierOff = {
+    id: observationIdEndingIn(2),
+    observedOn: '2026-09-18',
+    armed: false,
+  };
+  const laterOn = {
+    id: observationIdEndingIn(1),
+    observedOn: '2026-09-19',
+    armed: true,
+  };
+
+  expect([earlierOff, laterOn].sort(newestObservationFirst)).toEqual([
+    laterOn,
+    earlierOff,
+  ]);
+});
+
+it('puts an off reading before an on one on the same day, whatever their ids', () => {
+  const on = {
+    id: observationIdEndingIn(2),
+    observedOn: '2026-09-19',
+    armed: true,
+  };
+  const off = {
+    id: observationIdEndingIn(1),
+    observedOn: '2026-09-19',
+    armed: false,
+  };
+  // The control: the id alone would put the on reading first.
+  expect(on.id > off.id).toBe(true);
+
+  expect([on, off].sort(newestObservationFirst)).toEqual([off, on]);
+  expect([off, on].sort(newestObservationFirst)).toEqual([off, on]);
+});
+
+it('breaks a tie on the day and the reading by the id, larger first', () => {
+  const smaller = {
+    id: observationIdEndingIn(1),
+    observedOn: '2026-09-19',
+    armed: true,
+  };
+  const larger = {
+    id: observationIdEndingIn(2),
+    observedOn: '2026-09-19',
+    armed: true,
+  };
+
+  expect([smaller, larger].sort(newestObservationFirst)).toEqual([
+    larger,
+    smaller,
+  ]);
+  expect(newestObservationFirst(larger, { ...larger })).toBe(0);
+});
+
+/** One observation, under an id the test chooses, written when it says. */
+async function insertObservation(
+  checkId: string,
+  id: string,
+  observedOn: string,
+  armed: boolean,
+  createdAt: string | null = null,
+): Promise<void> {
+  await database.client().query(
+    `INSERT INTO arming_observations
+       (id, check_id, observed_on, armed, created_at)
+     VALUES ($1, $2, $3, $4, coalesce($5::timestamptz, now()))`,
+    [id, checkId, observedOn, armed, createdAt],
+  );
+}
+
+/**
+ * Two observations on one day, one finding the check off and one on, read in
+ * the order newestObservationFirst gives, by the app's query and by the
+ * derivation alike.
+ *
+ * check_summaries spells the three keys in its own ORDER BY, in the
+ * migrations, so it is a second copy of the rule and this is what would say
+ * the copies had drifted. The on reading is given the larger id and written
+ * later, so the id alone would pick it and so would when it was written: only
+ * what the observation found can make the off reading the one the armed state
+ * is read from. Here the pick decides the status, which is the reason the key
+ * exists: a check seen off that day reads Unarmed.
+ */
+it('reads an off and an on observation on one day as off, in the app and the derivation', async () => {
+  const checkId = await insertCheck();
+  const on = observationIdEndingIn(2);
+  const off = observationIdEndingIn(1);
+  await insertObservation(
+    checkId,
+    off,
+    '2026-09-19',
+    false,
+    '2026-09-19T10:00:00Z',
+  );
+  await insertObservation(
+    checkId,
+    on,
+    '2026-09-19',
+    true,
+    '2026-09-19T11:00:00Z',
+  );
+
+  const observations = await listArmingObservationsForChecks(
+    database.client(),
+    [checkId],
+  );
+  const expected = [...observations]
+    .sort(newestObservationFirst)
+    .map((observation) => observation.id);
+  expect(expected).toEqual([off, on]);
+  expect(observations.map((observation) => observation.id)).toEqual(expected);
+
+  const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
+  expect(summary?.latestObservationId).toBe(expected[0]);
+  expect(summary?.lastArmed).toBe(false);
+  expect(summary?.status).toBe('Unarmed');
+});
+
+/**
+ * Two observations that share a day and what they found, read in the order
+ * newestObservationFirst gives, by the app's query and by the derivation
+ * alike.
+ *
+ * Nothing recorded about them can tell them apart, so the last-resort key
+ * decides, and it has to be the same key on every surface or the app's list
+ * and the published page's list head with different rows. The row written
+ * later has the smaller id, so a query that broke the tie by when the row was
+ * written, as both used to, returns them the other way round. The control
+ * asserts that the fixture still has that shape.
+ */
+it('breaks a tie on the day and the reading by the id, in the app and the derivation', async () => {
+  const checkId = await insertCheck();
+  const writtenFirst = observationIdEndingIn(2);
+  const writtenSecond = observationIdEndingIn(1);
+  await insertObservation(
+    checkId,
+    writtenFirst,
+    '2026-09-19',
+    true,
+    '2026-09-19T10:00:00Z',
+  );
+  await insertObservation(
+    checkId,
+    writtenSecond,
+    '2026-09-19',
+    true,
+    '2026-09-19T11:00:00Z',
+  );
+
+  const written = await selectRows<{ id: string }>(
+    database.client(),
+    'SELECT id FROM arming_observations WHERE check_id = $1 ORDER BY created_at DESC',
+    [checkId],
+  );
+  expect(written.map((row) => row.id)).toEqual([writtenSecond, writtenFirst]);
+
+  const observations = await listArmingObservationsForChecks(
+    database.client(),
+    [checkId],
+  );
+  const expected = [...observations]
+    .sort(newestObservationFirst)
+    .map((observation) => observation.id);
+  expect(expected).toEqual([writtenFirst, writtenSecond]);
+  expect(observations.map((observation) => observation.id)).toEqual(expected);
+
+  const [summary] = await listCheckSummaries(database.client(), '2026-09-27');
+  expect(summary?.latestObservationId).toBe(expected[0]);
 });
