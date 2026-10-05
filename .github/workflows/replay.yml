@@ -220,16 +220,27 @@ jobs:
       # replayed on every run. The script refuses a shallow clone outright
       # rather than answering that, so this is what keeps the step passing as
       # well as what keeps it truthful.
+      #
+      # Every action is pinned by commit, with its release tag beside it. A tag
+      # can be moved to other code by anyone who can write to the action's repository,
+      # and this job holds a token that can write to this one (#223).
+      #
+      # The checkout does not keep that token. By default it writes it into
+      # .git/config, where every later step could read it: the pnpm, Node and
+      # Python actions, every dependency `pnpm install` runs, the selection,
+      # the build and every plant canfail applies. Only the push step is given
+      # it, through its own environment.
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Install Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -302,7 +313,7 @@ jobs:
 
       - name: Install Python
         if: steps.select.outputs.config != ''
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.13'
 
@@ -422,6 +433,10 @@ jobs:
       # recorded and waiting for a person. It does not mean done.
       - name: Push the record and say what is waiting
         if: steps.select.outputs.config != ''
+        env:
+          # The only step that receives the token. The checkout kept none, so
+          # the push below sends it as a header on that one command.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -439,7 +454,10 @@ jobs:
             exit 0
           fi
           git commit --message "Record a replay of the declared plants, from run $GITHUB_RUN_ID"
-          git push origin "$BRANCH"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 --wrap=0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push origin "$BRANCH"
           {
             echo "## Recorded, and waiting for a person"
             echo
