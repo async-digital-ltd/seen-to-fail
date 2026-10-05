@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-codegen-check",
+  "runOn": "2026-10-05",
+  "planted": "The StatusCounts query in packages/web/src/graphql/status-counts.graphql drops its total field, committed without regenerating the types (b2050a3 on ci-control/codegen-stale-query).",
+  "expected": "The check fails because regenerating the types changes the committed generated files.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": "Recorded by hand because a replay cannot plant this: the check only sees a committed defect, and a replay never commits its breaks (#228). CI run https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37295226381 failed at the generated-types step with a diff of gql.ts and graphql.ts removing total.",
+  "source": "hand",
+  "sourceCommit": null,
+  "sourceRunUrl": null
+}
