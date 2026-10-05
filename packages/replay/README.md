@@ -184,12 +184,16 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: the six checks that carry runs.** The ledger holds
-eleven checks. Six of them carry runs, and so have a status the backstop can
-age; the other five carry an arming observation and no run at all, so they read
-Unproven and there is no proof for a floor to keep alive.
+**Which checks this covers: ten of the eleven.** The ledger holds eleven
+checks. Six of them carry runs, and so have a status the backstop can age. Four
+more were declared on #228 and carry an arming observation and no run until
+their first replay is merged; a check never replayed is measured against the
+empty tree, so the dependency route selects each of them at the first replay
+after the declaration lands. The eleventh, `ci-codegen-check`, has no plant,
+for the reason given at the end of this section, so it reads Unproven and
+there is no proof for a floor to keep alive.
 
-`canfail.json` declares all six. `ci-type-check` was declared first, with two
+`canfail.json` declares the first six like this. `ci-type-check` was declared first, with two
 breaks against `pnpm typecheck`. Three more were declared on #110, which
 found them reading Stale from 19 October 2026 with no route back: their only
 runs were typed in on 18 September, and a check the declaration does not
@@ -242,6 +246,37 @@ ledger at all. Each had been seen to fail by hand and had no record:
   listen, so the process stays up and never binds the port, and the script
   refuses on its timeout rather than on an exit. That plant costs the script's
   whole wait, thirty seconds, each time it is replayed.
+
+Four more were declared on #228. Each had an arming observation and no run,
+and each plant is one the type check accepts, so the check it is declared
+against is the only step in CI that can catch it:
+
+- `ci-format-check` runs `pnpm format:check` against `REPLAY_AFTER_DAYS`
+  written without its semicolon. Its `expect` is the warning Prettier prints
+  naming that file.
+- `ci-lint` runs `pnpm lint` against the filter hook dropping the promise
+  `navigate` returns without the `void` that marks it as dropped on purpose.
+  Its `expect` is the error line naming `use-filter.ts` and
+  `@typescript-eslint/no-floating-promises`, so a lint that failed on some
+  other file or rule is a wrong failure rather than a catch.
+- `ci-test` runs `pnpm test` against a link's day count that accepts a leading
+  zero, which would give one filter two links. Its `expect` is the one test
+  that refuses `007` failing by name.
+- `ci-build-web` runs `pnpm build:web` against a page whose script names
+  `/src/main.ts` where the entry is `/src/main.tsx`. That is the gap the step
+  exists for: the type check never reads the page. Its `expect` is Vite saying
+  it cannot resolve that script from `index.html`.
+
+`ci-codegen-check` has no plant, and not for want of one. Its step regenerates
+the types and asks git whether anything differs from what is committed, so the
+defect it catches is a committed one, and a plant `canfail` applies is never
+committed. Measured under 0.2.1 on 5 October 2026: a hand edit to a generated
+file is regenerated over, the comparison passes, and `canfail` scores it
+`blind`; a query edited without regenerating is caught, but the generator
+rewrites two generated files that `canfail` does not put back, so the replay's
+tree check would refuse the whole run and record nothing for any check in it.
+Proving this check needs a plant that is committed, which is the "branch
+pushed" kind of plant the root README names as a later direction.
 
 The build derives every status in PostgreSQL, so the replay job now starts the
 same service container CI does and creates and migrates the databases before
