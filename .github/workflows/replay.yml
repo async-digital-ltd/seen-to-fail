@@ -361,14 +361,20 @@ jobs:
       # baseline for every break after the one that failed, so its later
       # verdicts are about a tree nobody declared. Written as an `if` rather
       # than as a negated command, because `set -e` does not apply to a command
-      # whose status is inverted with `!`.
+      # whose status is inverted with `!`. The status is assigned to a variable
+      # before it is tested, because `set -e` does not apply to a command
+      # substitution inside the arguments to `[` either: written inline, a git
+      # that failed, on an unreadable index for one, gave an empty string and
+      # the step passed (#222). Untracked files are listed one by one, so a
+      # plant that leaves a new file behind is named in the failure.
       - name: Check the tree came back
         if: steps.select.outputs.config != ''
         run: |
           set -euo pipefail
-          if [ -n "$(git status --porcelain)" ]; then
+          tree_status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$tree_status" ]; then
             echo "The working tree did not come back after the replay:" >&2
-            git status --porcelain >&2
+            printf '%s\n' "$tree_status" >&2
             exit 1
           fi
 
