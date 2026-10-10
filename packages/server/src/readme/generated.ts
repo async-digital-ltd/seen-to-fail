@@ -24,7 +24,18 @@ import { repositoryRoot } from '../ledger/location.ts';
  * by hand is undone by the next `pnpm readme` and refused by the test until
  * then. The text after the name in the opening comment is for the person
  * reading the Markdown and is not read here.
+ *
+ * The blocks sit in `docs/tests.md`, which is the README's Tests section moved
+ * out of it when the README was split into a front page and `docs/` (#251).
+ * `pnpm readme` keeps its name, because the file is still part of the README's
+ * account of the project.
  */
+
+/** The file the generated blocks sit in, from the repository root. */
+export const generatedPath = 'docs/tests.md';
+
+/** The same file, as a path this process can read. */
+export const generatedFile = join(repositoryRoot, generatedPath);
 
 const opening = /^<!-- generated: ([a-z-]+)\b.*-->$/u;
 
@@ -55,12 +66,14 @@ function regionsIn(lines: readonly string[]): Region[] {
       continue;
     }
     if (regions.some((region) => region.name === name)) {
-      throw new Error(`README.md opens the generated block ${name} twice.`);
+      throw new Error(
+        `${generatedPath} opens the generated block ${name} twice.`,
+      );
     }
     const end = lines.indexOf(closing(name), index + 1);
     if (end === -1) {
       throw new Error(
-        `README.md opens the generated block ${name} and never closes it with "${closing(name)}".`,
+        `${generatedPath} opens the generated block ${name} and never closes it with "${closing(name)}".`,
       );
     }
     regions.push({ name, start: index + 1, end });
@@ -100,7 +113,7 @@ export function rewriteReadme(
 
   for (const name of blocks.keys()) {
     if (!regions.some((region) => region.name === name)) {
-      throw new Error(`README.md has no generated block named ${name}.`);
+      throw new Error(`${generatedPath} has no generated block named ${name}.`);
     }
   }
 
@@ -110,7 +123,7 @@ export function rewriteReadme(
     const text = blocks.get(region.name);
     if (text === undefined) {
       throw new Error(
-        `README.md opens a generated block named ${region.name}, and nothing generates it.`,
+        `${generatedPath} opens a generated block named ${region.name}, and nothing generates it.`,
       );
     }
     lines.splice(region.start, region.end - region.start, ...text.split('\n'));

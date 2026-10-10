@@ -11,15 +11,20 @@ import {
   contributorCommands,
   generatedBlocks,
   generatedBlocksIn,
+  generatedFile,
+  generatedPath,
   rewriteReadme,
   stepsOf,
 } from './generated.ts';
 import type { WorkflowStep } from './generated.ts';
 import {
   countOf,
+  docsDirectory,
   fencedLinesIn,
   flattened,
   inlineCodeIn,
+  readDoc,
+  readDocumentation,
   readReadme,
   sectionOf,
 } from './readme.ts';
@@ -32,24 +37,32 @@ import {
  * than waiting for a reader to notice (#149). The claims that need the
  * database or the seeded workspace are held where those are: the table names in
  * the schema tests, and the filter example in the filter tests.
+ *
+ * Since the README was split into a front page and `docs/` (#251), a claim is
+ * read from the file it moved to: the generated blocks from `docs/tests.md`,
+ * the roadmap picture from `docs/roadmap.md`, and the ledger's counts from the
+ * files the ledger section became.
  */
 const readme = readReadme();
 
+/** The file that holds the generated blocks, as it stands. */
+const generated = readFileSync(generatedFile, 'utf8');
+
 it('holds every generated block exactly as `pnpm readme` would write it today', () => {
   expect(
-    generatedBlocksIn(readme),
-    'README.md differs from its sources. Run `pnpm readme` and commit the result.',
+    generatedBlocksIn(generated),
+    `${generatedPath} differs from its sources. Run \`pnpm readme\` and commit the result.`,
   ).toStrictEqual(generatedBlocks());
 });
 
 /**
- * The writer's own behaviour, on the README as `pnpm readme` would leave it, so
- * a README that is merely behind its sources fails only the test above, with
+ * The writer's own behaviour, on the file as `pnpm readme` would leave it, so
+ * a file that is merely behind its sources fails only the test above, with
  * its message, and not this one with a diff of the whole file.
  */
 it('puts a generated block edited by hand back as its source writes it, and changes nothing else', () => {
   const blocks = generatedBlocks();
-  const current = rewriteReadme(readme, blocks);
+  const current = rewriteReadme(generated, blocks);
   const byHand = new Map(
     [...blocks.keys()].map((name) => [name, `\nTyped by hand into ${name}.\n`]),
   );
@@ -309,6 +322,7 @@ it('finds a path with a pattern in it only when a tracked file matches', () => {
 });
 
 it('names only paths that exist in the tree', () => {
+  const documentation = [...readDocumentation().values()];
   const tracked = trackedPaths();
   const extensions = new Set(
     [...tracked].flatMap((path) => {
@@ -317,7 +331,10 @@ it('names only paths that exist in the tree', () => {
     }),
   );
   const paths = pathsIn(
-    [...inlineCodeIn(readme), ...fencedLinesIn(readme)],
+    documentation.flatMap((text) => [
+      ...inlineCodeIn(text),
+      ...fencedLinesIn(text),
+    ]),
     extensions,
   );
 
@@ -362,14 +379,14 @@ function wordsDrawnIn(svg: string): string[] {
 }
 
 it('gives the roadmap picture alt text that says every word the drawing shows, in order', () => {
-  const section = sectionOf(readme, 'What shipped, and where it could go');
+  const section = readDoc('roadmap.md');
   const picture = /<picture>([\s\S]*?)<\/picture>/u.exec(section)?.[1];
   if (picture === undefined) {
-    throw new Error('README.md has no <picture> under "What shipped".');
+    throw new Error('docs/roadmap.md has no <picture>.');
   }
   const alt = /\balt="([^"]*)"/u.exec(picture)?.[1];
   if (alt === undefined) {
-    throw new Error('The roadmap picture in README.md has no alt text.');
+    throw new Error('The roadmap picture in docs/roadmap.md has no alt text.');
   }
   const drawings = [...picture.matchAll(/\b(?:srcset|src)="([^"]+)"/gu)].map(
     (source) => source[1] ?? '',
@@ -378,8 +395,9 @@ it('gives the roadmap picture alt text that says every word the drawing shows, i
 
   const said = spoken(alt);
   for (const drawing of drawings) {
+    // The picture's sources are relative to docs/, where the page sits.
     const words = wordsDrawnIn(
-      readFileSync(join(repositoryRoot, drawing), 'utf8'),
+      readFileSync(join(docsDirectory, drawing), 'utf8'),
     );
     expect(words, drawing).not.toHaveLength(0);
 
@@ -399,6 +417,24 @@ it('gives the roadmap picture alt text that says every word the drawing shows, i
     ).toStrictEqual([]);
   }
 });
+
+/**
+ * The README's ledger section, which the split put in four files of `docs/` and
+ * one section the front page keeps, because the published page links it
+ * (#251). Read as one, so each sentence below is still found exactly once in
+ * the text it was written into.
+ */
+function ledgerSection(): string {
+  return flattened(
+    [
+      readDoc('published-ledger.md'),
+      readDoc('replay.md'),
+      readDoc('automatic.md'),
+      readDoc('publishing.md'),
+      sectionOf(readme, 'What belongs on a public ledger'),
+    ].join('\n'),
+  );
+}
 
 /**
  * The ledger's own counts as the README's ledger section states them: the
@@ -431,7 +467,7 @@ it("states the ledger's checks, declared checks and declared breaks as the tree 
     0,
   );
 
-  const prose = flattened(sectionOf(readme, 'The published ledger'));
+  const prose = ledgerSection();
 
   /**
    * The counts one sentence states, in the order it states them. A sentence
@@ -443,7 +479,7 @@ it("states the ledger's checks, declared checks and declared breaks as the tree 
     const [only] = found;
     if (only === undefined || found.length > 1) {
       throw new Error(
-        `README.md's ledger section has ${String(found.length)} sentences matching ${String(sentence)}, and exactly one was expected.`,
+        `The ledger section has ${String(found.length)} sentences matching ${String(sentence)}, and exactly one was expected.`,
       );
     }
     return only.slice(1).map((written) => countOf(written));
@@ -502,7 +538,7 @@ it('names every area the ledger files its checks under, and counts the checks', 
         ).area,
     );
 
-  const prose = flattened(sectionOf(readme, 'The published ledger'));
+  const prose = ledgerSection();
   const found = [
     ...prose.matchAll(
       /All (\w+) checks in `ledger\/checks\/` have an `area` of Code, Build or Published record\./gu,
@@ -511,7 +547,7 @@ it('names every area the ledger files its checks under, and counts the checks', 
   const [only] = found;
   if (only === undefined || found.length > 1) {
     throw new Error(
-      `README.md's ledger section has ${String(found.length)} sentences naming the areas, and exactly one was expected.`,
+      `The ledger section has ${String(found.length)} sentences naming the areas, and exactly one was expected.`,
     );
   }
 

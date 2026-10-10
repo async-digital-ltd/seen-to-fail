@@ -2,52 +2,56 @@
 
 [![CI](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/ci.yml)
 
-A small web app for tracking whether your automated checks have ever been seen
+A small web app that records whether your automated checks have ever been seen
 to catch the defect they exist for.
 
 This repository's own record is published at
 [seen-to-fail.async-digital.com](https://seen-to-fail.async-digital.com/).
 
 Lint rules, pre-commit hooks, CI gates and review bots are easy to add and hard
-to trust. A check that has never reported anything looks the same whether it is
-working and has had nothing to catch, or is broken and cannot catch anything.
-The only way to tell the two apart is to plant the defect on purpose, watch the
+to trust. A check that has never reported anything looks the same whether it
+works and has had nothing to catch, or is broken and cannot catch anything. The
+only way to tell the two apart is to plant the defect on purpose, watch the
 check catch it, and write down what happened. Seen to Fail is that record.
+
+Claude, an AI coding agent, wrote the code under the owner's direction.
+[How it is built](docs/how-it-is-built.md) says what the owner decided and how
+the work was checked.
 
 ![The list of checks in the sample workspace, under a tile counting each of the five statuses, with the filter bar between them.](docs/checks.png)
 
-Those counts are not a snapshot: the sample workspace dates every run and
-observation from the day it is loaded, so `pnpm db:seed` reaches the same five
-counts whenever it is run.
+The sample workspace dates every run and observation from the day it is loaded,
+so `pnpm db:seed` gives the same five counts whenever it runs.
 
 ## Using it on your own repository
 
-This repository records its own checks. Nothing here is a service you can point
-at your pipeline, and the code is not published as a package. Of the three ways
-you might hope to use it, two work today and one does not.
+This repository records its own checks. It is not a service you can point at
+your pipeline, and the code is not published as a package. There are three ways
+you might want to use it. Two work today and one does not.
 
-**The verdict alone: run `canfail` in your repository.** The replaying is done
-by [`canfail`](https://pypi.org/project/canfail/), a separate tool that needs
-nothing from this project, not even git. Write a `canfail.json` at your root
-naming each check's command and the breaks to plant, in `canfail`'s own format,
-and run it:
+**Run `canfail` in your repository for the verdict alone.**
+[`canfail`](https://pypi.org/project/canfail/) does the replaying. It is a
+separate tool and needs nothing from this project, not even git. Write a
+`canfail.json` at your root in `canfail`'s own format, naming each check's
+command and the breaks to plant, and run it:
 
 ```sh
 pip install canfail
 canfail canfail.json
 ```
 
-It runs each check on a clean tree, applies each break, runs the check again,
-puts the file back and says whether the check caught it. That tells you whether
-a check catches its defect today. It keeps no record, so it cannot tell you
-whether a check has ever caught one or when that proof goes stale; that is what
-the rest of this repository adds. This repository's own declaration, and the
-version it pins, are described under
-[A replay, start to finish](#a-replay-start-to-finish).
+`canfail` runs each check on a clean tree, applies each break, runs the check
+again, puts the file back and says whether the check caught the break. That
+tells you whether a check catches its defect today. It keeps no record, so it
+cannot tell you whether a check has ever caught one or when that proof goes
+stale. The rest of this repository adds that record.
+[A replay, start to finish](docs/replay.md) describes this repository's own
+declaration and the version it pins.
 
-To run it in CI, use the
-[canfail-action](https://github.com/async-digital-ltd/canfail-action) this
-repository published for that and runs its own replay through:
+To run it in CI, use
+[canfail-action](https://github.com/async-digital-ltd/canfail-action). This
+repository published the action for that job and runs its own replay through
+it:
 
 ```yaml
 - uses: async-digital-ltd/canfail-action@5ffd94d2598c9f9ce91aecf1122b9296a38b56e7 # v1.0.0
@@ -56,265 +60,60 @@ repository published for that and runs its own replay through:
     skip: needsXcode # optional: drop checks this runner cannot run
 ```
 
-It installs `canfail` and the two packages its verdicts rest on by version and
-hash, refuses a tree that is dirty before planting, sets `NO_COLOR`, fails with
-"could not run" rather than reporting that as a verdict, fails when the tree
-does not come back, and fails when a verdict differs from the declaration
-(`catches` unless a break sets `expectedVerdict`). The verdicts go to the job
-summary and to a JSON report output. Its
-[README](https://github.com/async-digital-ltd/canfail-action#readme) lists the
+The action installs `canfail` and the two packages its verdicts rest on, each by
+version and hash. It sets `NO_COLOR` and refuses a tree that is dirty before
+planting. It fails in three cases: a check that could not run, which it never
+reports as a verdict; a tree that does not come back; and a verdict that differs
+from the declaration. The declaration expects `catches` unless a break sets
+`expectedVerdict`. The verdicts go to the job summary and to a JSON report
+output. The action's
+[README](https://github.com/async-digital-ltd/canfail-action#readme) lists its
 inputs and what each way of failing means. Pin it by SHA, as above.
 
-**The ledger and the weekly replay: copy this repository and make it yours.**
-The replay runs `canfail` over the checkout it is running in, reads `dependsOn`
-against that checkout's history, and links every commit on the published page
-into the repository the page was built from. So the checks, the code they check
-and the ledger must all live in one repository: forking this one records
-nothing about yours unless your code moves in with it. The copy brings the whole
-stack, so CI needs Node, pnpm and a PostgreSQL service, and the layout under
-`packages/` has to stay as it is, because the scripts find `ledger/` from where
-they sit. Starting from a copy:
+**Copy this repository for the ledger and the weekly replay.** The replay runs
+`canfail` over the checkout it runs in and reads `dependsOn` against that
+checkout's history. The published page links every commit into the repository
+it was built from. So the checks, the code they check and the ledger must all
+live in one repository, and a fork of this one records nothing about yours
+unless your code moves in with it. The copy brings the whole stack, so CI needs
+Node, pnpm and a PostgreSQL service. The layout under `packages/` has to stay as
+it is, because the scripts find `ledger/` from where they sit. Starting from a
+copy:
 
 1. Replace the files in `ledger/checks/` with one per check of yours, and empty
-   `ledger/runs/` and `ledger/observations/`, which are this repository's own
+   `ledger/runs/` and `ledger/observations/`, which hold this repository's own
    record. `ledger/README.md` gives the shape of each file.
-2. Replace `canfail.json` with your declaration, adding `checkId` and
+2. Replace `canfail.json` with your declaration, and add `checkId` and
    `dependsOn` beside each check.
 3. In `.github/workflows/ci.yml`, keep the steps that create the databases and
-   that validate, build and check the ledger, and replace the other checks,
-   which are this repository's own. Drop the `ci-control/` branch
-   trigger unless you will plant defects by hand that way. Delete the Pages
-   upload step and the publish job unless the ledger should be public, and read
+   that validate, build and check the ledger. Replace the other checks, which
+   are this repository's own. Drop the `ci-control/` branch trigger unless you
+   will plant defects by hand that way. Delete the Pages upload step and the
+   publish job unless the ledger should be public, and read
    [What belongs on a public ledger](#what-belongs-on-a-public-ledger) before
-   deciding.
+   you decide.
 4. Keep `.github/workflows/replay.yml` and `.github/workflows/record-run.yml`
-   as they are; neither names a check of this repository's.
-5. Rewrite or remove this README. `packages/server/src/readme/` holds its
-   counts to the tree, so `pnpm test` fails once your ledger differs. The
-   published page also carries a "Made by" link to this project's studio, in
-   `packages/server/src/ledger/page.ts`. The sample workspace `pnpm db:seed`
-   loads is invented data for the local app and never touches the ledger, so it
-   can stay.
+   as they are. Neither names a check of this repository's.
+5. Rewrite or remove this README and `docs/`. `packages/server/src/readme/`
+   holds their counts to the tree, so `pnpm test` fails once your ledger
+   differs. The published page also carries a "Made by" link to this project's
+   studio, in `packages/server/src/ledger/page.ts`. The sample workspace that
+   `pnpm db:seed` loads is invented data for the local app and never touches the
+   ledger, so it can stay.
 
 **Recording another repository's checks from this one is not supported.**
 Nothing here checks out a second repository. A run typed in by hand names no
-commit, so nothing stops one describing a check that lives elsewhere, but
-nothing ties it to that repository either. No ticket adds this.
+commit, so nothing stops it describing a check that lives elsewhere, and nothing
+ties it to that repository either. No ticket adds this.
 [#180](https://github.com/async-digital-ltd/seen-to-fail/issues/180) is about
-each repository running a ledger of its own, without copying this one, and is
-not built.
-[#236](https://github.com/async-digital-ltd/seen-to-fail/issues/236) replays
-defects that must be committed to a branch of this repository, and reaches no
-other.
-
-## How it works
-
-Each check has a log of **test runs**. A test run is one planted defect, and
-records:
-
-- what was planted,
-- what the check was expected to do,
-- what it actually did: caught it, missed it, or settled nothing,
-- why it settled nothing, when that is what it did,
-- where it came from: somebody typed it in, or a replay posted it, and a replay
-  names the commit it ran against and links the run that produced it,
-- an optional note for the next person.
-
-A run that **settled nothing** is not evidence about the check. The plant may no
-longer apply to code that has moved on, the check may have been failing before
-anything was planted, or it may never have run at all. None of those is the
-check missing a defect, so none of them belongs in the status rules: a run that
-settled nothing is counted separately, is never a catch or a miss, and leaves
-the status exactly where it was. What it changes is how old the evidence behind
-that status is, and a check's page says so, alongside the day of the last run
-that did settle something.
-
-The reason is shown as whoever recorded it wrote it, rather than sorted into a
-category. Only one of the situations above means the plant needs rewriting, and
-the tool that scores a replay separates them inside an English sentence, so a
-category here could only be recovered by matching prose and a wrong match would
-send a reader to rewrite a plant that is fine.
-
-Where a run came from is recorded beside it and read by none of the status
-rules. A replay and a run somebody typed in, with the same outcome on the same
-day, leave a check reading the same thing. It is there so that a reader can
-tell a proof that keeps itself from one somebody remembered to write down,
-which is a different question from whether the check works.
-
-It also has a log of **arming observations**: dated evidence that the check was,
-or was not, switched on at all. A check can be configured and not running, and a
-log of planted defects alone cannot tell that apart from a check nobody has got
-round to planting anything for, so the two are recorded separately.
-
-A check's status comes from those two logs, not from anyone's opinion of it.
-There are five, and they are read in order: the first rule that matches is the
-status.
-
-Every "run" below means a run that settled something. A run that settled
-nothing is not read by any of these rules, in any of their branches.
-
-| Status       | The rule                                                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Unarmed**  | There are no runs and nothing says it is on, or the latest observation says it is off and is dated on or after the latest run. |
-| **Broken**   | The latest run missed the defect that was planted for it.                                                                      |
-| **Proven**   | The latest run caught its defect, at most 30 days ago.                                                                         |
-| **Stale**    | The latest run caught its defect, but longer ago than that.                                                                    |
-| **Unproven** | There are no runs, and the latest observation says it is on.                                                                   |
-
-Because the rules are read in that order, a check that caught a defect and was
-then seen switched off reads Unarmed rather than Proven, and a check that caught
-and then missed reads Broken rather than Stale. A check whose plant has stopped
-applying keeps the status its last real run gave it, and the thirty-day rule
-below is then the only thing that can move it, which is the backstop doing the
-job the replays have stopped doing. An observation dated the same
-day as the latest run counts as the later of the two, because a day is the
-finest grain either fact is recorded at and there is nothing to order them by
-within one.
-
-"Latest" otherwise means by the day it happened, and then by what the run says:
-a miss on a day outranks a catch on the same day. The same reason is behind
-both. A run is dated to a day and nothing finer, so two runs on one day carry no
-record of which came first, and a check seen to let a planted defect through
-that day is broken whether or not something else it was asked about that day
-went well. Ordering the two by when they were typed in would pick by clerical
-order rather than by anything that happened; ordering them by the day alone
-would leave it to the database. A run that settled nothing ranks below both,
-which is consistent with the rules above ignoring it entirely: it sorts last
-within its day.
-
-Two runs that share both a day and an outcome give the same status whichever
-comes first, and they are ordered by the run's id, which is arbitrary. The app
-does record when each run was typed in, but that time is deliberately not a key.
-The published page is built from files that carry no entry time, and the ledger
-build loads every record in one transaction, so every run it loads has the same
-one. Ordering by entry time in the app would therefore list the same rows in a
-different order from the page. So the app, the page and the status derivation
-all use the id, and in the app two such runs typed in an hour apart can list the
-later one beneath the earlier, with nothing on either row saying why. The first
-run in a check's log that settled anything is the run its status was read from,
-and the build checks that for every check before it publishes.
-
-Observations are ordered the same way, for the same reasons. An observation is
-dated to a day and nothing finer, so of two on one day, one that found the check
-switched off outranks one that found it on: a check seen switched off that day
-is unarmed whatever else was said about it that day. Two that share both a day
-and what they found are ordered by the observation's id, in the app, on the page
-and in the derivation alike, and not by when they were typed in. The first
-observation in a check's log is the one its armed state was read from, and the
-build checks that as well.
-
-Thirty days is the one judgment in the model, and it is one constant,
-`STALE_AFTER_DAYS`, in one module. A catch exactly thirty days old still reads
-Proven, and one day older reads Stale. Moving that line is changing the constant
-and nothing else.
-
-The status is worked out in one place, the `check_summaries` SQL function. It
-takes the day it is reading as of and the threshold as parameters and never
-reads the clock, so the same rows always give the same answer. That day drives
-the staleness arithmetic only: a run or an observation dated after it still
-counts, so reading the workspace as of last Tuesday asks how old a catch would
-have been then, rather than what the record looked like then.
-
-Each check also records what it protects and how you can tell it is switched on.
-Either may be left blank, because a check nobody has written a tell for is
-exactly the thing this product exists to make visible.
-
-## Filters
-
-The list of checks can be narrowed with a filter such as
-`(status is Unproven OR status is Stale) AND area is Git`, which picks two of
-the eight checks in the sample workspace.
-
-A filter is a typed tree of conditions, and the language is closed on purpose:
-four fields, a fixed set of operators for each, and exactly two levels of
-grouping. The conditions in a group share one joiner and the groups share
-another, so there is no precedence to work out.
-
-| Field        | Operators               | Argument                                                  |
-| ------------ | ----------------------- | --------------------------------------------------------- |
-| `status`     | `is`, `isNot`           | one of `Unarmed`, `Broken`, `Proven`, `Stale`, `Unproven` |
-| `area`       | `is`, `isNot`           | text                                                      |
-| `lastCaught` | `never`                 | none                                                      |
-| `lastCaught` | `before`, `after`       | a whole number of days                                    |
-| `runs`       | `moreThan`, `fewerThan` | a whole number of runs                                    |
-
-The filter lives in the page's address, so a refresh, the back button and "Copy
-link" all keep it, and a filter is shared by sending that link. The example
-above is this one:
-
-```
-/?f=and!or*status.is.Unproven*status.is.Stale!and*area.is.Git
-```
-
-The grammar spells the language out rather than encoding it. Its alphabet is
-exactly the set `encodeURIComponent` leaves untouched, so a link pasted into a
-chat window stays legible, every filter has one link rather than several, and
-parsing a link gives back the filter it was written from.
-`packages/filter/README.md` sets the grammar out in full.
-
-Values are compared exactly as they are written. The sample workspace spells its
-areas `CI`, `Git`, `Lint`, `Release` and `Review`, so `area.is.git` matches
-nothing.
-
-Changing the filter pushes a history entry rather than replacing one, so back
-and forward step through the filters that were built. A change that leaves the
-filter as the address already reads it adds no entry, so one press of back
-undoes one thing.
-
-`f=all` is accepted on the way in and means the filter that hides nothing. The
-app never writes it: the list nobody has narrowed is the bare address `/`.
-
-A filter is validated where it enters the API, by the same reader that reads a
-link, and only then compiled into SQL. Every value a filter carries reaches the
-database as a bound parameter, so nothing in it is ever concatenated into a
-query, and a filter the language cannot express is refused before the resolver
-has touched the database.
-
-That compiler is the core of the project, and it is tested accordingly: every
-filter the app can express must compile to the query it means, and every shared
-link must parse back into the same filter.
-
-## Stack
-
-- **TypeScript** throughout, in strict mode.
-- **GraphQL** API on Node, with frontend types generated from the schema.
-- **PostgreSQL**, with four tables: checks, test runs, arming observations and
-  saved filters. The schema carries `saved_filters` for saving a filter under a
-  name, and nothing reads it yet.
-- **React** with Vite, React Router and urql.
-- **Vitest** for tests, and GitHub Actions for CI, whose steps are listed under
-  [Tests](#tests).
-
-The server is built for local use only. It listens on `127.0.0.1` and no other
-interface, so no other machine can reach it, and it sends no CORS headers, so a
-browser will not hand its answers to a page from another origin. Nor can such a
-page make it write. A POST whose body is not JSON, which is the only kind a
-browser sends to another origin without asking first, is refused before any
-resolver runs. So is a GraphQL request addressed to any name but `127.0.0.1` or
-`localhost`, which is how a page whose own name had been pointed at the loopback
-would reach it. `packages/server/src/graphql/request-guard.test.ts` holds both.
-Both refusals are made where a request is parsed as GraphQL, and three routes
-are answered before that point, so they answer whatever they are sent, under any
-name: `/health`, `/ready` and the GraphiQL page at `/graphql`. None of the three
-reads the record, and when the database does not answer, `/ready` says so with
-a 503 and an empty body rather than the database's own error message
-(`packages/server/src/graphql/queries.test.ts` holds it). Those answers were
-measured, and are on
-[#192](https://github.com/async-digital-ltd/seen-to-fail/issues/192).
-There is no per-request cost limit and no limit on the size of a request body,
-so it is not hardened for deployment. The client's development server, which
-`pnpm dev:web` starts and which passes `/graphql` on to the server, sends no
-CORS headers either, so a page on another port of the same machine can neither
-post JSON through it nor read what comes back.
-`packages/web/src/dev-server.test.ts` holds that.
-
-The list, the filter bar and the three forms carry keyboard tests, including the
-observation form on a check's own page. The rest of that page does not, and no
-dedicated keyboard and screen reader pass has been run over any of them.
+each repository running a ledger of its own without copying this one, and is not
+built. [#236](https://github.com/async-digital-ltd/seen-to-fail/issues/236)
+replays defects that must be committed to a branch of this repository, and
+reaches no other.
 
 ## Run it locally
 
-Requires Node 24 or newer, the version in `.nvmrc`, pnpm, and a PostgreSQL 16.
+You need pnpm, PostgreSQL 16, and Node 24 or newer, the version `.nvmrc` names.
 
 ```sh
 pnpm install
@@ -322,23 +121,21 @@ cp .env.example .env
 ```
 
 `.env` holds `DATABASE_URL` and `TEST_DATABASE_URL`. The server reads both
-through one config module and stops with the name of the variable if either is
-missing, so there is nothing to guess at. It also stops, naming both, if the two
-name one database, because the test database is emptied between tests and
-dropped by `pnpm db:test:reset`.
+through one config module and stops, naming the variable, if either is missing.
+It also stops, naming both, if they name the same database, because the tests
+empty the test database between tests and `pnpm db:test:reset` drops it.
 
 ### The database
 
-Any PostgreSQL 16 reachable at those two URLs will do. There are two routes
-here, and you want one of them, not both, because they would compete for port 5432.
+Any PostgreSQL 16 reachable at those two URLs will do. Two routes follow. Pick
+one, because the two would compete for port 5432.
 
 **Homebrew, the route this project is developed on.** `pnpm db:up` starts
 `postgresql@16` as a service and creates the two databases named in `.env` if
-they are not there yet. `pnpm db:down` stops it. A server started this way has
-no `seen_to_fail` role and no password, so the values in `.env.example` will not
-reach it as they stand. It does let in the user you are logged in as, and a URL
-with no user in it connects as that user, so take the user and password out of
-both URLs altogether:
+they do not exist yet. `pnpm db:down` stops it. A server started this way has no
+`seen_to_fail` role and no password, so the URLs in `.env.example` will not
+reach it. It does let in the user you are logged in as, and a URL with no user
+connects as that user, so take the user and password out of both URLs:
 
 ```sh
 DATABASE_URL=postgresql://localhost:5432/seen_to_fail_dev
@@ -347,9 +144,9 @@ TEST_DATABASE_URL=postgresql://localhost:5432/seen_to_fail_test
 
 **Docker, provided but unproven.** `docker compose up -d` starts the compose
 file's PostgreSQL 16 with both databases and the credentials `.env.example`
-already carries, which makes it the easier route on most machines. It has not
-been run here, on a machine with no Docker installed, so treat it as unverified
-until someone reports otherwise.
+already carries, which makes it the easier route on most machines. Nobody has
+run it here, because the development machine has no Docker installed. Treat it
+as unverified until someone reports otherwise.
 
 Either way, apply the migrations:
 
@@ -359,27 +156,28 @@ pnpm db:migrate
 
 Migrations are numbered plain SQL files in `packages/server/migrations`. The
 runner applies them in filename order and records each one in a
-`schema_migrations` table, so running `pnpm db:migrate` again applies nothing
-and says so. `pnpm db:reset` drops the development database, creates it again
-empty and reapplies every migration. It leaves the test database alone.
-`pnpm db:test:reset` does the same to the test database and nothing else, which
-is how an edit to a migration that has already been applied reaches the
-database the tests run against.
-`packages/server/migrations/README.md` is worth reading before writing one: it
-holds the trap this schema has fallen into twice, which is that a check
-constraint passes on null and is therefore vacuous for exactly the rows it
-exists to refuse, and says when to run `pnpm db:test:reset`.
+`schema_migrations` table, so a second `pnpm db:migrate` applies nothing and
+says so. `pnpm db:reset` drops the development database, creates it again empty
+and reapplies every migration. It leaves the test database alone.
+`pnpm db:test:reset` does the same to the test database and nothing else. Run it
+when you edit a migration that is already applied, to get the edit into the
+database the tests use.
+
+Read `packages/server/migrations/README.md` before writing a migration. It
+describes a trap this schema has fallen into twice. A check constraint passes on
+null, so it is vacuous for exactly the rows it exists to refuse. The same file
+says when to run `pnpm db:test:reset`.
 
 ```sh
 pnpm db:seed
 ```
 
-Loads the sample workspace of eight checks in the screenshot above, which is
-what lets all five statuses be seen working before there is a real record behind
-any of them. Every check, run, observation and note in it is invented for this
-project and describes no real team's tooling. It empties the four tables before
-it inserts, so running it again replaces the workspace rather than failing, and
-it only ever points at the development database.
+Loads the sample workspace of eight checks in the screenshot above, so you can
+see all five statuses working before any real record exists. Every check, run,
+observation and note in it is invented for this project and describes no real
+team's tooling. It empties the four tables before it inserts, so a second run
+replaces the workspace instead of failing. It only ever points at the
+development database.
 
 ### The server
 
@@ -387,10 +185,10 @@ it only ever points at the development database.
 pnpm dev:server
 ```
 
-Serves GraphiQL at `http://127.0.0.1:4000/graphql`, where the schema and its
-queries can be read and run. There is a liveness route at `/health`, which
-answers whenever the process is up, and a readiness route at `/ready`, which
-answers only once the database does.
+Serves GraphiQL at `http://127.0.0.1:4000/graphql`, where you can read and run
+the schema and its queries. A liveness route at `/health` answers whenever the
+process is up. A readiness route at `/ready` answers only once the database
+does.
 
 ### The client
 
@@ -399,493 +197,30 @@ pnpm dev:web
 ```
 
 Serves the app at `http://localhost:5173` and proxies `/graphql` to the server,
-so the server has to be running too. `pnpm build:web` writes the production
-bundle to `packages/web/dist`.
+so the server must be running too. `pnpm build:web` writes the production bundle
+to `packages/web/dist`.
 
 The home page lists the checks under their status tiles, and a tile narrows the
-list to its status. The filter bar between the two builds a filter condition by
-condition. Each check has its own page, which is where an arming observation is
-recorded. Runs are logged through a form.
-A check is added through a form of its own.
+list to its status. The filter bar between them builds a filter one condition at
+a time. Each check has its own page, where you record an arming observation. You
+log runs through one form and add a check through another.
 
-## The published ledger
+## What belongs on a public ledger
 
-No service is hosted. The app above is for running locally; what gets published is
-a record rather than a service.
+A ledger maps where a project's checks have and have not been seen to work. For
+a check about quality, such as a type check, a lint or a build step, that map is
+harmless. For a check about security, such as a secret scanner, an access
+control test or a leak gate, a status of Unproven or Broken on a public page
+tells an attacker where to look. So a public ledger is for checks about quality,
+and a ledger of checks about security stays private.
 
-A run reaches that record by being committed. `ledger/` holds one JSON file per
-check, run and arming observation, and a build turns those files into a static
-page. The database and the status rules do not go away: the records are loaded
-into PostgreSQL, every status comes back out of the same `check_summaries`
-function the running app reads, and the page is rendered from what that
-produced. They run inside the build instead of behind a URL.
-
-```sh
-pnpm ledger:validate   # refuse a record that breaks a rule
-pnpm ledger:build      # build dist/ledger from the records
-```
-
-`ledger/README.md` sets the record's shape out in full.
-
-The write path is a commit, so a run that is wrong has an author and a diff, and
-can be reverted like anything else in the history. The author and the diff are
-real and you can read them: `git log -- ledger/` is the history of every record
-this project has written about itself: eight commits as of 22 September 2026,
-four that added a file and four that changed one, and none that removed
-anything. That last is what `git log --diff-filter=D -- ledger/` answering with
-silence means. The revert is a property of git rather than something this
-repository has exercised, so it is the part of that sentence to read as
-untested.
-
-What nothing holds is a long-lived token against a running instance, because
-there is no instance to write to. Both workflows below run on the short-lived
-`GITHUB_TOKEN` the runner is handed and carry no secret of their own, so there
-is nothing here to leak, rotate or scope. Their `permissions:` blocks are the
-whole of what they can do and are the same one line: each asks for `contents:
-write` and nothing else, because neither tries to open its own pull request.
-What either of them writes is a commit on a branch that a person then has to
-merge.
-
-### A run recorded by hand
-
-`Record a run` (`.github/workflows/record-run.yml`) is the job's half of the
-manual route. It takes the result somebody watched, refuses a malformed one
-before anything is written, commits the record and pushes a branch. The
-command it prints to open the pull request takes its ticket number from
-`TICKET` and will not run until that is set, so a squash merge's subject names
-the issue the run evidences
-([#174](https://github.com/async-digital-ltd/seen-to-fail/issues/174)).
-
-The watching has a lane of its own. CI runs on every push to a branch under
-`ci-control/` as well as on `main` and on pull requests, which is where a defect
-gets planted against this repository's own CI: branch, plant it, push under
-`ci-control/`, read the conclusion, delete the branch. Keeping the lane in the
-shipped workflow means what goes red is the workflow that really runs on `main`
-rather than a variant edited to be reachable. The badge at the top of this file
-is pinned to `main`, so a red control run cannot paint it red.
-
-### A replay, start to finish
-
-Ten checks are declared for replay by a job: `ci-type-check`,
-`ci-published-output`, `ledger-export-agreement`, `ledger-record-validation`,
-`ci-workflow-lint`, `ci-server-start`, `ci-format-check`, `ci-lint`, `ci-test`
-and `ci-build-web`. `canfail.json` declares those ten, with seventeen declared
-breaks between them; `ledger/checks/` holds eleven. So one of those eleven,
-`ci-codegen-check`, has no plant for a job to apply, and no replay can produce a
-run for it; why it has none is under
-[How much of this record is automatic](#how-much-of-this-record-is-automatic).
-How far replays have reached each of the ten is the table there, which also
-says plainly what that leaves automatic and what it does not.
-
-The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
-0.2.1 does it: handed a declaration of planted defects, it runs the check on a
-clean tree first, applies each declared break in turn, runs the check again, and
-scores what happened. The version is pinned in the workflow, because an
-unpinned install would let the scoring change under a ledger that cannot yet see
-which version produced a verdict
-([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
-
-What this project adds is everything after the verdict. `canfail` answers
-whether a check caught a defect just now, and then forgets. The ledger answers
-whether the check has ever been seen to catch one, how long ago, and whether
-anything has changed since: a record per planted defect, a history per check, a
-status read off that history by one SQL function, and a proof that goes stale.
-
-The declaration is `canfail.json` at the root, in `canfail`'s own format. This
-project defines no format of its own. Two keys sit beside each check that
-`canfail` ignores and this project reads:
-
-```json
-{
-  "name": "Type check",
-  "checkId": "ci-type-check",
-  "dependsOn": ["packages", "tsconfig.base.json", "pnpm-lock.yaml"]
-}
-```
-
-`checkId` is the check's address in the ledger and the only way anything outside
-the app names a check. `dependsOn` is the paths that bear on the check's proof,
-spelled as git spells them, relative to the root; an entry matches a changed
-path when it is that path or when the path sits inside it. `canfail.json` itself
-is the one exception: listed by every check, a change to it counts against a
-check only when that check's own entry, or something every check shares,
-changed (#165). Both keys sit once on
-the check and not once per break, which is what makes them a statement about the
-check's proof rather than about one plant. The list above is shown short:
-`canfail.json` carries all eight of that check's entries, `canfail`'s own keys
-beside them, and its two declared breaks, and a list of its own for each of
-the other nine checks. What each of those nine plants, and why, is in
-`packages/replay/README.md`.
-
-The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
-`cron: '17 4 * * 1'`, which is 04:17 UTC on a Monday, and it can also be
-dispatched by hand, which is the route for a declared check wanted back sooner
-than the age floor below would bring it.
-
-What the cron asks for and what the runner does are two different claims, and
-only the second is a measurement. As of 1 October 2026 two scheduled runs have
-happened.
-[35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
-was created at 09:55:38 UTC on Monday 21 September 2026, five hours and
-thirty-eight minutes after the time it asked for, and
-[36412371539](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36412371539)
-at 10:53:35 UTC on Monday 28 September 2026, six hours and thirty-six minutes
-after it. Both delays are GitHub queueing the run rather than anything in this
-repository. So the cadence to plan against is about one run a week, and the
-time of day in the cron is a request.
-
-Weekly rather than on every push, because a replay filed on every merge would
-bury the runs that say something under runs that say the same thing again. Each
-replay runs a check once on a clean tree and once per declared break, so a
-dispatch that replays every declared check runs one check per declared check
-and one per declared break. With `canfail.json` as it stands on 5 October 2026,
-ten checks and seventeen breaks, that is 27: three each of
-`pnpm typecheck`, the build, the build followed by the published-output script,
-`pnpm ledger:validate` and the server start script, four of
-`pnpm lint:workflows`, and two each of `pnpm format:check`, `pnpm lint`,
-`pnpm test` and `pnpm build:web`.
-While the
-repository was private those
-runs also spent a finite allowance of runner minutes; that reason lapsed when it
-was made public on 27 September 2026, and the cadence rests on the record alone. Weekly also
-sits inside the thirty-day backstop with room to spare: a run that arrives
-notices a change within seven days and leaves twenty-three days of margin, and a
-run the scheduler drops is caught by the backstop rather than by the cadence,
-which is what the backstop is for. The replay is deliberately not part of the CI
-workflow that runs on every pull request: `canfail` edits real source files on
-disk and restores them, which is fine on a runner nobody else is using and is
-not something to put in the path of every contributor's change.
-
-The job does seven things:
-
-1. **Works out which checks are due**, with `pnpm replay:select`. It exits 0
-   when something is due, 3 when nothing is, and 1 when it refuses, and the
-   workflow reads that status rather than looking for an output file, because a
-   missing file cannot tell a refusal from an honest empty answer.
-2. **Creates and migrates the databases**, the same way CI does and against
-   the same kind of service container, because two of the declared checks are
-   the build and the build derives every status in PostgreSQL. Only once
-   something is due; the service itself starts with the job.
-3. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
-   report under the runner's temporary directory rather than into the checkout.
-   The two packages its verdicts rest on, `didrun` and `restore-verified`, are
-   installed with it, each pinned by version and hash. All of this, and step 4,
-   is one step: the
-   [canfail-action](https://github.com/async-digital-ltd/canfail-action)
-   release the workflow pins by SHA, whose `requirements.txt` holds the pins.
-4. **Checks the tree came back.** `canfail` edits real files and puts them back,
-   and a restore that ran is not a restore that worked: a tree that did not come
-   back leaves every break after the failed one scored against a tree nobody
-   declared, so the job stops instead of recording them.
-5. **Records what the report means**, with `pnpm ledger:replay`. One run per
-   declared break, each carrying `source: replay`, the commit the plants were
-   applied to, and a link to the run that produced it.
-6. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
-   and the hand-recording workflow run, so this job cannot commit a ledger
-   either of them would have refused.
-7. **Pushes `replay/<run id>` and says what is waiting**, printing the
-   `gh pr create` command into the run summary. It does not open the pull
-   request. The printed title takes its ticket number from `TICKET`, and the
-   command will not run until that is set, so the merged commit's subject
-   names the issue the replay evidences
-   ([#116](https://github.com/async-digital-ltd/seen-to-fail/issues/116)). A green run here means recorded and waiting for a person; it does
-   not mean done.
-
-**What makes a check due.** A check is replayed when either of two things
-holds: a path matching its `dependsOn` list has changed since that check was
-last replayed, or its newest settled run is older than an age floor,
-`REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
-days, chosen so that the weekly schedule gets two attempts at a refresh before
-the thirty-day rule takes a proof Stale. Either route can select only a check
-that has a plant in `canfail.json`, so today both reach the ten checks declared
-there and not the one left out of it. For the
-dependency route, the range is worked out per check
-rather than once for the run. The anchor is the
-`sourceCommit` of that check's newest recorded replay, read back out of the
-ledger, and newest means newest by git's count of commits to `HEAD` rather than
-by the day the run was recorded on, because two replays recorded on one day
-carry no order between them. One shared anchor would be the newest of them all,
-so a check replayed a month ago would have its month of changes hidden behind a
-check replayed yesterday and would quietly stop being replayed.
-
-Two things about that range are decisions rather than details. It is the whole
-window since the check was last proved and not the last commit, because a weekly
-cadence puts several commits between one dispatch and the next and the one that
-matters is rarely the one that happened to land last. And it is the difference
-between two trees rather than the union of every path the commits in it touched,
-so a dependency edited and put back inside the window leaves the check's proof
-standing: the proof is about a tree, and the tree is the one it was proved
-against.
-
-A check that has never been replayed is measured against the empty tree, so
-every tracked file counts as changed and the matching decides from there. A
-check with no `dependsOn`, or one whose list matches nothing, is never selected
-by dependency. It is selected by the floor once its proof has aged, because a
-list nobody has written says nobody has worked out what voids that check's
-proof, which is a reason to keep proving it rather than to stop. A dispatch
-replays every declared check unless its `only-due` box is ticked, which is what
-lets the hand route reach a check sooner than either route would.
-
-All of that needs the whole history, which is why the job checks out with
-`fetch-depth: 0` and why the selection refuses a shallow clone outright rather
-than answering from one. In a shallow clone every recorded commit is
-unreachable, so every check would fall back to the empty tree and every check
-with a list would be replayed on every run. That is a guard that always says
-yes, which is the failure this repository exists to describe, so it refuses
-instead.
-
-The mapping from a verdict to a record is fixed, and those four verdicts are the
-whole vocabulary of 0.2.1:
-
-| `canfail` verdict | the ledger records | `inconclusiveReason`   |
-| ----------------- | ------------------ | ---------------------- |
-| `catches`         | caught             | none                   |
-| `blind`           | missed             | none                   |
-| `wrong-failure`   | inconclusive       | `canfail`'s own words  |
-| `look`            | inconclusive       | `canfail`'s own words  |
-| anything else     | nothing is written | the whole report stops |
-
-A fifth verdict means the mapping is out of date, which is a refusal naming it
-rather than a guess, and it stops the whole report rather than the one outcome:
-a tool this mapping no longer describes did not produce the other verdicts any
-more reliably. The reason is copied word for word rather than reworded, for the
-reason the status model gives above.
-
-**What that produced.** Run
-[35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
-is the first replay in this record that nobody started. GitHub's scheduler
-created it at 09:55:38 UTC on Monday 21 September 2026, against `81e159c` on
-`main`. Its one job ran eighteen steps and every one of them concluded
-`success`. The selection found one check due, printing
-`Type check (ci-type-check) is measured against 62e34e977f2241cbe33b948cc31afd287b5420ed, where 22 path(s) changed`
-into the log; `canfail` scored both declared breaks and exited 0; the adapter
-wrote two `caught` runs; the job pushed `replay/35585966476` and printed the
-`gh pr create` command into the run summary. A person opened
-[#115](https://github.com/async-digital-ltd/seen-to-fail/pull/115), and merging
-it as `f1348f8` is what put the two records in `ledger/runs/`. Both read
-`"outcome": "caught"` and `"source": "replay"` against a `sourceCommit` of
-`81e159c`. One of the two:
-
-```json
-{
-  "checkId": "ci-type-check",
-  "runOn": "2026-09-21",
-  "planted": "STALE_AFTER_DAYS is written as a string rather than a number.",
-  "expected": "The type check fails.",
-  "outcome": "caught",
-  "inconclusiveReason": null,
-  "note": null,
-  "source": "replay",
-  "sourceCommit": "81e159cc56193008c60e83abdbe18b9b45e32a30",
-  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476"
-}
-```
-
-**What that record cannot tell you is that it was scheduled.** Those ten fields
-are the whole of a replay record, and none of them names what started the job.
-`source` has two values, `hand` and `replay`, so it separates a job from a
-person typing, and a replay somebody dispatched is a job too. The cron firing is
-visible on the run `sourceRunUrl` points at, and nowhere in this repository. So
-the paragraph above is checkable from the repository as far as "a job recorded
-this", and the rest of it needs the link followed.
-
-**The same route, walked by hand first.** Run
-[35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
-did all of that on 19 September 2026 against `62e34e9`, dispatched by a person
-rather than by the schedule, and its two records came in through
-[#103](https://github.com/async-digital-ltd/seen-to-fail/pull/103). A second
-dispatched run,
-[35437095049](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35437095049),
-followed the same day against `333dab1` to prove the selection before the
-schedule had ever fired, and its two records came in through
-[#124](https://github.com/async-digital-ltd/seen-to-fail/pull/124) on 23
-September. All three pairs are in `ledger/runs/` and their `sourceRunUrl` is
-what tells them apart. Nothing about the machinery differs between the three
-runs. What differs is that on the
-Monday nobody decided a replay was due, which is the whole of what the automatic
-half was for.
-
-**And since.** By 1 October 2026 two more replays had reached the record, each
-over all four checks declared at the time. The schedule fired again on Monday
-28 September 2026 as run
-[36412371539](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36412371539),
-against `33b5238`, and its seven records, the first replays of the three checks
-declared on #110, came in through
-[#168](https://github.com/async-digital-ltd/seen-to-fail/pull/168) as `6f29d42`.
-A dispatched run,
-[36588226891](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/36588226891),
-followed on 29 September 2026 against `ec2b3bd`, and its eight records came in
-through [#169](https://github.com/async-digital-ltd/seen-to-fail/pull/169) as
-`bb3e011`. It wrote one more than the run before it because `ec2b3bd` is the
-commit that declared a second break for `ci-published-output`.
-
-**And the half that matters more.** A route that records a catch is worth
-nothing until the same route has been seen not to record one. Run
-[35431432957](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35431432957)
-ran the same replay against `ci-control/67-red-baseline` at `7d7e24c`, a branch
-where the type check was already failing before anything was planted. That the
-baseline really was red, and red for the declared reason, is CI run
-[35431434499](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35431434499)
-on the same branch, which concluded failure with `Type check` the step that
-failed. `canfail` scored both breaks `look`, the adapter wrote two
-`inconclusive` runs carrying `canfail`'s own sentence as the reason, and no
-`caught` run was written. `canfail` exited 0 in both halves, so the process
-status could not have told the two apart; the records did, which is why the
-observation is the absent `caught` row and not an exit code. Those two records
-describe that control branch rather than `main` and were left on
-`replay/35431432957`, which is why `ledger/runs/` holds no inconclusive run.
-
-**Neither workflow opens its own pull request.** GitHub Actions is not permitted
-to create pull requests on this repository, and neither workflow tries. Each
-pushes its branch, ends green, and names the branch and the command that opens
-the pull request in its run summary, so a green run means recorded and waiting
-for a person, not done. `Record a run` used to try, and ended red at that last
-step with the record already committed and pushed: measured on 18 September
-2026 in run
-[35405970369](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35405970369),
-which failed with `GitHub Actions is not permitted to create or approve pull
-requests (createPullRequest)`. The switch that would allow either of them,
-"Allow GitHub Actions to create and approve pull requests", is off:
-`gh api repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow`
-answers `"can_approve_pull_request_reviews": false`, re-checked on
-22 September 2026. It couples creating to approving, so turning it on to let a
-job open a pull request also lets automation approve one, in a repository whose
-whole subject is whether automated checks can be trusted to have been checked.
-Tracked at
-[#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74), which also
-holds the cost of a red run that has already recorded something. The automatic
-half is not automatic end to end until that is settled.
-
-### How much of this record is automatic
-
-Ten of the eleven checks in `ledger/checks/` are declared for replay by a job,
-and all ten had been replayed by 5 October 2026. Six of them had first been
-replayed by 4 October 2026. The other four were declared on
-[#228](https://github.com/async-digital-ltd/seen-to-fail/issues/228) and first
-replayed by run
-[37297249729](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37297249729),
-dispatched on 5 October 2026 once the replay had turned colour off
-([#232](https://github.com/async-digital-ltd/seen-to-fail/pull/232)), which
-caught all seventeen declared breaks of the ten. The eleventh,
-`ci-codegen-check`, is not declared, and the whole difference is one file:
-`canfail.json` declares a plant for each of the ten and for no other check.
-
-| Checks                                                                       | What their record rests on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-type-check`                                                              | A declared plant, replayed by the workflow above since 19 September 2026. As of 5 October 2026, sixteen of its seventeen runs came from a replay.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation` | A declared plant since #110, selectable by both routes. Each carries one run planted, watched and typed in on 18 September 2026, and every later run came from a replay, the first of them the scheduled run of 28 September 2026. As of 5 October 2026 that is nine of ten runs for `ci-published-output` and ten of eleven for each of the other two.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `ci-workflow-lint`, `ci-server-start`                                        | A declared plant since [#190](https://github.com/async-digital-ltd/seen-to-fail/issues/190) and [#146](https://github.com/async-digital-ltd/seen-to-fail/issues/146), selectable by both routes, and first replayed by the run dispatched on 4 October 2026, which caught every declared break of all six checks. Each also carries one run typed in by hand on 4 October 2026. The workflow lint's is the CI run of 2 October 2026 that failed on two mistyped input names, typed in from that run by a session that did not watch it. The server start's is a plant pushed to a `ci-control/` branch that day and watched failing that step alone.                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `ci-build-web`, `ci-format-check`, `ci-lint`, `ci-test`                      | A declared plant since [#228](https://github.com/async-digital-ltd/seen-to-fail/issues/228), selectable by both routes, and first replayed by the run named above, dispatched on 5 October 2026, which caught the one declared break of each. That replay is each check's only run, so each reads Proven on it alone. Each plant was seen caught under `canfail` 0.2.1 on a development machine before it was declared, beside a control whose `expect` named nothing the check prints, which scored `wrong-failure` rather than a catch.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `ci-codegen-check`                                                           | One run, typed in by hand, and no plant. The step regenerates the types and compares them with what git has committed, so the defect it catches is a committed one, and a plant `canfail` applies is never committed. A generated file edited by hand is regenerated over and the comparison passes, which `canfail` scored `blind`. A query edited without regenerating is caught, but leaves the regenerated files changed on disk, which `canfail` does not put back and the replay's tree check refuses. So its run was planted by a person: a query committed without regenerating, pushed to a `ci-control/` branch on 5 October 2026 and seen failing at that step in CI run [37295226381](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37295226381), then typed in ([#231](https://github.com/async-digital-ltd/seen-to-fail/pull/231)). It reads Proven on that hand run alone. Nothing replays it, so it reads Stale from 5 November 2026 unless a person plants it again first or [#236](https://github.com/async-digital-ltd/seen-to-fail/issues/236) is built. |
-
-You can check that with `ls ledger/checks`, `ls ledger/runs` and `cat
-canfail.json`, and the arithmetic is the point of showing it, denominators and
-all. Eleven checks are on the page, ten of them are declared for replay, and
-all ten have been replayed. All eleven have a run behind them, and for
-`ci-codegen-check` that is a run typed in by hand. As of 5 October 2026, 71 runs
-are in `ledger/runs/` and 64 of them came from a replay; the other seven were
-typed in by hand, one each for the six checks declared first and one for
-`ci-codegen-check`. The dates their records carry are 18 September 2026 for four
-of them and 2, 4 and 5 October 2026 for one each. Both numbers grow with every
-replay that is merged, so count them again rather than trust these:
-`ls ledger/runs | wc -l` for the first and
-`grep -l '"source": "replay"' ledger/runs/*.json | wc -l` for the second.
-
-None of that is a promise that broke. Epic
-[#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) scoped the
-automatic half to adapting an existing runner against real checks here, and
-names writing plants automatically, a runner of this project's own, and checks
-that cannot be broken on purpose at all as out of scope. It is said here rather
-than left to be worked out because a reader who discovers the reach of a thing
-for themselves, after the page implied more, is right to stop believing the rest
-of the page.
-
-### What the build refuses to publish
-
-The build refuses to publish when the records and the output disagree: it
-compares the files on disk with the rows the database ended up holding, with the
-export, and with the rendered page, and writes nothing if any of those disagree.
-It also compares the run each check's status was read from with the first run in
-the check's published table that settled anything, and refuses when they are
-different runs, and does the same for the observation its armed state was read
-from and the first observation in its published list. A page listing nine runs where the ledger holds ten looks
-exactly like a page listing ten, which is the kind of quiet wrongness this
-project is about.
-
-The page names the commit that recorded each run, read back out of the history
-rather than stored, so a run cannot claim a commit that did not add it. That is
-a different commit from a replay's `sourceCommit`, which is the tree the plant
-was applied to, and the page names both rather than leaving them to be told
-apart by position.
-
-The published page is read-only and has no filter bar. The filter language
-compiles a filter to SQL, and there is no database behind a published page to
-compile it against, so it is what you get when you run the app locally. That was
-the cheapest of the three ways and it is the one that hides the best part; the
-cost is bought back by
-[#73](https://github.com/async-digital-ltd/seen-to-fail/issues/73) rather than
-absorbed.
-
-**The forms have not gone anywhere.** They and the GraphQL mutations are still
-how a run is recorded against a workspace you are running locally, and they are
-still where a check is added and an arming observation recorded. What has
-changed is that they are no longer the only way a run is recorded, and they do
-not write the published ledger. Nothing yet carries a run from a local database
-into `ledger/`
-([#75](https://github.com/async-digital-ltd/seen-to-fail/issues/75)).
-
-**Where it is published.** Every push to `main` builds the page, checks it, and
-serves it with GitHub Pages at
-[seen-to-fail.async-digital.com](https://seen-to-fail.async-digital.com/)
-([#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76),
-[#137](https://github.com/async-digital-ltd/seen-to-fail/issues/137)). The old
-`async-digital-ltd.github.io/seen-to-fail` address redirects there. The job
-that serves it builds nothing of its own: it deploys the directory the checks
-built and checked on the same commit, so the page served is the page that
-passed.
-
-The page is open to search engines and carries Open Graph and Twitter tags, so
-a shared link previews as a card with the project's mark rather than a bare
-address ([#237](https://github.com/async-digital-ltd/seen-to-fail/issues/237)).
-The preview image is a static PNG committed beside the renderer and copied into
-`dist/ledger` by the build, which fetches nothing to make it. The first line
-under the page's header says what the page is and links this repository. The
-line under the headline says what its count covers: the areas the checks on the
-page are in, read from the checks themselves, and that checks about security,
-such as secret scanning, are left off on purpose, with a link to
-[What belongs on a public ledger](#what-belongs-on-a-public-ledger)
-([#240](https://github.com/async-digital-ltd/seen-to-fail/issues/240)).
-
-Pull requests and pushes to a `ci-control/` branch build and check the same page
-and keep it as a build artefact for seven days, but never serve it. A proposed
-change or a planted defect cannot alter what a reader sees until it is on
-`main`.
-
-Pages stayed switched off until this repository was made public, on 27
-September 2026. A Pages site cannot be private on the plan this organisation is
-on, as measured on 18 September 2026, so turning it on earlier would have made
-the ledger readable by anyone with the URL before the history review on
-[#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55) had cleared
-the rest of the repository to be read. What was and was not measured about the
-plan is recorded on
-[#76](https://github.com/async-digital-ltd/seen-to-fail/issues/76).
-
-### What belongs on a public ledger
-
-A ledger is a map of where a project's checks have and have not been seen to
-work. For a check about quality, such as a type check, a lint or a build step,
-that map is harmless. For a check about security, such as a secret scanner, an
-access control test or a leak gate, a status of Unproven or Broken on a public
-page tells an attacker where to look. So the split is this: a public ledger is
-for checks about quality, and a ledger of checks about security is kept private.
-
-A private repository is not a private ledger. On the Free, Pro and Team plans a
-GitHub Pages site is public whatever the repository's visibility; publishing one
-privately needs GitHub Enterprise Cloud
+A private repository does not make a private ledger. On the Free, Pro and Team
+plans a GitHub Pages site is public whatever the repository's visibility.
+Publishing one privately needs GitHub Enterprise Cloud
 ([GitHub's documentation](https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site)).
 If you copy this pattern for checks about security, run `pnpm ledger:build` and
-read `dist/ledger` where only the people who should see it can, rather than
-handing it to Pages.
+read `dist/ledger` where only the people who should see it can. Do not hand it
+to Pages.
 
 This ledger is safe to publish because every check it declares is about
 quality. All eleven checks in `ledger/checks/` have an `area` of Code, Build or
@@ -896,303 +231,41 @@ and a published record that is malformed or disagrees with what it was built
 from. None of them guards a secret, an access rule or a leak.
 
 This project keeps no private ledger either. The repository has GitHub secret
-scanning and push protection switched on, and both are checks about security,
-so neither is on this ledger, and no record says whether either has been seen
-to catch anything. The page says so under its headline, so its count is not
-read as every check the project has
+scanning and push protection switched on. Both are checks about security, so
+neither is on this ledger, and no record says whether either has been seen to
+catch anything. The page says so under its headline, so nobody reads its count
+as every check the project has
 ([#240](https://github.com/async-digital-ltd/seen-to-fail/issues/240)).
 
-Publishing the breaks themselves is not the risk. Every declared break in
+The breaks themselves are safe to publish. Every declared break in
 `canfail.json` is an edit to this project's own source, applied on a
 GitHub-hosted runner that is thrown away when the job ends. Declaring a new one
-takes a merge to `main`, and running one against this repository, by
-dispatching the replay workflow or pushing to a `ci-control/` branch, takes
-write access to it.
+takes a merge to `main`. Running one against this repository, by dispatching the
+replay workflow or pushing to a `ci-control/` branch, takes write access to it.
 
-## Tests
+## More documentation
 
-<!-- generated: contributor-commands, by pnpm readme from the checks job in .github/workflows/ci.yml -->
-
-```sh
-pnpm typecheck
-pnpm lint
-pnpm lint:workflows
-pnpm format:check
-pnpm test
-```
-
-<!-- end generated: contributor-commands -->
-
-The repository is a pnpm workspace, and these are its packages:
-
-<!-- generated: packages, by pnpm readme from packages/ and each package's own description -->
-
-- `packages/filter`: The filter language, imported by both the server and the web client so that neither one depends on the other.
-- `packages/replay`: Reads a replay tool's report and says what runs it means. It writes nothing, reads no files and knows nothing about a database.
-- `packages/server`: The GraphQL API.
-- `packages/web`: The React client, built with Vite.
-
-<!-- end generated: packages -->
-
-`typecheck` and `test` run inside every package. `lint` and `format:check` run
-once over the whole tree from the repository root. `pnpm format` rewrites files
-in place instead of reporting on them.
-
-`lint:workflows` reads every file in `.github/workflows` as a GitHub Actions
-workflow with [actionlint](https://github.com/rhysd/actionlint), and the shell
-in each of their `run:` steps with ShellCheck. Nothing else reads
-`.github/workflows/record-run.yml` or `.github/workflows/replay.yml` as a
-workflow before it runs, and neither runs on a pull request
-([#157](https://github.com/async-digital-ltd/seen-to-fail/issues/157)). It
-then reads every tracked shell script under `scripts/` with the same
-ShellCheck, because several of CI's steps are one of those scripts and
-actionlint reads only the shell written inside a workflow
-([#191](https://github.com/async-digital-ltd/seen-to-fail/issues/191)). It
-downloads both tools from their release pages on every run, so it needs a
-network connection, and refuses either one unless its SHA-256 matches the pin
-in `scripts/lint-workflows.sh`.
-
-The server's resolver types and the client's typed queries are generated from
-`packages/server/schema.graphql` and checked in. After changing the schema or a
-`.graphql` query in `packages/web`, run `pnpm codegen`. CI runs
-`pnpm codegen:check`, which regenerates both and fails when the result differs
-from what is committed.
-
-The commands above, the list of packages and the list of CI's steps below are
-written from the tree rather than by hand. `pnpm readme` rewrites them from
-`.github/workflows/ci.yml` and from each package's `package.json`, and a test
-fails while any of them differs from what it would write, so a change to either
-source needs `pnpm readme` run before it will pass.
-
-Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
-a real PostgreSQL, apply the migrations before the first of them, and empty
-every table between tests, so they are repeatable without anyone tidying up by
-hand. They fail if no database is running, which is the honest answer rather
-than a quiet skip. The status rules above are tested that way, one fixture per
-rule, so a rule deleted from the SQL takes at least one test down with it.
-
-CI runs these steps, in this order, each under the name the checks job in
-`.github/workflows/ci.yml` gives it. The commands at the top of this section are
-the ones it runs between applying the migrations and starting the server.
-
-<!-- generated: ci-steps, by pnpm readme from the checks job in .github/workflows/ci.yml -->
-
-1. Check out the repository
-2. Install pnpm
-3. Install Node
-4. Install dependencies
-5. Check the generated types are current
-6. Create the databases
-7. Apply migrations
-8. Type check
-9. Lint
-10. Lint the workflows
-11. Check formatting
-12. Test
-13. Check the server starts
-14. Build the client
-15. Check the client bundle against its baseline
-16. Check the ledger reads
-17. Build the published ledger
-18. Check the published output
-19. Keep the published ledger as an artefact
-20. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
-
-<!-- end generated: ci-steps -->
-
-Starting the server is `scripts/check-server-starts.sh`, and it is what proves
-the entry point loads: the tests put requests through the handler and never run
-it. The script waits up to 30 seconds for `/health`, then sends one GraphQL
-query, stops the server, and requires that nothing answers on its address
-afterwards, so an answer from some other process on the port fails the check.
-It runs the same way locally. Building the client is what proves the page
-reaches the code: the tests import modules, and only the bundler starts from
-`packages/web/index.html`. The bundle check then measures what that build
-wrote, in bytes, against `packages/web/bundle-baseline.json`, and fails when
-the JavaScript, the CSS or the whole build grows more than the baseline's
-tolerance past it. When the build shrinks it passes and says so:
-`pnpm build:web && pnpm bundle:ratchet` lowers the baseline to match, and is
-the only command that rewrites it. It cannot raise a number, so a change that
-needs the bundle to grow edits the file by hand and says why
-([#246](https://github.com/async-digital-ltd/seen-to-fail/issues/246)). The
-ledger steps read the records, build the published page from them, and check
-what came out: the page, the export and
-the preview image, naming the commit CI is running against, with no script, no
-`noindex`, link-preview tags that point at the live address, and a line under
-the headline that scopes its count and links a heading this README has.
+- [How it works](docs/how-it-works.md): the two logs behind each check, the
+  five statuses and the order they are read in.
+- [Filters](docs/filters.md): the filter language, its link format, and how a
+  filter reaches SQL.
+- [Stack](docs/stack.md): what the app is built with, and what the local server
+  will and will not answer.
+- [The published ledger](docs/published-ledger.md): how a run reaches the
+  public record as a commit, and the route for recording one by hand.
+- [A replay, start to finish](docs/replay.md): the weekly job that plants each
+  declared defect with `canfail` and records the verdicts.
+- [How much of this record is automatic](docs/automatic.md): which checks a
+  replay reaches, with the counts.
+- [What the build refuses to publish](docs/publishing.md): the build's
+  agreement checks, and where the page is served.
+- [Tests](docs/tests.md): the commands to check a change, the packages, and
+  CI's steps.
+- [How it is built](docs/how-it-is-built.md): who wrote the code, what was
+  checked and what was not.
+- [What shipped, and where it could go](docs/roadmap.md): version 1, version 2,
+  and what is still only a direction.
 
 ## Licence
 
 MIT, in `LICENSE` at the root of the repository.
-
-## How it is built
-
-The code in this repository was written by Claude, an AI coding agent, under
-the owner's direction. The owner set the scope, the status model and the rulings
-recorded in the issues, and checked the work, but did not write the TypeScript.
-The sample data is invented.
-
-Code written that way is only as trustworthy as the checking behind it, so here
-is what was checked, what was not, and where the evidence for each is.
-
-- **Planted defects, watched being denied.** Tests were trusted once the defect
-  they exist for had been planted and seen to fail them. On the story that built
-  the add-check form, 12 defects were planted and all 12 were caught, on that
-  session's own account; the plants were restored, so the record is the comment
-  on [#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24) and
-  nothing in the tree remains to re-check.
-- **The fault none of them could see.** That same branch built only one of the
-  two entry points its ticket named. The planted defects, a code review and the
-  acceptance check all passed it, because each examined what the branch
-  contained and the fault was something missing. It was caught when the README
-  screenshot, retaken from the branch and expected to show the new link, came
-  back byte-identical to the one before. That is the session's own account, on
-  [#24](https://github.com/async-digital-ltd/seen-to-fail/issues/24).
-- **A scanner trusted only after it fired.** The whole history, every branch
-  and every pull request head from the root, was scanned for secrets with
-  gitleaks as the last step before the repository was made public on 27
-  September 2026, and the result counted only once the same scan had reported
-  a planted key. The first runs are recorded on
-  [#29](https://github.com/async-digital-ltd/seen-to-fail/issues/29), and
-  every later run, with its command and its result, on
-  [#55](https://github.com/async-digital-ltd/seen-to-fail/issues/55). Those are
-  one session's account. The history is public, so the scan itself can be run
-  again by anyone; the planted key it was trusted on cannot be seen from here.
-- **A walkthrough by hand.** The run instructions above were followed from a
-  fresh clone on 16 September 2026, before the ledger commands were added to
-  them. Every command then present worked, and one sentence led a Homebrew
-  reader into database URLs the server refuses, which CI had no way to notice
-  ([#27](https://github.com/async-digital-ltd/seen-to-fail/issues/27),
-  [#48](https://github.com/async-digital-ltd/seen-to-fail/pull/48)). They were
-  followed again from a fresh clone on 27 September 2026, the ledger commands
-  included, on the Homebrew route with the two database URLs set in the
-  environment rather than in `.env`. Every command worked and said what this
-  file says it does. The Docker route was not walked either time. Both walks
-  are one session's account, the second recorded command by command in the
-  pull request linked from
-  [#127](https://github.com/async-digital-ltd/seen-to-fail/issues/127), and
-  anyone with a clone can repeat them.
-- **The ledger's own guards, watched refusing.** The two checks the publishing
-  route rests on were each given the defect they exist for and seen to deny it:
-  a record whose outcome was neither caught nor missed, which the validator
-  refused with a non-zero exit, and a record dropped from the export inside the
-  build, which the build refused to publish, leaving no output directory behind.
-  Both were watched passing before and after. They are two of the three runs
-  the first commit to `ledger/runs/` added, `7b47398`, which is the first thing
-  this project has recorded about itself
-  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)); the
-  third is the guard in the next bullet. All three were typed in by the session
-  that watched them. Each has a plant in `canfail.json` that a replay re-checks
-  it with, and the scheduled replay of 28 September 2026 was the first to reach
-  any of them.
-- **A guard that could not fail, in a repository about guards that cannot
-  fail.** The CI step that refuses a published page carrying a script was first
-  written as `! grep -qi '<script' ...` under `set -e`. A shell does not apply
-  `set -e` to a command whose status is inverted, so that step went green with
-  the script sitting in the page. It was found by planting the script and
-  watching the step pass, before it had run anywhere, and rewritten as an `if`
-  ([#63](https://github.com/async-digital-ltd/seen-to-fail/issues/63)). The
-  check now lives in `scripts/check-published-output.sh`, whose header keeps
-  that history, and the note on its first run in `ledger/runs/` tells it too.
-- **A test that depended on the shell.** The error masking tests passed or
-  failed with the value of `NODE_ENV`. They were run under each value, seen
-  failing under one, and the server was pinned so they no longer depend on it
-  ([#39](https://github.com/async-digital-ltd/seen-to-fail/issues/39),
-  [#56](https://github.com/async-digital-ltd/seen-to-fail/pull/56)). The pin is
-  `maskedErrors` in `packages/server/src/graphql/server.ts`, and the masking
-  tests in the same folder pass with `NODE_ENV=development` set, which anyone
-  can re-run.
-
-Not checked:
-
-- No keyboard and screen reader pass has been run
-  ([#28](https://github.com/async-digital-ltd/seen-to-fail/issues/28)).
-- Nothing automated exercises the client and the server together. That path
-  was walked by hand over HTTP on 16 September 2026
-  ([#46](https://github.com/async-digital-ltd/seen-to-fail/issues/46)), and a
-  query was put through the client's development proxy to the server on 27
-  September 2026 in the walk above, with `curl` rather than a browser.
-
-This file is written to one rule. A claim is either checkable from this
-repository or from a run it links to, while GitHub keeps that run's log, or it
-says that it cannot be checked from here. It is checked from where the reader
-stands, not from where the author sat: a fact visible only to somebody with the
-owner's access, or resting only on one session's account of what it saw, is not
-counted as checked, and the text says what a stranger can check instead. The
-ledger section above was audited against that rule on 22 September 2026, after
-two passes over it found claims that were true for whoever wrote them and
-unverifiable for whoever read them
-([#83](https://github.com/async-digital-ltd/seen-to-fail/issues/83));
-[#121](https://github.com/async-digital-ltd/seen-to-fail/issues/121) records
-the pattern. The rest of the file was audited against it on 27 September 2026,
-as it stood at commit `3cd0c37`
-([#127](https://github.com/async-digital-ltd/seen-to-fail/issues/127)), which
-is where the accounts in the bullets above were labelled as accounts.
-`git diff 3cd0c37 -- README.md` shows every change since: the audit's own edits
-and whatever it has not seen.
-
-## What shipped, and where it could go
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/roadmap-dark.svg">
-  <img alt="A timeline with two points. A filled circle, version 1, by hand. Manual: every step by hand. You make a throwaway branch, break the code, run the check, confirm it failed, delete the branch, then record the result in the app. A line joins it to a half-filled circle, version 2, shipped, in part. Automatic: replayed for you. You write the breaking change once. A job applies it, runs the check, removes it and records the result for you." src="docs/roadmap-light.svg">
-</picture>
-
-**Version 1 is manual, and every check recorded here with no plant declared
-still is.**
-Proving one check means making a throwaway branch, breaking the code in the way
-that check exists to catch, running the check, confirming it failed for that
-reason and not another, deleting the branch, and then writing down what
-happened. The app holds the record. Every step that produces the record is
-yours. The table under
-[How much of this record is automatic](#how-much-of-this-record-is-automatic)
-names the checks still proved this way.
-
-That is the weakness, and it is the one the app exists to show in checks: a
-record made that way goes stale as soon as people stop doing all of it. Thirty
-days is only a stand-in for what actually voids a proof, which is a change to
-something the check depends on: its workflow, its configuration, the version of
-its tool.
-
-**Version 2 automates all of that except deciding what to break, for a check
-that has a plant declared.** You write the breaking change once and keep it
-beside the code, with the list of things its check depends on. A job applies it,
-runs the check, confirms it failed for that reason, puts the code back and
-records the result. Nobody opens the app. You write the plant in the format of
-the tool that replays it rather than in one this project invents, and what this
-project adds is the record. That is not a direction any more: it is
-`canfail.json`, `.github/workflows/replay.yml` and the ledger section above. The
-first replay nobody started was the scheduled run of Monday 21 September 2026,
-which reached the record as `f1348f8`, and the scheduled ones are the ones the
-epic was for. Every replay run merged to `main` is in `ledger/runs/`, and how
-far replays have reached each declared check is the table under
-[How much of this record is automatic](#how-much-of-this-record-is-automatic).
-
-**What is still only a direction** is the rest of the reach, and it is worth
-being specific about which parts:
-
-- **The checks with no plant declared.** A plant is written once, by a person,
-  and nothing writes one for you. Epic
-  [#62](https://github.com/async-digital-ltd/seen-to-fail/issues/62) names
-  writing plants automatically as out of scope, so until somebody writes them,
-  those checks are proved by hand or not at all.
-- **A runner of this project's own.** An existing one was adapted rather than
-  written, and writing one is only worth it if the adapter shows the ledger
-  earns its keep and the tool cannot be made to fit.
-- **A record that knows which tool produced a verdict.** The versions are pinned
-  in the canfail-action release the replay pins and named in this file, which is prose
-  rather than record: the
-  ledger cannot yet tell you that a run was scored by `canfail` 0.2.1
-  ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
-- **End to end without a person.** Neither recording workflow lands its own
-  record. Each pushes a branch and names it, with the command that opens the
-  pull request, in its run summary, and a person opens the pull request
-  ([#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74)).
-- **Plants that need a branch pushed and another workflow's verdict awaited.**
-  Everything here replays in place, on one runner, in one job. Anything else is
-  a later epic if in-place replays prove useful.
-
-Some checks cannot be broken on purpose in any of those ways, a review bot or
-branch protection among them. Those stay manual. Thirty days stays too, as a
-backstop for changes nobody thought to list, so if the automatic runs stop
-arriving, Proven checks still drift to Stale.

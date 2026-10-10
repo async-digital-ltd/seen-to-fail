@@ -10,6 +10,8 @@ import {
   countOf,
   flattened,
   inlineCodeIn,
+  readDoc,
+  readDocumentation,
   readReadme,
   sectionOf,
 } from '../readme/readme.ts';
@@ -113,8 +115,8 @@ it('creates the four tables and the two indexes', async () => {
 });
 
 /**
- * The README names the tables under "Stack" and counts them again under "Run
- * it locally" (#149). Both are held to the catalog of the migrated database
+ * The README names the tables under "Stack", which is `docs/stack.md` since the
+ * split (#251), and counts them again under "Run it locally" (#149). Both are held to the catalog of the migrated database
  * rather than to the list above, because that list only asks for the four to
  * be present and would pass with a fifth beside them. The migrations'
  * bookkeeping table is left out, as the truncation between tests leaves it out:
@@ -132,10 +134,10 @@ it('names in the README every table the migrations create, and counts them right
 
   const readme = readReadme();
   const listed = /\*\*PostgreSQL\*\*, with (\w+) tables: ([^.]+)\./u.exec(
-    flattened(sectionOf(readme, 'Stack')),
+    flattened(readDoc('stack.md')),
   );
   if (listed?.[1] === undefined || listed[2] === undefined) {
-    throw new Error('README.md names no tables under "Stack".');
+    throw new Error('docs/stack.md names no tables.');
   }
   const named = listed[2]
     .split(/, | and /u)
@@ -156,7 +158,7 @@ it('names in the README every table the migrations create, and counts them right
 });
 
 /**
- * Everything else the README names in the schema's own spelling.
+ * Everything else the README and `docs/` name in the schema's own spelling.
  *
  * A span of inline code written in snake case is a name in the database: a
  * table, the migrations' bookkeeping table, or a function. Each must be one of
@@ -165,7 +167,7 @@ it('names in the README every table the migrations create, and counts them right
  * schema: it is the role and password `.env.example` gives, and it is held to
  * still being in the README so the exception cannot outlive its sentence.
  */
-it('names in the README only tables and functions the migrated schema has', async () => {
+it('names in the README and docs/ only tables and functions the migrated schema has', async () => {
   const found = await database.client().query<{ name: string }>(
     `SELECT tablename AS name FROM pg_tables WHERE schemaname = 'public'
      UNION
@@ -178,9 +180,9 @@ it('names in the README only tables and functions the migrated schema has', asyn
 
   const named = [
     ...new Set(
-      inlineCodeIn(readReadme()).filter((span) =>
-        /^[a-z]+(?:_[a-z]+)+$/u.test(span),
-      ),
+      [...readDocumentation().values()]
+        .flatMap((text) => inlineCodeIn(text))
+        .filter((span) => /^[a-z]+(?:_[a-z]+)+$/u.test(span)),
     ),
   ];
 
