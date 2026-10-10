@@ -45,6 +45,26 @@ the rest of this repository adds. This repository's own declaration, and the
 version it pins, are described under
 [A replay, start to finish](#a-replay-start-to-finish).
 
+To run it in CI, use the
+[canfail-action](https://github.com/async-digital-ltd/canfail-action) this
+repository published for that and runs its own replay through:
+
+```yaml
+- uses: async-digital-ltd/canfail-action@5ffd94d2598c9f9ce91aecf1122b9296a38b56e7 # v1.0.0
+  with:
+    declaration: canfail.json # default
+    skip: needsXcode # optional: drop checks this runner cannot run
+```
+
+It installs `canfail` and the two packages its verdicts rest on by version and
+hash, refuses a tree that is dirty before planting, sets `NO_COLOR`, fails with
+"could not run" rather than reporting that as a verdict, fails when the tree
+does not come back, and fails when a verdict differs from the declaration
+(`catches` unless a break sets `expectedVerdict`). The verdicts go to the job
+summary and to a JSON report output. Its
+[README](https://github.com/async-digital-ltd/canfail-action#readme) lists the
+inputs and what each way of failing means. Pin it by SHA, as above.
+
 **The ledger and the weekly replay: copy this repository and make it yours.**
 The replay runs `canfail` over the checkout it is running in, reads `dependsOn`
 against that checkout's history, and links every commit on the published page
@@ -549,8 +569,10 @@ The job does seven things:
 3. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
    report under the runner's temporary directory rather than into the checkout.
    The two packages its verdicts rest on, `didrun` and `restore-verified`, are
-   installed with it, each pinned by version and hash in
-   `.github/replay-requirements.txt`.
+   installed with it, each pinned by version and hash. All of this, and step 4,
+   is one step: the
+   [canfail-action](https://github.com/async-digital-ltd/canfail-action)
+   release the workflow pins by SHA, whose `requirements.txt` holds the pins.
 4. **Checks the tree came back.** `canfail` edits real files and puts them back,
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
@@ -1158,7 +1180,7 @@ being specific about which parts:
   written, and writing one is only worth it if the adapter shows the ledger
   earns its keep and the tool cannot be made to fit.
 - **A record that knows which tool produced a verdict.** The versions are pinned
-  in `.github/replay-requirements.txt` and named in this file, which is prose
+  in the canfail-action release the replay pins and named in this file, which is prose
   rather than record: the
   ledger cannot yet tell you that a run was scored by `canfail` 0.2.1
   ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
