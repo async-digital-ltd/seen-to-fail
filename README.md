@@ -14,6 +14,10 @@ works and has had nothing to catch, or is broken and cannot catch anything. The
 only way to tell the two apart is to plant the defect on purpose, watch the
 check catch it, and write down what happened. Seen to Fail is that record.
 
+Claude, an AI coding agent, wrote the code under the owner's direction.
+[How it is built](docs/how-it-is-built.md) says what the owner decided and how
+the work was checked.
+
 ![The list of checks in the sample workspace, under a tile counting each of the five statuses, with the filter bar between them.](docs/checks.png)
 
 The sample workspace dates every run and observation from the day it is loaded,
