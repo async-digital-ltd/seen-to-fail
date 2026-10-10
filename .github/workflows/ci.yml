@@ -162,6 +162,18 @@ jobs:
       - name: Build the client
         run: pnpm build:web
 
+      # What that build wrote, in bytes, held to the baseline committed in
+      # packages/web/bundle-baseline.json (#246). Bytes rather than a timed
+      # page load, because the same lockfile and source build the same bytes
+      # on any runner, so this goes red for a change in the code and never for
+      # a slow machine. It fails when the JavaScript, the CSS or the whole
+      # build grows past the baseline's tolerance. When one shrinks it passes
+      # and says to run `pnpm bundle:ratchet`, which can only lower the
+      # baseline; raising it is a hand edit, so growth arrives in a diff with
+      # its reason beside it.
+      - name: Check the client bundle against its baseline
+        run: pnpm bundle:check
+
       # The same command the recording workflow runs before it commits, so CI
       # cannot pass a ledger that workflow would have refused.
       - name: Check the ledger reads

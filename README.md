@@ -969,11 +969,12 @@ the ones it runs between applying the migrations and starting the server.
 12. Test
 13. Check the server starts
 14. Build the client
-15. Check the ledger reads
-16. Build the published ledger
-17. Check the published output
-18. Keep the published ledger as an artefact
-19. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+15. Check the client bundle against its baseline
+16. Check the ledger reads
+17. Build the published ledger
+18. Check the published output
+19. Keep the published ledger as an artefact
+20. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
 
 <!-- end generated: ci-steps -->
 
@@ -984,8 +985,16 @@ query, stops the server, and requires that nothing answers on its address
 afterwards, so an answer from some other process on the port fails the check.
 It runs the same way locally. Building the client is what proves the page
 reaches the code: the tests import modules, and only the bundler starts from
-`packages/web/index.html`. The ledger steps read the records, build the
-published page from them, and check what came out: the page, the export and
+`packages/web/index.html`. The bundle check then measures what that build
+wrote, in bytes, against `packages/web/bundle-baseline.json`, and fails when
+the JavaScript, the CSS or the whole build grows more than the baseline's
+tolerance past it. When the build shrinks it passes and says so:
+`pnpm build:web && pnpm bundle:ratchet` lowers the baseline to match, and is
+the only command that rewrites it. It cannot raise a number, so a change that
+needs the bundle to grow edits the file by hand and says why
+([#246](https://github.com/async-digital-ltd/seen-to-fail/issues/246)). The
+ledger steps read the records, build the published page from them, and check
+what came out: the page, the export and
 the preview image, naming the commit CI is running against, with no script, no
 `noindex`, link-preview tags that point at the live address, and a line under
 the headline that scopes its count and links a heading this README has.
