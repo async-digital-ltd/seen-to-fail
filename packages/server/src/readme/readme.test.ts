@@ -250,6 +250,10 @@ const notInTheTree = new Map([
     'repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow',
     "A path in GitHub's REST API, which `gh api` is given.",
   ],
+  [
+    'async-digital-ltd/canfail-action@5ffd94d2598c9f9ce91aecf1122b9296a38b56e7',
+    'An action in another repository, as a `uses:` line names it.',
+  ],
 ]);
 
 /** Branch lanes the workflows push to, whose names share a path's shape. */

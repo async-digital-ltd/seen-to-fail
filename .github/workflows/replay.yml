@@ -8,10 +8,12 @@ name: Replay a plant
 # through `recordRun` in packages/server/src/ledger/record.ts, so a rule one of
 # them is held to is a rule the other is held to.
 #
-# What grades a replay is pinned in one place, .github/replay-requirements.txt:
-# on 4 October 2026, canfail 0.2.1 with didrun 0.1.6 and restore-verified
-# 0.1.4, each by version and by the hashes of its archives (#143). Change them
-# there, not here; the file says how.
+# What grades a replay is pinned in one place, the requirements.txt of the
+# async-digital-ltd/canfail-action release this job pins by SHA (#248):
+# canfail 0.2.1 with didrun 0.1.6 and restore-verified 0.1.4, each by version
+# and by the hashes of its archives (#143), the versions pinned here since 4
+# October 2026. To change them, release the action with new ones and move the
+# SHA below.
 #
 # On a schedule, and never on a push. Each replay runs a check once on a clean
 # tree and once per declared break, so a dispatch that replays every declared
@@ -318,95 +320,45 @@ jobs:
         if: steps.select.outputs.config != ''
         run: pnpm db:migrate
 
-      - name: Install Python
-        if: steps.select.outputs.config != ''
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: '3.13'
-
-      # Pinned to the version #66 adopted and measured, with the two packages
-      # its verdicts rest on, by version and by hash, in
-      # .github/replay-requirements.txt (#143). That file is the one place to
-      # change them, and says how. canfail alone used to be pinned, and it
-      # asks for its two dependencies with a floor and no ceiling. An unpinned
+      # Install, plant, check the tree came back: one step, from the action
+      # this repository published for exactly that (#248). It is the same
+      # sequence this job used to spell out in four steps, and its README
+      # says what each way of failing means.
+      #
+      # What grades a replay is pinned inside the action, in its
+      # requirements.txt: canfail 0.2.1 with didrun 0.1.6 and restore-verified
+      # 0.1.4, each by version and by archive hash, installed with
+      # --require-hashes (#143). They are the versions #66 adopted and that
+      # this job pinned before; they move only when the action is released
+      # with new ones and the SHA below moves to that release. An unpinned
       # install would let the scoring change under a ledger that cannot yet
-      # see which version produced a verdict, which is the staleness condition
-      # epic #62 names and the reason the tool field is worth having.
-      # --require-hashes installs nothing the file does not name with a hash.
-      - name: Install the replay tool
-        if: steps.select.outputs.config != ''
-        run: pip install --require-hashes -r .github/replay-requirements.txt
-
-      # canfail exits 1 when any guard was blind or failed the wrong way, and 0
-      # when every declared break was caught OR every one of them settled
-      # nothing. Both of those are results to record rather than reasons to
-      # fail, and neither can be told from the other by the status: the two
-      # halves this story exists to observe were measured on this branch and
-      # both exited 0. Only exit 2, which is canfail saying it could not run at
-      # all, fails this job.
+      # see which version produced a verdict, which is the staleness
+      # condition epic #62 names.
       #
-      # Nothing downstream reads this number. The per-break verdicts come from
-      # the JSON document, which is the rule #66 pinned.
+      # fail-on-mismatch is off, because this job's whole purpose is to record
+      # a blind or inconclusive run, not to stop on one. The action still
+      # fails the job when canfail could not run (exit 2 or a crash), when the
+      # tree was not clean before planting, and when it did not come back
+      # afterwards, which is a tree nobody declared. The per-break verdicts
+      # come from the JSON report, the rule #66 pinned, and the step below
+      # reads it from the action's `report` output.
       #
-      # The report is written under RUNNER_TEMP rather than into the checkout,
-      # so that the tree is either clean after canfail has run or canfail failed
-      # to put something back, which is what the step below reads. RUNNER_TEMP
-      # is an ordinary environment variable on the runner; the `runner` context
-      # it mirrors is not available in a job level `env` block, so spelling it
-      # here is what makes the path resolve rather than expanding to nothing.
+      # The declaration is the one the selection chose, which on the scheduled
+      # lane holds only the checks that are due and sits under RUNNER_TEMP.
+      # Every break inside it names its file relative to the checkout, which
+      # is where the action runs canfail from.
       #
-      # The declaration it is handed is the one the step above chose, which on
-      # the scheduled lane holds only the checks that are due and sits under
-      # RUNNER_TEMP. Every break inside it still names its file relative to the
-      # checkout, which is what `--cwd` is for: where the declaration lives and
-      # where the files it breaks live are two different questions.
-      #
-      # NO_COLOR, because every `expect` and every `evidence` line in
-      # canfail.json is matched against plain text. On a runner, CI and
-      # GITHUB_ACTIONS are set, and Prettier, Vite and Vitest read that as
-      # permission to colour their output, which puts escape codes inside the
-      # very words a pattern looks for: `[warn]` becomes `[`, ESC[33m, `warn`.
-      # Replay run 37295171855 scored three of #228's plants inconclusive for
-      # exactly that reason, and the same three reproduce with CI=true and
-      # GITHUB_ACTIONS=true on a development machine. Turning colour off here
-      # keeps each pattern a statement about what the check says, rather than
-      # about how a terminal would have painted it.
+      # The action sets NO_COLOR, because every `expect` and `evidence` line
+      # in canfail.json is matched against plain text, and Prettier, Vite and
+      # Vitest colour their output when CI is set: replay run 37295171855
+      # scored three of #228's plants inconclusive for exactly that reason.
       - name: Replay the declared plants
+        id: canfail
         if: steps.select.outputs.config != ''
-        env:
-          CANFAIL_CONFIG: ${{ steps.select.outputs.config }}
-          NO_COLOR: '1'
-        run: |
-          set -euo pipefail
-          status=0
-          canfail --cwd "$GITHUB_WORKSPACE" --json "$CANFAIL_CONFIG" > "$RUNNER_TEMP/canfail-report.json" || status=$?
-          echo "canfail exited $status."
-          if [ "$status" -ge 2 ]; then
-            echo "canfail could not run. Nothing was replayed." >&2
-            exit 1
-          fi
-
-      # canfail breaks real files and puts them back, and a restore that ran is
-      # not a restore that worked. A tree that did not come back has an unknown
-      # baseline for every break after the one that failed, so its later
-      # verdicts are about a tree nobody declared. Written as an `if` rather
-      # than as a negated command, because `set -e` does not apply to a command
-      # whose status is inverted with `!`. The status is assigned to a variable
-      # before it is tested, because `set -e` does not apply to a command
-      # substitution inside the arguments to `[` either: written inline, a git
-      # that failed, on an unreadable index for one, gave an empty string and
-      # the step passed (#222). Untracked files are listed one by one, so a
-      # plant that leaves a new file behind is named in the failure.
-      - name: Check the tree came back
-        if: steps.select.outputs.config != ''
-        run: |
-          set -euo pipefail
-          tree_status=$(git status --porcelain --untracked-files=all)
-          if [ -n "$tree_status" ]; then
-            echo "The working tree did not come back after the replay:" >&2
-            printf '%s\n' "$tree_status" >&2
-            exit 1
-          fi
+        uses: async-digital-ltd/canfail-action@5ffd94d2598c9f9ce91aecf1122b9296a38b56e7 # v1.0.0
+        with:
+          declaration: ${{ steps.select.outputs.config }}
+          fail-on-mismatch: 'false'
 
       # The gate. A verdict this mapping does not recognise, a check the
       # declaration does not declare, or a record that breaks a ledger rule
@@ -421,9 +373,11 @@ jobs:
       # of which lane picked the plants.
       - name: Record what the replay found
         if: steps.select.outputs.config != ''
+        env:
+          REPORT: ${{ steps.canfail.outputs.report }}
         run: |
           pnpm ledger:replay -- \
-            --report "$RUNNER_TEMP/canfail-report.json" \
+            --report "$REPORT" \
             --config canfail.json \
             --source-commit "$SOURCE_COMMIT" \
             --source-run-url "$SOURCE_RUN_URL"

@@ -7,8 +7,10 @@ is where this package and that one meet.
 
 The tool is `canfail` 0.2.1, adopted and pinned on #66 after both candidates
 were read and run against a real check here. The two packages it grades with,
-`didrun` and `restore-verified`, are pinned beside it by version and hash in
-`.github/replay-requirements.txt` (#143).
+`didrun` and `restore-verified`, are pinned beside it by version and hash
+(#143), in the `requirements.txt` of the
+[canfail-action](https://github.com/async-digital-ltd/canfail-action) release
+that `.github/workflows/replay.yml` pins by SHA (#248).
 
 ## The mapping, pinned
 
