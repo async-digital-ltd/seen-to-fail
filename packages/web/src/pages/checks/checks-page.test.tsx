@@ -507,8 +507,8 @@ describe('the filter in the address', () => {
 describe('the filter bar', () => {
   /**
    * Two groups joined with AND, the first ORing two statuses: the widest shape
-   * the picker builds, with every kind of step in it. Not the README's
-   * example, which the server's tests read off the README itself (#59).
+   * the picker builds, with every kind of step in it. Not the worked example in
+   * docs/filters.md, which the server's tests read off that file (#59).
    */
   const twoGroups: Filter = {
     kind: 'groups',

@@ -176,10 +176,10 @@ describe('refuses', () => {
  * A GET needs no preflight either, and this guard lets it through, because the
  * web app sends its queries that way. What keeps a GET from writing is the
  * GraphQL server itself, which refuses a mutation sent by GET with 405 before
- * any resolver runs. The README's claim that a page elsewhere cannot make the
- * server write leans on that refusal as much as on this guard, so it is held
- * here too: an upgrade or an option that let a mutation through by GET would
- * otherwise turn the claim false with every test still green.
+ * any resolver runs. The claim in docs/stack.md that a page elsewhere cannot
+ * make the server write leans on that refusal as much as on this guard, so it
+ * is held here too: an upgrade or an option that let a mutation through by
+ * GET would otherwise turn the claim false with every test still green.
  *
  * This pins the GraphQL server's behaviour, not this project's code, so
  * removing `useRequestGuard` leaves it passing. The control is a plant that

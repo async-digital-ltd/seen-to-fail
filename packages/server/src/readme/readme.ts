@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { repositoryRoot } from '../ledger/location.ts';
@@ -19,6 +19,32 @@ export const readmeFile = join(repositoryRoot, 'README.md');
 
 export function readReadme(): string {
   return readFileSync(readmeFile, 'utf8');
+}
+
+/**
+ * The directory the README's reference sections were moved into (#251), one
+ * file per topic, each opening with the heading it had in the README.
+ */
+export const docsDirectory = join(repositoryRoot, 'docs');
+
+/** One file in `docs/`, by its name there, such as `stack.md`. */
+export function readDoc(name: string): string {
+  return readFileSync(join(docsDirectory, name), 'utf8');
+}
+
+/**
+ * The README and every Markdown file in `docs/`, by their paths from the root,
+ * so a test that holds every claim of some kind to the tree reads the moved
+ * sections as well as the front page.
+ */
+export function readDocumentation(): Map<string, string> {
+  const docs = readdirSync(docsDirectory)
+    .filter((name) => name.endsWith('.md'))
+    .sort();
+  return new Map([
+    ['README.md', readReadme()],
+    ...docs.map((name): [string, string] => [`docs/${name}`, readDoc(name)]),
+  ]);
 }
 
 /**

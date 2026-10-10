@@ -281,7 +281,8 @@ file is regenerated over, the comparison passes, and `canfail` scores it
 rewrites two generated files that `canfail` does not put back, so the replay's
 tree check would refuse the whole run and record nothing for any check in it.
 Proving this check needs a plant that is committed, which is the "branch
-pushed" kind of plant the root README names as a later direction.
+pushed" kind of plant the root README's roadmap, now
+[`docs/roadmap.md`](../../docs/roadmap.md), names as a later direction.
 
 The build derives every status in PostgreSQL, so the replay job now starts the
 same service container CI does and creates and migrates the databases before

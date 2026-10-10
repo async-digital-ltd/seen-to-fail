@@ -9,7 +9,13 @@ import { expect, it, vi } from 'vitest';
 
 import { listChecks } from '../database/checks.ts';
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
-import { countOf, flattened, readReadme, sectionOf } from '../readme/readme.ts';
+import {
+  countOf,
+  flattened,
+  readDoc,
+  readReadme,
+  sectionOf,
+} from '../readme/readme.ts';
 import { post, query } from '../testing/graphql.ts';
 import type { Variables } from '../testing/graphql.ts';
 import { sqlStates } from '../testing/rejections.ts';
@@ -97,7 +103,7 @@ const unprovenOrStaleInCI = {
 
 /**
  * The same shape asking for Git rather than CI, which does select something. It
- * is also the root README's worked example, and the test that reads the README
+ * is also the worked example in `docs/filters.md`, and the test that reads it
  * checks that what its link parses to is this filter.
  */
 const unprovenOrStaleInGit = {
@@ -172,21 +178,22 @@ it('selects the checks a filter matches, and counts the rest as hidden', async (
 });
 
 /**
- * The root README's worked example, read off the README rather than restated
- * here, so an edit to the example fails this test instead of leaving a test
- * named for it pinning something else (#59). The README gives the example as
- * the link the list opens at, under its Filters heading, and says beside it how
- * many of how many seeded checks the example picks. All three are read from
- * that section and held to the seed and to the server's answer (#149), so the
- * count cannot be edited into a number the workspace does not give.
+ * The README's worked example, read off the README rather than restated here,
+ * so an edit to the example fails this test instead of leaving a test named
+ * for it pinning something else (#59). Its Filters section is `docs/filters.md`
+ * since the split (#251). It gives the example as the link the list opens at,
+ * and says beside it how many of how many seeded checks the example picks. All
+ * three are read from that file and held to the seed and to the server's
+ * answer (#149), so the count cannot be edited into a number the workspace
+ * does not give.
  */
-const filters = flattened(sectionOf(readReadme(), 'Filters'));
+const filters = flattened(readDoc('filters.md'));
 
 /** The text after `f=` in the `/?f=` link the Filters section gives. */
 function readmeExampleLink(): string {
-  const found = /^\/\?f=(\S+)$/mu.exec(sectionOf(readReadme(), 'Filters'));
+  const found = /^\/\?f=(\S+)$/mu.exec(readDoc('filters.md'));
   if (found?.[1] === undefined) {
-    throw new Error('README.md shows no /?f= link under "Filters".');
+    throw new Error('docs/filters.md shows no /?f= link.');
   }
   return found[1];
 }
@@ -237,14 +244,14 @@ it("reads the README's example link as the Git filter, picking as many of the se
   // The same filter as the sentence writes it, held to the link it says it is.
   const written = /a filter such as `([^`]+)`, which picks/u.exec(filters);
   if (written?.[1] === undefined) {
-    throw new Error('README.md no longer writes its example filter out.');
+    throw new Error('docs/filters.md no longer writes its example filter out.');
   }
   expect(written[1]).toBe(writtenOut(parsed.filter));
 
   const picks = /picks (\w+) of the (\w+) checks/u.exec(filters);
   if (picks?.[1] === undefined || picks[2] === undefined) {
     throw new Error(
-      'README.md no longer says how many checks its example picks.',
+      'docs/filters.md no longer says how many checks its example picks.',
     );
   }
 
@@ -261,7 +268,9 @@ it('spells the seeded areas the way the README says the sample workspace does', 
     filters,
   );
   if (sentence?.[1] === undefined) {
-    throw new Error("README.md no longer lists the sample workspace's areas.");
+    throw new Error(
+      "docs/filters.md no longer lists the sample workspace's areas.",
+    );
   }
   const written = [...sentence[1].matchAll(/`([^`]+)`/gu)].map(
     (area) => area[1],
