@@ -1,0 +1,8 @@
+{
+  "tolerancePercent": 1,
+  "metrics": {
+    "javascriptBytes": 488485,
+    "cssBytes": 17075,
+    "totalBytes": 505957
+  }
+}

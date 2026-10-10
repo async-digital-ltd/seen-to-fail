@@ -21,6 +21,8 @@
     "dev:server": "node packages/server/src/index.ts",
     "dev:web": "pnpm --filter @seen-to-fail/web dev",
     "build:web": "pnpm --filter @seen-to-fail/web build",
+    "bundle:check": "node packages/web/src/scripts/check-bundle.ts",
+    "bundle:ratchet": "node packages/web/src/scripts/check-bundle.ts --ratchet",
     "db:up": "bash scripts/db-up.sh",
     "db:down": "bash scripts/db-down.sh",
     "db:migrate": "node packages/server/src/scripts/migrate.ts",
