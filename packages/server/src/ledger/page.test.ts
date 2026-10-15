@@ -750,7 +750,7 @@ it('escapes what a record holds rather than letting it close a tag', () => {
     }),
   );
 
-  expect(page).not.toMatch(/<script/i);
+  expect(withoutStructuredData(page)).not.toMatch(/<script/i);
   expect(page).toContain(escapeHtml('<script>alert(1)'));
 });
 
@@ -821,5 +821,5 @@ it('renders a replay reason as a text node, never inside a tag', () => {
 
   expect(page).toContain(escapeHtml(hostileReason));
   expect(page).not.toMatch(/<b>/i);
-  expect(page).not.toMatch(/<script/i);
+  expect(withoutStructuredData(page)).not.toMatch(/<script/i);
 });

@@ -316,11 +316,16 @@ served="$(
     if grep -qiE 'noindex|http-equiv="refresh"' "$file"; then
       continue
     fi
-    case "$file" in
-      index.html) printf '%s\n' "$og_url" ;;
-      */index.html) printf '%s\n' "$og_url${file%index.html}" ;;
-      *) printf '%s\n' "$og_url$file" ;;
-    esac
+    # An if rather than a case: the macOS bash 3.2 cannot parse the closing
+    # parenthesis of a case pattern inside a command substitution, nor a
+    # quote mark in a comment here.
+    if [ "$file" = index.html ]; then
+      printf '%s\n' "$og_url"
+    elif [ "${file%/index.html}" != "$file" ]; then
+      printf '%s\n' "$og_url${file%index.html}"
+    else
+      printf '%s\n' "$og_url$file"
+    fi
   done | sort
 )"
 if [ "$listed" != "$served" ]; then
