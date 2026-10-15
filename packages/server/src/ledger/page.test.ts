@@ -18,6 +18,7 @@ import {
 } from '../testing/ledger.ts';
 import {
   escapeHtml,
+  iconFilenames,
   publicLedgerAnchor,
   publishedStatusOrder,
   readableDay,
@@ -333,13 +334,44 @@ it('carries no script at all', () => {
 });
 
 /**
+ * What a crawler reads in the head (#254): British English, the page's own
+ * address as canonical, and the icons.
+ */
+it('gives its language, its canonical address and its icons', () => {
+  const page = renderPage(fixtureSnapshot());
+  const head = page.slice(0, page.indexOf('</head>'));
+
+  expect(page).toContain('<html lang="en-GB">');
+  expect(
+    [...head.matchAll(/<link rel="canonical" href="([^"]*)">/g)].map(
+      (match) => match[1],
+    ),
+  ).toEqual([livePage]);
+  const icons = [
+    ...head.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]*)"/g),
+  ].map((match) => match[1]);
+  expect(icons.sort()).toEqual([...iconFilenames].sort());
+});
+
+/** The icons the page names are the files committed beside the renderer. */
+it('names icons that are committed beside the renderer', () => {
+  for (const icon of iconFilenames) {
+    expect(
+      readFileSync(join(repositoryRoot, 'packages/server/src/ledger', icon))
+        .length,
+    ).toBeGreaterThan(0);
+  }
+});
+
+/**
  * Six destinations and no seventh: a commit in this repository, the run a
  * replay named, the export beside the page, the repository itself, the README
  * section on what belongs on a public ledger (#240), and the studio that built
  * it. The page's own address and its preview image are also
  * written out, absolute, in the link-preview tags (#237); they are not places
  * the page sends a reader, but they are addresses on it, so they are named
- * here too. Nothing here is fetched; these are places a reader can
+ * here too. So are the icons beside the page (#254), which a browser shows
+ * but which send a reader nowhere. Nothing here is fetched; these are places a reader can
  * go, and the list is closed so that a page which started reaching somewhere
  * else would fail rather than be noticed by somebody reading the HTML. Every
  * link is held to it, and so is every absolute address, which also lets the
@@ -376,6 +408,7 @@ it('links only to a commit, a run a record named, the export, the repository, it
       url === livePage ||
       url === livePreview ||
       url === exported ||
+      (iconFilenames as readonly string[]).includes(url ?? '') ||
       url === 'http://www.w3.org/2000/svg'
     ) {
       continue;

@@ -71,6 +71,29 @@ const whatItIs =
 const pageDescription = `${whatItIs.charAt(0).toUpperCase()}${whatItIs.slice(1)}.`;
 
 /**
+ * The page's icons, committed beside this file and copied out by the build
+ * beside the page (#254). All three draw the Seen to Fail mark, the eye with a
+ * cross for its pupil that `preview.png` shows: `favicon.svg` is the studio's
+ * tile of it, and the other two are rendered from that file. `favicon.ico` is
+ * there because browsers and crawlers ask for it at the root whether the page
+ * names it or not; the touch icon is what a phone uses for a saved link.
+ *
+ * The page names them by relative address, which resolves to the root of the
+ * site because the page is the root.
+ */
+export const iconFilenames = [
+  'favicon.ico',
+  'favicon.svg',
+  'apple-touch-icon.png',
+] as const;
+
+const iconLinks = [
+  '<link rel="icon" href="favicon.ico" sizes="32x32">',
+  '<link rel="icon" href="favicon.svg" type="image/svg+xml">',
+  '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
+].join('\n');
+
+/**
  * The README section that says why checks about security are not on a public
  * ledger, which the line under the headline links to (#240).
  *
@@ -748,13 +771,15 @@ export function renderPage(ledger: PublishedLedger): string {
       : `<span class="result">${String(proven)} of ${String(checkCount)}</span> ${checkCount === 1 ? 'check has' : 'checks have'} been seen to catch a planted defect`;
 
   return `<!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Seen to Fail: the record of this repository's own checks</title>
 <meta name="description" content="${escapeHtml(pageDescription)}">
+<link rel="canonical" href="${escapeHtml(publishedUrl)}">
+${iconLinks}
 <meta property="og:type" content="website">
 <meta property="og:title" content="Seen to Fail">
 <meta property="og:description" content="${escapeHtml(pageDescription)}">

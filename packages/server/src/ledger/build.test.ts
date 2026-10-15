@@ -14,9 +14,12 @@ import { writeTemporaryLedger } from '../testing/ledger.ts';
 import {
   buildLedger,
   exportFilename,
+  iconFilenames,
   LedgerRefusedError,
   pageFilename,
   previewImageFilename,
+  robotsFilename,
+  sitemapFilename,
 } from './build.ts';
 import type { BuildResult } from './build.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
@@ -587,23 +590,36 @@ it('publishes the statuses the check_summaries function derives', async () => {
 });
 
 /**
- * Nothing in the published output needs a running server: three files, no
- * script, and nothing fetched. The directory listing is part of the claim,
- * because a fourth file nobody accounted for is a dependency nobody accounted
- * for. The third is the link-preview image the page's `og:image` names (#237),
- * and it is held here because a page naming an image the build did not write
- * previews as a broken picture.
+ * Nothing in the published output needs a running server: static files, no
+ * script, and nothing fetched from anywhere else. The directory listing is part
+ * of the claim, because a file nobody accounted for is a dependency nobody
+ * accounted for. Beside the page and the export are the link-preview image the
+ * page's `og:image` names (#237), held here because a page naming an image the
+ * build did not write previews as a broken picture, and since #254 the icons
+ * the page names, the robots.txt and the sitemap.
  */
-it('writes a page, an export and the preview image, and nothing else', async () => {
+it('writes a page, an export, the preview image, the icons, robots.txt and the sitemap, and nothing else', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
   });
 
   const { outputDirectory, written } = await build(directory);
-  expect((await readdir(outputDirectory)).sort()).toEqual(
-    [exportFilename, pageFilename, previewImageFilename].sort(),
+  const expected = [
+    exportFilename,
+    pageFilename,
+    previewImageFilename,
+    robotsFilename,
+    sitemapFilename,
+    ...iconFilenames,
+  ].sort();
+  expect((await readdir(outputDirectory)).sort()).toEqual(expected);
+  expect(written).toHaveLength(expected.length);
+
+  const sitemap = await readFile(
+    join(outputDirectory, sitemapFilename),
+    'utf8',
   );
-  expect(written).toHaveLength(3);
+  expect(sitemap).toContain(`<lastmod>${asOf}</lastmod>`);
 
   const image = await readFile(join(outputDirectory, previewImageFilename));
   expect(image.subarray(1, 4).toString('latin1')).toBe('PNG');

@@ -7,7 +7,12 @@ import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
 
 import { repositoryRoot } from '../ledger/location.ts';
-import { previewImageFilename, renderPage } from '../ledger/page.ts';
+import { renderRobots, renderSitemap } from '../ledger/discovery.ts';
+import {
+  iconFilenames,
+  previewImageFilename,
+  renderPage,
+} from '../ledger/page.ts';
 import { fixtureSnapshot } from '../testing/ledger.ts';
 
 /**
@@ -90,6 +95,25 @@ const aPreview = await readFile(
   join(repositoryRoot, 'packages', 'server', 'src', 'ledger', 'preview.png'),
 );
 
+/** The icons the build copies beside the page, read from their sources. */
+const theIcons = Object.fromEntries(
+  await Promise.all(
+    iconFilenames.map(
+      async (icon) =>
+        [
+          icon,
+          await readFile(
+            join(repositoryRoot, 'packages', 'server', 'src', 'ledger', icon),
+          ),
+        ] as const,
+    ),
+  ),
+);
+
+/** The robots.txt and sitemap the build writes for its one page. */
+const aRobots = renderRobots();
+const aSitemap = renderSitemap(['index.html'], '2026-10-15');
+
 /** A directory holding exactly these files, under the system's temporary one. */
 async function anOutputWith(
   files: Readonly<Record<string, string | Buffer>>,
@@ -124,15 +148,24 @@ async function exitCodeAgainst(directory: string): Promise<number> {
   });
 }
 
-/** The code the script exits on for a page beside a sound export and image. */
+/**
+ * Every file a sound output holds beside its page. A test that plants a defect
+ * in one of them overrides that one and leaves the rest sound.
+ */
+function soundFiles(page: string): Record<string, string | Buffer> {
+  return {
+    'index.html': page,
+    'ledger.json': anExport,
+    [previewImageFilename]: aPreview,
+    'robots.txt': aRobots,
+    'sitemap.xml': aSitemap,
+    ...theIcons,
+  };
+}
+
+/** The code the script exits on for a page beside a sound output. */
 async function exitCodeFor(page: string): Promise<number> {
-  return exitCodeAgainst(
-    await anOutputWith({
-      'index.html': page,
-      'ledger.json': anExport,
-      [previewImageFilename]: aPreview,
-    }),
-  );
+  return exitCodeAgainst(await anOutputWith(soundFiles(page)));
 }
 
 it('passes a page built from the commit, with no script, beside its export, and exits 0', async () => {
@@ -477,4 +510,134 @@ it('refuses a scoping line that has moved away from the headline, and exits 1', 
     .replace('<p class="idea">', `${line ?? ''}<p class="idea">`);
 
   expect(await exitCodeFor(moved)).toBe(1);
+});
+
+/**
+ * What a crawler reads (#254). Each property is planted out of a sound output
+ * one at a time, and each plant is shown to be a change before its code is
+ * read, so a plant that stopped matching cannot pass as a refusal.
+ */
+
+/**
+ * A script that a browser would not run is still a script on the page, so a
+ * data block typed as anything other than JavaScript is refused like any
+ * other.
+ */
+it('refuses a page carrying a script of a non-JavaScript type, and exits 1', async () => {
+  const page = `${await aSoundPage()}<script type="application/ld+json">{}</script>\n`;
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a page whose language is not en-GB, and exits 1', async () => {
+  const page = swapped(
+    await aSoundPage(),
+    '<html lang="en-GB">',
+    '<html lang="en">',
+  );
+
+  expect(await exitCodeFor(page)).toBe(1);
+});
+
+it('refuses a page with no canonical address, another one, or two, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const tag = `<link rel="canonical" href="${livePage}">`;
+  const none = swapped(sound, `${tag}\n`, '');
+  const another = swapped(
+    sound,
+    tag,
+    '<link rel="canonical" href="https://async-digital-ltd.github.io/seen-to-fail/">',
+  );
+  const twice = swapped(sound, tag, `${tag}\n${tag}`);
+
+  expect(await exitCodeFor(none)).toBe(1);
+  expect(await exitCodeFor(another)).toBe(1);
+  expect(await exitCodeFor(twice)).toBe(1);
+});
+
+it('refuses a page with no icon, or naming one that is not beside it, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const none = sound.replace(
+    /<link rel="(?:icon|apple-touch-icon)" href="[^"]*"[^>]*>\n/g,
+    '',
+  );
+  const missing = swapped(sound, 'href="favicon.svg"', 'href="missing.svg"');
+
+  expect(none).not.toBe(sound);
+  expect(await exitCodeFor(none)).toBe(1);
+  expect(await exitCodeFor(missing)).toBe(1);
+});
+
+it('refuses an output with no favicon.ico at its root, and exits 1', async () => {
+  const files = soundFiles(await aSoundPage());
+  delete files['favicon.ico'];
+
+  expect(await exitCodeAgainst(await anOutputWith(files))).toBe(1);
+});
+
+it('refuses a robots.txt that is missing, shuts crawlers out, or does not name the sitemap, and exits 1', async () => {
+  const page = await aSoundPage();
+  const without = soundFiles(page);
+  delete without['robots.txt'];
+  const shut = `${aRobots}Disallow: /\n`;
+  const unnamed = swapped(aRobots, `Sitemap: ${livePage}sitemap.xml\n`, '');
+
+  expect(await exitCodeAgainst(await anOutputWith(without))).toBe(1);
+  for (const robots of [shut, unnamed]) {
+    expect(
+      await exitCodeAgainst(
+        await anOutputWith({ ...soundFiles(page), 'robots.txt': robots }),
+      ),
+    ).toBe(1);
+  }
+});
+
+/**
+ * The sitemap is held to the pages served, both ways: a page it leaves out,
+ * and an entry with no page behind it. The page left out is planted as a
+ * second HTML file beside the sound output; listing it in the sitemap is the
+ * correction, and that passes.
+ */
+it('refuses a sitemap that leaves out a served page, lists one that is not served, or is missing, and passes it once corrected', async () => {
+  const page = await aSoundPage();
+  const withAnotherPage = { ...soundFiles(page), 'about.html': '<p>About</p>' };
+  const listedBoth = renderSitemap(['index.html', 'about.html'], '2026-10-15');
+  const without = soundFiles(page);
+  delete without['sitemap.xml'];
+  const undated = aSitemap.replace(/ *<lastmod>[^<]*<\/lastmod>\n/, '');
+
+  expect(await exitCodeAgainst(await anOutputWith(withAnotherPage))).toBe(1);
+  expect(
+    await exitCodeAgainst(
+      await anOutputWith({ ...soundFiles(page), 'sitemap.xml': listedBoth }),
+    ),
+  ).toBe(1);
+  expect(await exitCodeAgainst(await anOutputWith(without))).toBe(1);
+  expect(undated).not.toBe(aSitemap);
+  expect(
+    await exitCodeAgainst(
+      await anOutputWith({ ...soundFiles(page), 'sitemap.xml': undated }),
+    ),
+  ).toBe(1);
+
+  expect(
+    await exitCodeAgainst(
+      await anOutputWith({ ...withAnotherPage, 'sitemap.xml': listedBoth }),
+    ),
+  ).toBe(0);
+});
+
+/**
+ * A page that asks not to be indexed, or only redirects, is not expected in
+ * the sitemap, so a stub beside the page does not fail a sitemap that leaves
+ * it out.
+ */
+it('passes a sitemap that leaves out a noindex page or a redirect stub, and exits 0', async () => {
+  const output = {
+    ...soundFiles(await aSoundPage()),
+    'hidden.html': '<meta name="robots" content="noindex">',
+    'moved.html': `<meta http-equiv="refresh" content="0; url=${livePage}">`,
+  };
+
+  expect(await exitCodeAgainst(await anOutputWith(output))).toBe(0);
 });

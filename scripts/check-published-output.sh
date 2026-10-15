@@ -10,7 +10,9 @@
 # shared: no `noindex`, the link-preview tags, the image they name, and the
 # line at the top that says what the page is. Since #240 it holds the line
 # under the headline that says what its count covers and links why checks about
-# security are left off.
+# security are left off. Since #254 it holds what a crawler reads: the page's
+# language, its canonical address, its icons, a robots.txt naming the sitemap,
+# and a sitemap listing every page served and nothing else.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
@@ -233,4 +235,90 @@ if ! grep -qix '#\{1,6\} what belongs on a public ledger' README.md; then
   exit 1
 fi
 
-echo "The published output in $directory is sound: three files, built from $commit, with no script, open to search, with a link preview at $og_url, and with its count scoped under the headline."
+# What a crawler reads (#254). The page names its language as British English,
+# names its own address once as canonical, and that address is the one its
+# link preview gives, so the same page served at another address is read as a
+# copy of this one rather than as a second page.
+if ! grep -qx '<html lang="en-GB">' "$page"; then
+  echo "The published page does not give its language as en-GB." >&2
+  exit 1
+fi
+
+canonicals="$({ grep -o '<link rel="canonical" href="[^"]*">' "$page" || true; } | sed -E 's/.*href="([^"]*)">$/\1/')"
+if [ "$canonicals" != "$og_url" ]; then
+  echo "The published page does not give $og_url, and only that, as its canonical address." >&2
+  exit 1
+fi
+
+# Every icon the page names is a file beside it, and so is favicon.ico, which
+# browsers and crawlers ask the root for whether the page names it or not.
+icons="$({ grep -oE '<link rel="(icon|apple-touch-icon)" href="[^"]*"' "$page" || true; } | sed -E 's/.*href="([^"]*)"$/\1/')"
+if [ -z "$icons" ]; then
+  echo "The published page names no icon." >&2
+  exit 1
+fi
+while IFS= read -r icon; do
+  if [[ ! "$icon" =~ ^[A-Za-z0-9._-]+$ ]] || [ ! -f "$directory/$icon" ]; then
+    echo "The published page names an icon that is not a file beside it: $icon." >&2
+    exit 1
+  fi
+done <<<"$icons"
+if [ ! -f "$directory/favicon.ico" ]; then
+  echo "The published output has no favicon.ico at its root." >&2
+  exit 1
+fi
+
+# robots.txt lets every crawler in and names the sitemap by its absolute
+# address.
+robots="$directory/robots.txt"
+if [ ! -f "$robots" ] ||
+  ! grep -qx 'User-agent: \*' "$robots" ||
+  grep -qiE '^Disallow: */ *$' "$robots" ||
+  [ "$(grep -cx "Sitemap: ${og_url}sitemap.xml" "$robots" || true)" -ne 1 ]; then
+  echo "The published robots.txt is missing, shuts crawlers out, or does not name ${og_url}sitemap.xml once." >&2
+  exit 1
+fi
+
+# The sitemap lists every page served and nothing else, each with a date. A
+# page is every .html file under the output, at the address Pages serves it
+# from: an index.html is its folder's address. A page that asks not to be
+# indexed, or only redirects, is left out of what is expected, because a
+# sitemap that lists it asks a crawler to index what the page says not to.
+sitemap="$directory/sitemap.xml"
+if [ ! -f "$sitemap" ]; then
+  echo "The published sitemap is not there: $sitemap." >&2
+  exit 1
+fi
+listed="$({ grep -o '<loc>[^<]*</loc>' "$sitemap" || true; } | sed -E 's/<\/?loc>//g' | sort)"
+dated="$(grep -c '<lastmod>[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}</lastmod>' "$sitemap" || true)"
+served="$(
+  cd "$directory"
+  find . -type f -name '*.html' | sed 's|^\./||' | sort | while IFS= read -r file; do
+    if grep -qiE 'noindex|http-equiv="refresh"' "$file"; then
+      continue
+    fi
+    # An if rather than a case: the macOS bash 3.2 cannot parse the closing
+    # parenthesis of a case pattern inside a command substitution, nor a
+    # quote mark in a comment here.
+    if [ "$file" = index.html ]; then
+      printf '%s\n' "$og_url"
+    elif [ "${file%/index.html}" != "$file" ]; then
+      printf '%s\n' "$og_url${file%index.html}"
+    else
+      printf '%s\n' "$og_url$file"
+    fi
+  done | sort
+)"
+if [ "$listed" != "$served" ]; then
+  echo "The published sitemap does not list exactly the pages served. Listed:" >&2
+  printf '  %s\n' "$listed" >&2
+  echo "Served:" >&2
+  printf '  %s\n' "$served" >&2
+  exit 1
+fi
+if [ "$dated" -ne "$(printf '%s\n' "$listed" | grep -c .)" ]; then
+  echo "The published sitemap has an entry with no date." >&2
+  exit 1
+fi
+
+echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline."

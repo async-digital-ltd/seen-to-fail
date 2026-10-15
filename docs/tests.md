@@ -108,4 +108,8 @@ ledger steps read the records, build the published page from them, and check
 what came out: the page, the export and
 the preview image, naming the commit CI is running against, with no script, no
 `noindex`, link-preview tags that point at the live address, and a line under
-the headline that scopes its count and links a heading the README has.
+the headline that scopes its count and links a heading the README has. Since
+[#254](https://github.com/async-digital-ltd/seen-to-fail/issues/254) it also
+holds what a crawler reads: `lang="en-GB"`, a canonical link to the live
+address, icons that are files beside the page, a `robots.txt` naming the
+sitemap, and a `sitemap.xml` listing every page served and nothing else.
