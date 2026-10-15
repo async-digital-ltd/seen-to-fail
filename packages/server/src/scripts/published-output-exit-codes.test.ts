@@ -518,40 +518,15 @@ it('refuses a scoping line that has moved away from the headline, and exits 1', 
  * read, so a plant that stopped matching cannot pass as a refusal.
  */
 
-it('refuses the structured-data block given twice, or typed as anything else, and exits 1', async () => {
-  const sound = await aSoundPage();
-  const block = /<script type="application\/ld\+json">[^<]*<\/script>/.exec(
-    sound,
-  )?.[0];
-  expect(block).toBeDefined();
-  const twice = swapped(sound, block ?? '', `${block ?? ''}\n${block ?? ''}`);
-  const retyped = swapped(
-    sound,
-    '<script type="application/ld+json">',
-    '<script type="text/javascript">',
-  );
+/**
+ * A script that a browser would not run is still a script on the page, so a
+ * data block typed as anything other than JavaScript is refused like any
+ * other.
+ */
+it('refuses a page carrying a script of a non-JavaScript type, and exits 1', async () => {
+  const page = `${await aSoundPage()}<script type="application/ld+json">{}</script>\n`;
 
-  expect(await exitCodeFor(twice)).toBe(1);
-  expect(await exitCodeFor(retyped)).toBe(1);
-});
-
-it('refuses a page whose structured data is not a WebSite at its own address, and exits 1', async () => {
-  const sound = await aSoundPage();
-  const notWebSite = swapped(sound, '"@type":"WebSite"', '"@type":"Thing"');
-  const elsewhere = swapped(
-    sound,
-    `"url":"${livePage}"`,
-    '"url":"https://example.com/"',
-  );
-  const none = sound.replace(
-    /<script type="application\/ld\+json">[^<]*<\/script>\n/,
-    '',
-  );
-
-  expect(none).not.toBe(sound);
-  expect(await exitCodeFor(notWebSite)).toBe(1);
-  expect(await exitCodeFor(elsewhere)).toBe(1);
-  expect(await exitCodeFor(none)).toBe(1);
+  expect(await exitCodeFor(page)).toBe(1);
 });
 
 it('refuses a page whose language is not en-GB, and exits 1', async () => {

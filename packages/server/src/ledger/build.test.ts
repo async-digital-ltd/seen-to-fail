@@ -21,7 +21,6 @@ import {
   robotsFilename,
   sitemapFilename,
 } from './build.ts';
-import { withoutStructuredData } from './page.ts';
 import type { BuildResult } from './build.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { recordRun } from './record.ts';
@@ -628,7 +627,7 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
   expect(image.readUInt32BE(20)).toBe(630);
 
   const page = await readFile(join(outputDirectory, pageFilename), 'utf8');
-  expect(withoutStructuredData(page)).not.toMatch(/<script/i);
+  expect(page).not.toMatch(/<script/i);
   expect(page).not.toMatch(/fetch\(/);
 });
 

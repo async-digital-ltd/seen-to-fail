@@ -20,13 +20,6 @@ import { studioMark } from './studio-mark.ts';
  * rendered from at some later moment. Whatever the page says, it said at build
  * time and a commit is named for it.
  *
- * The one `<script>` element in it is not a script. It is the `WebSite`
- * structured data for search engines (#254), typed `application/ld+json`, which
- * a browser never runs: it is data written at build time like the rest of the
- * page. It is the only element of that kind allowed, and everything that holds
- * the page to "no script" removes exactly that block first and refuses any
- * other.
- *
  * It reads from the result down (#132). The first screen says which repository
  * this is the record of and how many of its checks have been seen to catch a
  * planted defect. The checks sit below that, grouped by area and closed, and a
@@ -77,9 +70,6 @@ const whatItIs =
   "a record of whether each of this project's own checks has been seen to catch a defect planted on purpose";
 const pageDescription = `${whatItIs.charAt(0).toUpperCase()}${whatItIs.slice(1)}.`;
 
-/** The studio that made the page, linked from its footer and named as publisher. */
-const studioUrl = 'https://async-digital.com';
-
 /**
  * The page's icons, committed beside this file and copied out by the build
  * beside the page (#254). All three draw the Seen to Fail mark, the eye with a
@@ -102,53 +92,6 @@ const iconLinks = [
   '<link rel="icon" href="favicon.svg" type="image/svg+xml">',
   '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
 ].join('\n');
-
-/**
- * The opening of the one structured-data block the page carries (#254).
- *
- * The block is `WebSite` JSON-LD, the form search engines read for a site's
- * name and address. Its type is not JavaScript, so a browser keeps it as text
- * and never runs it. Every `<`, `>` and `&` in the JSON is written as a
- * `\u` escape, so nothing in it can close the element early or start another,
- * and the whole block is one line with no `<` until its closing tag. That is
- * what lets `withoutStructuredData` and the published-output check remove it by
- * shape and refuse anything left.
- */
-export const structuredDataOpening = '<script type="application/ld+json">';
-
-function structuredData(): string {
-  const data = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'Seen to Fail',
-    url: publishedUrl,
-    description: pageDescription,
-    inLanguage: 'en-GB',
-    publisher: {
-      '@type': 'Organization',
-      name: 'Async Digital',
-      url: studioUrl,
-    },
-  };
-  const json = JSON.stringify(data)
-    .replaceAll('<', '\\u003c')
-    .replaceAll('>', '\\u003e')
-    .replaceAll('&', '\\u0026');
-  return `${structuredDataOpening}${json}</script>`;
-}
-
-/**
- * The page with its one structured-data block taken out, and nothing else
- * changed. Anything that holds the page to carrying no script reads this, so
- * the data block passes and a second block, or any other script, is still
- * there to be refused.
- */
-export function withoutStructuredData(page: string): string {
-  return page.replace(
-    /<script type="application\/ld\+json">[^<]*<\/script>/,
-    '',
-  );
-}
 
 /**
  * The README section that says why checks about security are not on a public
@@ -850,7 +793,6 @@ ${iconLinks}
 <meta name="twitter:description" content="${escapeHtml(pageDescription)}">
 <meta name="twitter:image" content="${escapeHtml(previewImageUrl)}">
 <meta name="twitter:image:alt" content="${escapeHtml(previewImageAlt)}">
-${structuredData()}
 <style>
 ${style}
 </style>
@@ -902,7 +844,7 @@ ${grouped.map((area) => areaSection(ledger, area)).join('\n')}
 <span>${built}</span>
 <a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} on GitHub ↗</a>
 </div>
-<a class="studio" href="${studioUrl}"><span>Made by</span>${studioMark}</a>
+<a class="studio" href="https://async-digital.com"><span>Made by</span>${studioMark}</a>
 </footer>
 </div>
 </body>

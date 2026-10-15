@@ -181,25 +181,6 @@ it('refuses a page that carries a script', () => {
   ).toContain('script');
 });
 
-/**
- * The page's structured data is its one `<script>` element and a browser never
- * runs it (#254). The sound page carries it and passes; a second copy of it is
- * still refused, so the allowance is for one block and not for the type.
- */
-it('passes the one structured-data block and refuses a second', () => {
-  const input = sound();
-  expect(input.page).toContain('<script type="application/ld+json">');
-  expect(disagreements(input)).toEqual([]);
-
-  const block = /<script type="application\/ld\+json">[^<]*<\/script>/.exec(
-    input.page,
-  )?.[0];
-  expect(block).toBeDefined();
-  expect(
-    disagreements({ ...input, page: `${input.page}${block ?? ''}` }).join('\n'),
-  ).toContain('script');
-});
-
 it('refuses a page that does not name the commit it was built from', () => {
   const input = sound();
   expect(

@@ -111,6 +111,5 @@ the preview image, naming the commit CI is running against, with no script, no
 the headline that scopes its count and links a heading the README has. Since
 [#254](https://github.com/async-digital-ltd/seen-to-fail/issues/254) it also
 holds what a crawler reads: `lang="en-GB"`, a canonical link to the live
-address, icons that are files beside the page, `WebSite` structured data (the
-one `<script>` element allowed, typed as JSON-LD, which a browser never runs), a `robots.txt` naming the sitemap, and a `sitemap.xml` listing
-every page served and nothing else.
+address, icons that are files beside the page, a `robots.txt` naming the
+sitemap, and a `sitemap.xml` listing every page served and nothing else.

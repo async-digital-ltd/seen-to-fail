@@ -11,14 +11,8 @@
 # line at the top that says what the page is. Since #240 it holds the line
 # under the headline that says what its count covers and links why checks about
 # security are left off. Since #254 it holds what a crawler reads: the page's
-# language, its canonical address, its icons and its `WebSite` structured data,
-# a robots.txt naming the sitemap, and a sitemap listing every page served and
-# nothing else.
-#
-# The structured data is the page's one `<script>` element, typed
-# `application/ld+json`, which a browser never runs. "No script" here means
-# that block, alone on one line, written exactly as the renderer writes it, and
-# no other `<script` anywhere.
+# language, its canonical address, its icons, a robots.txt naming the sitemap,
+# and a sitemap listing every page served and nothing else.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
@@ -118,13 +112,7 @@ if [ "$stamps" -eq 0 ]; then
   exit 1
 fi
 
-# Every `<script` on the page, case folded, has to be the opening of the one
-# structured-data block, and there has to be exactly one of those, on a line of
-# its own with no `<` inside it before its closing tag. Anything else is a
-# script, whatever it is typed as.
-openings="$({ grep -oi '<script[^>]*>' "$page" || true; } | sort | uniq -c | sed -E 's/^ *//')"
-data_lines="$({ grep -cx '<script type="application/ld+json">[^<]*</script>' "$page" || true; })"
-if [ "$openings" != '1 <script type="application/ld+json">' ] || [ "$data_lines" -ne 1 ]; then
+if grep -qi '<script' "$page"; then
   echo "The published page carries a script." >&2
   exit 1
 fi
@@ -262,13 +250,6 @@ if [ "$canonicals" != "$og_url" ]; then
   exit 1
 fi
 
-# The structured data says what the site is called and where it is.
-data_line="$({ grep -x '<script type="application/ld+json">[^<]*</script>' "$page" || true; })"
-if [[ "$data_line" != *'"@type":"WebSite"'* ]] || [[ "$data_line" != *"\"url\":\"$og_url\""* ]]; then
-  echo "The published page has no WebSite structured data naming $og_url." >&2
-  exit 1
-fi
-
 # Every icon the page names is a file beside it, and so is favicon.ico, which
 # browsers and crawlers ask the root for whether the page names it or not.
 icons="$({ grep -oE '<link rel="(icon|apple-touch-icon)" href="[^"]*"' "$page" || true; } | sed -E 's/.*href="([^"]*)"$/\1/')"
@@ -340,4 +321,4 @@ if [ "$dated" -ne "$(printf '%s\n' "$listed" | grep -c .)" ]; then
   exit 1
 fi
 
-echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script but its structured data, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline."
+echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline."
