@@ -18,10 +18,13 @@ import {
 } from '../testing/ledger.ts';
 import {
   escapeHtml,
+  iconFilenames,
   publicLedgerAnchor,
   publishedStatusOrder,
   readableDay,
   renderPage,
+  structuredDataOpening,
+  withoutStructuredData,
 } from './page.ts';
 import { repositoryRoot } from './location.ts';
 import { buildSnapshot } from './snapshot.ts';
@@ -328,8 +331,77 @@ it('says that the filter language is not on the page and where it is', () => {
  * application. A script would mean something on the page is worked out in the
  * reader's browser, after the build, with nothing naming a commit for it.
  */
-it('carries no script at all', () => {
-  expect(renderPage(fixtureSnapshot())).not.toMatch(/<script/i);
+it('carries no script but its structured data', () => {
+  const page = renderPage(fixtureSnapshot());
+  expect(page.split(structuredDataOpening)).toHaveLength(2);
+  expect(withoutStructuredData(page)).not.toMatch(/<script/i);
+});
+
+/**
+ * Taking the structured data out takes out that one block and nothing else,
+ * so a script added beside it, or a second block, is still there to refuse.
+ */
+it('leaves any other script in place when it takes the structured data out', () => {
+  const page = renderPage(fixtureSnapshot());
+  expect(withoutStructuredData(`${page}<script>alert(1)</script>`)).toMatch(
+    /<script/i,
+  );
+  const block = page.slice(
+    page.indexOf(structuredDataOpening),
+    page.indexOf('</script>') + '</script>'.length,
+  );
+  expect(withoutStructuredData(`${page}${block}`)).toMatch(/<script/i);
+});
+
+/**
+ * What a crawler reads in the head (#254): British English, the page's own
+ * address as canonical, the icons, and `WebSite` structured data naming the
+ * site and its address.
+ */
+it('gives its language, its canonical address, its icons and its structured data', () => {
+  const page = renderPage(fixtureSnapshot());
+  const head = page.slice(0, page.indexOf('</head>'));
+
+  expect(page).toContain('<html lang="en-GB">');
+  expect(
+    [...head.matchAll(/<link rel="canonical" href="([^"]*)">/g)].map(
+      (match) => match[1],
+    ),
+  ).toEqual([livePage]);
+  const icons = [
+    ...head.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]*)"/g),
+  ].map((match) => match[1]);
+  expect(icons.sort()).toEqual([...iconFilenames].sort());
+
+  const opening = head.indexOf(structuredDataOpening);
+  const json = head.slice(
+    opening + structuredDataOpening.length,
+    head.indexOf('</script>', opening),
+  );
+  expect(JSON.parse(json)).toEqual({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Seen to Fail',
+    url: livePage,
+    description:
+      "A record of whether each of this project's own checks has been seen to catch a defect planted on purpose.",
+    inLanguage: 'en-GB',
+    publisher: {
+      '@type': 'Organization',
+      name: 'Async Digital',
+      url: 'https://async-digital.com',
+    },
+  });
+});
+
+/** The icons the page names are the files committed beside the renderer. */
+it('names icons that are committed beside the renderer', () => {
+  for (const icon of iconFilenames) {
+    expect(
+      readFileSync(join(repositoryRoot, 'packages/server/src/ledger', icon))
+        .length,
+    ).toBeGreaterThan(0);
+  }
 });
 
 /**
@@ -339,7 +411,10 @@ it('carries no script at all', () => {
  * it. The page's own address and its preview image are also
  * written out, absolute, in the link-preview tags (#237); they are not places
  * the page sends a reader, but they are addresses on it, so they are named
- * here too. Nothing here is fetched; these are places a reader can
+ * here too. So are the icons beside the page and the schema.org vocabulary its
+ * structured data names (#254): a browser shows the icons from beside the page
+ * and a crawler reads the vocabulary's name, but neither sends a reader
+ * anywhere. Nothing here is fetched; these are places a reader can
  * go, and the list is closed so that a page which started reaching somewhere
  * else would fail rather than be noticed by somebody reading the HTML. Every
  * link is held to it, and so is every absolute address, which also lets the
@@ -376,6 +451,8 @@ it('links only to a commit, a run a record named, the export, the repository, it
       url === livePage ||
       url === livePreview ||
       url === exported ||
+      (iconFilenames as readonly string[]).includes(url ?? '') ||
+      url === 'https://schema.org' ||
       url === 'http://www.w3.org/2000/svg'
     ) {
       continue;

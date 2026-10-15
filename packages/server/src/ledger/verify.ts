@@ -5,7 +5,7 @@ import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
 import type { CheckSummary } from '../database/summaries.ts';
 import { ledgerCheckUuid } from './identity.ts';
-import { escapeHtml } from './page.ts';
+import { escapeHtml, withoutStructuredData } from './page.ts';
 import type { LedgerContents } from './load.ts';
 import type { PublishedLedger } from './snapshot.ts';
 
@@ -397,8 +397,9 @@ export function disagreements(input: VerificationInput): string[] {
   // The published page is a document, not an application. A script tag in it
   // would mean something on the page is worked out in the reader's browser
   // rather than at build time, which is the one property the whole publishing
-  // route exists to have.
-  if (/<script/i.test(page)) {
+  // route exists to have. The one structured-data block is taken out first
+  // (#254): it is JSON a browser never runs, and a second one is still refused.
+  if (/<script/i.test(withoutStructuredData(page))) {
     found.push('The page carries a script, so it is not a static record.');
   }
 

@@ -12,7 +12,18 @@ import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { describeIssues, loadLedger } from './load.ts';
 import type { LedgerContents } from './load.ts';
-import { previewImageFilename, renderExport, renderPage } from './page.ts';
+import {
+  robotsFilename,
+  renderRobots,
+  renderSitemap,
+  sitemapFilename,
+} from './discovery.ts';
+import {
+  iconFilenames,
+  previewImageFilename,
+  renderExport,
+  renderPage,
+} from './page.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { disagreements, LedgerDisagreementError } from './verify.ts';
@@ -39,16 +50,21 @@ import type { DatabaseTotals } from './verify.ts';
 /** The files the build writes, under the output directory. */
 export const pageFilename = 'index.html';
 export const exportFilename = 'ledger.json';
-export { previewImageFilename };
+export { iconFilenames, previewImageFilename, robotsFilename, sitemapFilename };
 
 /**
- * The link-preview image, committed beside the renderer and copied out as it
- * is. Nothing about it comes from the record, so there is nothing for the build
- * to check it against; the published-output check reads its size off disk.
+ * The pages the build writes, which is the list the sitemap is drawn from. One
+ * today; a second page goes here and is listed by the same change.
  */
-const previewImageSource = fileURLToPath(
-  new URL(`./${previewImageFilename}`, import.meta.url),
-);
+export const pageFilenames = [pageFilename] as const;
+
+/**
+ * The files committed beside the renderer and copied out as they are: the
+ * link-preview image and the icons (#254). Nothing about them comes from the
+ * record, so there is nothing for the build to check them against; the
+ * published-output check reads them off disk.
+ */
+const copiedFilenames = [previewImageFilename, ...iconFilenames];
 
 /** Thrown when the ledger itself is refused, naming every issue. */
 export class LedgerRefusedError extends Error {
@@ -255,12 +271,27 @@ export async function buildLedger(
   const exportPath = join(options.outputDirectory, exportFilename);
   await writeFile(pagePath, page, 'utf8');
   await writeFile(exportPath, renderExport(snapshot), 'utf8');
-  const previewPath = join(options.outputDirectory, previewImageFilename);
-  await copyFile(previewImageSource, previewPath);
+  const robotsPath = join(options.outputDirectory, robotsFilename);
+  await writeFile(robotsPath, renderRobots(), 'utf8');
+  const sitemapPath = join(options.outputDirectory, sitemapFilename);
+  await writeFile(
+    sitemapPath,
+    renderSitemap(pageFilenames, snapshot.builtOn),
+    'utf8',
+  );
+  const copiedPaths: string[] = [];
+  for (const filename of copiedFilenames) {
+    const target = join(options.outputDirectory, filename);
+    await copyFile(
+      fileURLToPath(new URL(`./${filename}`, import.meta.url)),
+      target,
+    );
+    copiedPaths.push(target);
+  }
 
   return {
     ledger: snapshot,
     page,
-    written: [pagePath, exportPath, previewPath],
+    written: [pagePath, exportPath, robotsPath, sitemapPath, ...copiedPaths],
   };
 }
