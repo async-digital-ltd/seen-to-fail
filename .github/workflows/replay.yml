@@ -388,6 +388,15 @@ jobs:
         if: steps.select.outputs.config != ''
         run: pnpm ledger:validate
 
+      # The documentation the new runs move, written in the same commit as the
+      # runs (#265). Since #264, CI fails while the replay counts in
+      # docs/automatic.md and ledger/README.md are behind ledger/, so a branch
+      # pushed without this arrives red and waits for a person to run it by
+      # hand. It reads ledger/ and canfail.json, never the clock or git.
+      - name: Write the counts the new runs move
+        if: steps.select.outputs.config != ''
+        run: pnpm readme
+
       # Push the branch, exit 0, and tell a person what is waiting.
       #
       # This job does not open the pull request, and that is the route ruled on
@@ -415,7 +424,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch --create "$BRANCH"
-          git add ledger
+          # Only ledger/ and the generated documentation, and the step stops
+          # if anything else in the tree changed (#265).
+          bash scripts/stage-record.sh
           if git diff --cached --quiet; then
             echo "Every run in this replay was already recorded. Nothing to commit."
             {
