@@ -270,7 +270,7 @@ const notInTheTree = new Map([
 ]);
 
 /** Branch lanes the workflows push to, whose names share a path's shape. */
-const branchPrefixes = ['ci-control/', 'replay/'];
+const branchPrefixes = ['ci-control/', 'replay/', 'record/'];
 
 /** Every file git tracks, and every directory one of them sits in. */
 function trackedPaths(): Set<string> {

@@ -1,0 +1,82 @@
+name: Find recorded branches left waiting
+
+# Both recording workflows end by pushing `replay/<run id>` or
+# `record/<run id>` and naming it in their run summary, because GitHub Actions
+# may not open a pull request here (#74). Until a person opens one, the record
+# is on the remote and not in the ledger, and the only place that said so was
+# the summary of one green run. Three replay branches waited unnoticed from 5 to
+# 18 October 2026 that way (#122).
+#
+# This goes red when a recorded branch carries ledger files `main` does not
+# hold and has waited longer than LANDING_GRACE_DAYS in
+# packages/server/src/ledger/waiting.ts, or when an entry in
+# .github/kept-off-main.json no longer describes the remote. A failed scheduled
+# run is what GitHub notifies about without anyone opening the Actions tab,
+# which is the point: it fires without somebody happening to list branches.
+#
+# It is a workflow of its own rather than a step in replay.yml, because a red
+# replay run means nothing from that replay landed, and this finding is about a
+# different, older branch. Folding it in would make a replay that recorded
+# perfectly read as one that failed. It is not part of the required check on
+# main either: a waiting branch is not a defect in the pull request being
+# checked, and blocking every pull request on it would turn a nudge into a gate.
+#
+# Daily, so the red arrives within a day of the grace ending and well before
+# the next weekly replay covers the same range again; waiting.test.ts holds
+# that arithmetic against both crons. It runs no plant, records nothing,
+# pushes nothing and reads only public refs, so it needs no write permission
+# and no credential.
+
+on:
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  waiting:
+    name: Find recorded branches left waiting
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Install Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fetched by name rather than trusted to the checkout, so the refs the
+      # script reads are the ones this step asked for, pruned of any branch
+      # deleted on the remote.
+      - name: Fetch main and the recorded branches
+        run: |
+          git fetch --prune --no-tags origin \
+            '+refs/heads/main:refs/remotes/origin/main' \
+            '+refs/heads/replay/*:refs/remotes/origin/replay/*' \
+            '+refs/heads/record/*:refs/remotes/origin/record/*'
+
+      - name: Judge the recorded branches
+        run: |
+          set -euo pipefail
+          status=0
+          pnpm --silent branches:waiting > "$RUNNER_TEMP/waiting.md" || status=$?
+          cat "$RUNNER_TEMP/waiting.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/waiting.md"
+          if [ "$status" -eq 2 ]; then
+            echo "::error title=A recorded branch needs a person::See the run summary for which branch and what to do."
+          fi
+          exit "$status"

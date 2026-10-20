@@ -33,7 +33,8 @@
     "ledger:record": "node packages/server/src/scripts/record-run.ts",
     "ledger:replay": "node packages/server/src/scripts/record-replay.ts",
     "replay:select": "node packages/server/src/scripts/select-replays.ts",
-    "ledger:build": "node packages/server/src/scripts/build-ledger.ts"
+    "ledger:build": "node packages/server/src/scripts/build-ledger.ts",
+    "branches:waiting": "node packages/server/src/scripts/check-waiting-branches.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

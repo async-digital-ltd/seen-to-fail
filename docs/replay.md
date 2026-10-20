@@ -289,3 +289,21 @@ Tracked at
 [#74](https://github.com/async-digital-ltd/seen-to-fail/issues/74), which also
 holds the cost of a red run that has already recorded something. The automatic
 half is not automatic end to end until that is settled.
+
+**A branch left waiting turns something red.** Because a person has to open
+each pull request, a recorded branch can sit on the remote with its runs
+nowhere in the ledger, and three replay branches did, unnoticed, from 5 to
+18 October 2026. `.github/workflows/waiting-branches.yml` runs daily and fails
+when a `replay/` or `record/` branch carries a file under `ledger/` that
+`main` does not hold byte for byte and was pushed more than
+`LANDING_GRACE_DAYS` ago, three days, in
+`packages/server/src/ledger/waiting.ts`. Byte for byte rather than by git
+ancestry, because a squash merge leaves the branch no ancestor of `main`. A
+failed scheduled run is what GitHub notifies about without anyone opening the
+Actions tab. It is its own workflow so that a red replay run keeps meaning
+that nothing from that replay landed. A branch kept off `main` on purpose, as
+`replay/35431432957` is, is written in `.github/kept-off-main.json` with its
+head, its issue and the reason, and that entry fails the check too once the
+branch is deleted, moves or lands, so it cannot go on passing after it stops
+being true. `pnpm branches:waiting` runs the same check from a clone, against
+whatever it last fetched.
