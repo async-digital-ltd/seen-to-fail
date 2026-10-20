@@ -1,0 +1,10 @@
+{
+  "keptOffMain": [
+    {
+      "branch": "replay/35431432957",
+      "head": "b3e67e5e8387ce865243bdd264aaa1188e0781c6",
+      "issue": 67,
+      "reason": "The red-baseline control. The replay ran against ci-control/67-red-baseline, where the type check already failed before anything was planted, and recorded two inconclusive runs and no caught one, which is the observation. Those runs describe that control branch rather than main, so they stay off the ledger."
+    }
+  ]
+}
