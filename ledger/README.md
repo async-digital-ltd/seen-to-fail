@@ -46,12 +46,18 @@ replay record too, though nothing here calls it that way. `pnpm ledger:replay`
 writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote one run for each break `canfail.json` declared, when it ran, for the
-checks it replayed. Up to the replay of 19 October 2026 that was two for each
-of the first three replays, seven for the fourth, eight for the fifth, twelve
-for the sixth, thirteen each for the seventh and eighth, and seventeen each for
-the ninth, tenth and eleventh. The file has declared ten checks and seventeen
-breaks between them since #228, which gave four more checks one break each; it
-held six checks (#190, #146) and thirteen breaks (#200) before that.
+checks it replayed. How many that was for each replay is written from `runs/`
+by `pnpm readme`, and CI fails while it differs from them:
+
+<!-- generated: runs-per-replay, by pnpm readme from ledger/runs/ -->
+
+Up to the replay of 19 October 2026, eleven replays have written runs here: two for each of the first three, seven for the fourth, eight for the fifth, twelve for the sixth, thirteen each for the seventh and eighth, and seventeen each for the ninth to the eleventh.
+
+<!-- end generated: runs-per-replay -->
+
+The file has declared ten checks and seventeen breaks between them since #228,
+which gave four more checks one break each; it held six checks (#190, #146) and
+thirteen breaks (#200) before that.
 `jq '[(.checks | length), ([.checks[].breaks | length] | add)]' canfail.json`
 counts the checks and the breaks today. The adapter holds the report to the
 declaration (#128): an outcome for a break the declaration does not declare, a
@@ -106,8 +112,8 @@ of surrounding spaces, and an empty `note`, `inconclusiveReason`,
 
 A run typed in by hand, in the shape `pnpm ledger:record` writes one today:
 every key present, and the empty ones null. The values are made up for the
-example. Three hand records in `runs/` had this shape on 20 October 2026, two
-typed in on 4 October 2026 and one on 5 October 2026, and
+example. Three hand records in `runs/` have this shape, two typed in on 4
+October 2026 and one on 5 October 2026, and
 `grep -l '"source": "hand"' ledger/runs/*.json` lists them today. The four
 before them were written before `source` existed and carry six keys, as
 [Where a run came from](#where-a-run-came-from) explains.

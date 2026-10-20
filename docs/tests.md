@@ -51,7 +51,11 @@ The commands above, the list of packages and the list of CI's steps below are
 written from the tree rather than by hand. `pnpm readme` rewrites them from
 `.github/workflows/ci.yml` and from each package's `package.json`, and a test
 fails while any of them differs from what it would write, so a change to either
-source needs `pnpm readme` run before it will pass.
+source needs `pnpm readme` run before it will pass. The same command writes the
+replay counts in [automatic.md](automatic.md) and `ledger/README.md` from
+`ledger/` and `canfail.json`, and the same test fails while those differ, so a
+pull request that records a replay needs `pnpm readme` run on it before it
+will pass (#243).
 
 Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
 a real PostgreSQL, apply the migrations before the first of them, and empty

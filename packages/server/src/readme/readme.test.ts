@@ -9,10 +9,9 @@ import { checksDirectory } from '../ledger/load.ts';
 import { ledgerDirectory, repositoryRoot } from '../ledger/location.ts';
 import {
   contributorCommands,
-  generatedBlocks,
+  fileAt,
   generatedBlocksIn,
-  generatedFile,
-  generatedPath,
+  generatedFiles,
   rewriteReadme,
   stepsOf,
 } from './generated.ts';
@@ -45,32 +44,49 @@ import {
  */
 const readme = readReadme();
 
-/** The file that holds the generated blocks, as it stands. */
-const generated = readFileSync(generatedFile, 'utf8');
+/**
+ * Every file that holds generated blocks, with its text as it stands. After a
+ * replay is merged, the blocks in `docs/automatic.md` and `ledger/README.md`
+ * differ from the ledger until `pnpm readme` has been run, and the first test
+ * below is what fails CI until then (#243).
+ */
+const generated = generatedFiles().map((file) => ({
+  ...file,
+  text: readFileSync(fileAt(file.path), 'utf8'),
+}));
 
-it('holds every generated block exactly as `pnpm readme` would write it today', () => {
-  expect(
-    generatedBlocksIn(generated),
-    `${generatedPath} differs from its sources. Run \`pnpm readme\` and commit the result.`,
-  ).toStrictEqual(generatedBlocks());
-});
+it.each(generated)(
+  'holds every generated block in $path exactly as `pnpm readme` would write it today',
+  ({ path, blocks, text }) => {
+    expect(
+      generatedBlocksIn(text, path),
+      `${path} differs from its sources. Run \`pnpm readme\` and commit the result.`,
+    ).toStrictEqual(blocks());
+  },
+);
 
 /**
- * The writer's own behaviour, on the file as `pnpm readme` would leave it, so
+ * The writer's own behaviour, on each file as `pnpm readme` would leave it, so
  * a file that is merely behind its sources fails only the test above, with
  * its message, and not this one with a diff of the whole file.
  */
-it('puts a generated block edited by hand back as its source writes it, and changes nothing else', () => {
-  const blocks = generatedBlocks();
-  const current = rewriteReadme(generated, blocks);
-  const byHand = new Map(
-    [...blocks.keys()].map((name) => [name, `\nTyped by hand into ${name}.\n`]),
-  );
+it.each(generated)(
+  'puts a generated block in $path edited by hand back as its source writes it, and changes nothing else',
+  ({ path, blocks: write, text }) => {
+    const blocks = write();
+    const current = rewriteReadme(text, blocks, path);
+    const byHand = new Map(
+      [...blocks.keys()].map((name) => [
+        name,
+        `\nTyped by hand into ${name}.\n`,
+      ]),
+    );
 
-  const edited = rewriteReadme(current, byHand);
-  expect(generatedBlocksIn(edited)).toStrictEqual(byHand);
-  expect(rewriteReadme(edited, blocks)).toBe(current);
-});
+    const edited = rewriteReadme(current, byHand, path);
+    expect(generatedBlocksIn(edited, path)).toStrictEqual(byHand);
+    expect(rewriteReadme(edited, blocks, path)).toBe(current);
+  },
+);
 
 /** A workflow holding one job, `checks`, with these step lines. */
 function workflow(steps: readonly string[]): string {
@@ -443,10 +459,11 @@ function ledgerSection(): string {
  *
  * Only a hand-written change moves these, so a test can hold them without
  * tripping a replay. The counts a replay moves, how many runs there are and how
- * many came from one, stay dated prose with the command to count them again
- * beside it, because the recording workflows commit `ledger/` alone and a test
- * on those would fail every replay pull request until somebody edited the
- * README (#186).
+ * many came from one, are generated blocks written by `pnpm readme` (#243)
+ * rather than prose a test reads, because a test on those would fail every
+ * replay pull request and teach whoever landed it to edit the number without
+ * reading the sentence (#186). One of the sentences below sits in such a
+ * block, and is read here all the same.
  */
 it("states the ledger's checks, declared checks and declared breaks as the tree holds them", () => {
   const records = readdirSync(join(ledgerDirectory, checksDirectory)).filter(

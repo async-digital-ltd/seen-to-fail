@@ -2,6 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { repositoryRoot } from '../ledger/location.ts';
+import {
+  readReplayRecord,
+  replayTable,
+  replayTotals,
+  runsPerReplay,
+} from './replays.ts';
 
 /**
  * The parts of the README that are a listing of something in the tree, written
@@ -25,17 +31,28 @@ import { repositoryRoot } from '../ledger/location.ts';
  * then. The text after the name in the opening comment is for the person
  * reading the Markdown and is not read here.
  *
- * The blocks sit in `docs/tests.md`, which is the README's Tests section moved
- * out of it when the README was split into a front page and `docs/` (#251).
- * `pnpm readme` keeps its name, because the file is still part of the README's
- * account of the project.
+ * The blocks sit in three files. `docs/tests.md`, the README's Tests section
+ * moved out of it when the README was split into a front page and `docs/`
+ * (#251), holds the lists written from the workflow and the packages.
+ * `docs/automatic.md` and `ledger/README.md` hold the counts a replay moves,
+ * written from `ledger/` and `canfail.json` (#243), because those went false
+ * on every replay merge while they were typed by hand. `pnpm readme` keeps its
+ * name, because every one of them is part of the README's account of the
+ * project.
  */
 
-/** The file the generated blocks sit in, from the repository root. */
-export const generatedPath = 'docs/tests.md';
+/** A file that holds generated blocks, and what writes each of them. */
+export interface GeneratedFile {
+  /** The file, from the repository root. */
+  readonly path: string;
+  /** Every block the file holds, written from the tree as it stands. */
+  readonly blocks: () => Map<string, string>;
+}
 
-/** The same file, as a path this process can read. */
-export const generatedFile = join(repositoryRoot, generatedPath);
+/** A path from the repository root, as a path this process can read. */
+export function fileAt(path: string): string {
+  return join(repositoryRoot, path);
+}
 
 const opening = /^<!-- generated: ([a-z-]+)\b.*-->$/u;
 
@@ -58,7 +75,7 @@ interface Region {
  * Refuses an opening comment with no closing one, and a name used twice, rather
  * than guessing which lines belong to which block.
  */
-function regionsIn(lines: readonly string[]): Region[] {
+function regionsIn(lines: readonly string[], path: string): Region[] {
   const regions: Region[] = [];
   for (const [index, line] of lines.entries()) {
     const name = opening.exec(line)?.[1];
@@ -66,14 +83,12 @@ function regionsIn(lines: readonly string[]): Region[] {
       continue;
     }
     if (regions.some((region) => region.name === name)) {
-      throw new Error(
-        `${generatedPath} opens the generated block ${name} twice.`,
-      );
+      throw new Error(`${path} opens the generated block ${name} twice.`);
     }
     const end = lines.indexOf(closing(name), index + 1);
     if (end === -1) {
       throw new Error(
-        `${generatedPath} opens the generated block ${name} and never closes it with "${closing(name)}".`,
+        `${path} opens the generated block ${name} and never closes it with "${closing(name)}".`,
       );
     }
     regions.push({ name, start: index + 1, end });
@@ -87,10 +102,13 @@ function regionsIn(lines: readonly string[]): Region[] {
  * A block's text is held with a blank line either side of it, which is what
  * keeps Markdown from reading a list or a fence as part of the comment.
  */
-export function generatedBlocksIn(readme: string): Map<string, string> {
+export function generatedBlocksIn(
+  readme: string,
+  path: string,
+): Map<string, string> {
   const lines = readme.split('\n');
   return new Map(
-    regionsIn(lines).map((region) => [
+    regionsIn(lines, path).map((region) => [
       region.name,
       lines.slice(region.start, region.end).join('\n'),
     ]),
@@ -107,13 +125,14 @@ export function generatedBlocksIn(readme: string): Map<string, string> {
 export function rewriteReadme(
   readme: string,
   blocks: ReadonlyMap<string, string>,
+  path: string,
 ): string {
   const lines = readme.split('\n');
-  const regions = regionsIn(lines);
+  const regions = regionsIn(lines, path);
 
   for (const name of blocks.keys()) {
     if (!regions.some((region) => region.name === name)) {
-      throw new Error(`${generatedPath} has no generated block named ${name}.`);
+      throw new Error(`${path} has no generated block named ${name}.`);
     }
   }
 
@@ -123,7 +142,7 @@ export function rewriteReadme(
     const text = blocks.get(region.name);
     if (text === undefined) {
       throw new Error(
-        `${generatedPath} opens a generated block named ${region.name}, and nothing generates it.`,
+        `${path} opens a generated block named ${region.name}, and nothing generates it.`,
       );
     }
     lines.splice(region.start, region.end - region.start, ...text.split('\n'));
@@ -338,11 +357,35 @@ export function contributorCommands(
   return spaced(['```sh', ...commands, '```'].join('\n'));
 }
 
-/** Every block the README holds, written from the tree as it stands. */
-export function generatedBlocks(): Map<string, string> {
-  return new Map([
-    ['contributor-commands', contributorCommands()],
-    ['packages', packageList()],
-    ['ci-steps', ciSteps()],
-  ]);
+/**
+ * Every file that holds generated blocks, and what writes each block, read
+ * from the tree only when asked so that a file's blocks are written from the
+ * tree as it stands at that moment.
+ */
+export function generatedFiles(): GeneratedFile[] {
+  return [
+    {
+      path: 'docs/tests.md',
+      blocks: () =>
+        new Map([
+          ['contributor-commands', contributorCommands()],
+          ['packages', packageList()],
+          ['ci-steps', ciSteps()],
+        ]),
+    },
+    {
+      path: 'docs/automatic.md',
+      blocks: () => {
+        const record = readReplayRecord();
+        return new Map([
+          ['replay-table', replayTable(record)],
+          ['replay-totals', replayTotals(record)],
+        ]);
+      },
+    },
+    {
+      path: 'ledger/README.md',
+      blocks: () => new Map([['runs-per-replay', runsPerReplay()]]),
+    },
+  ];
 }
