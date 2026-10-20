@@ -103,9 +103,11 @@ of surrounding spaces, and an empty `note`, `inconclusiveReason`,
 
 A run typed in by hand, in the shape `pnpm ledger:record` writes one today:
 every key present, and the empty ones null. The values are made up for the
-example. Two hand records in `runs/` have this shape, both typed in on 4
-October 2026. The four before them were written before `source` existed and
-carry six keys, as [Where a run came from](#where-a-run-came-from) explains.
+example. Three hand records in `runs/` had this shape on 20 October 2026, two
+typed in on 4 October 2026 and one on 5 October 2026, and
+`grep -l '"source": "hand"' ledger/runs/*.json` lists them today. The four
+before them were written before `source` existed and carry six keys, as
+[Where a run came from](#where-a-run-came-from) explains.
 
 ```json
 {
