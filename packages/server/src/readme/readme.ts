@@ -127,6 +127,14 @@ export function countOf(written: string): number {
   return index;
 }
 
+/**
+ * A count as the README writes it, in words up to twenty and in figures
+ * beyond, so that what a generated block writes `countOf` reads back.
+ */
+export function writtenCount(count: number): string {
+  return numberWords[count] ?? String(count);
+}
+
 /** A fenced block at the start of a line, its fences included. */
 const fences = /^```[^\n]*\n[\s\S]*?^```$/gmu;
 
