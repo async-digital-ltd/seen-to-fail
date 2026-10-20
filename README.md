@@ -93,7 +93,10 @@ copy:
    [What belongs on a public ledger](#what-belongs-on-a-public-ledger) before
    you decide.
 4. Keep `.github/workflows/replay.yml` and `.github/workflows/record-run.yml`
-   as they are. Neither names a check of this repository's.
+   as they are. Neither names a check of this repository's. Keep
+   `.github/workflows/waiting-branches.yml` too, and empty the list in
+   `.github/kept-off-main.json`, whose one entry is a branch of this
+   repository's and would fail the check as gone.
 5. Rewrite or remove this README and `docs/`. `packages/server/src/readme/`
    holds their counts to the tree, so `pnpm test` fails once your ledger
    differs. The published page also carries a "Made by" link to this project's
