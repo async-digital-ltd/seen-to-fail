@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-workflow-lint",
+  "runOn": "2026-10-19",
+  "planted": "replay.yml reads inputs.only_due where the input is named only-due, so a dispatch ticked to replay only what is due would replay everything.",
+  "expected": "The workflow lint or the script lint fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "4df2d24ce372feec2cff5feb2c2803679fc7145f",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/39233374619"
+}
