@@ -53,9 +53,13 @@ written from the tree rather than by hand. `pnpm readme` rewrites them from
 fails while any of them differs from what it would write, so a change to either
 source needs `pnpm readme` run before it will pass. The same command writes the
 replay counts in [automatic.md](automatic.md) and `ledger/README.md` from
-`ledger/` and `canfail.json`, and the same test fails while those differ, so a
-pull request that records a replay needs `pnpm readme` run on it before it
-will pass (#243).
+`ledger/` and `canfail.json`, and the same test fails while those differ
+(#243). The `Replay a plant` and `Record a run` workflows run it after writing
+their runs and commit what it writes in the same commit, so a branch either of
+them pushes passes with no hand step; `scripts/stage-record.sh` refuses the
+commit if anything outside `ledger/`, `docs/automatic.md` and `docs/tests.md`
+changed (#265). A run recorded any other way needs `pnpm readme` run on its
+branch before it will pass.
 
 Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
 a real PostgreSQL, apply the migrations before the first of them, and empty
