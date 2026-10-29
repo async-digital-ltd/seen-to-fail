@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-test",
+  "runOn": "2026-10-29",
+  "planted": "A link's day count accepts a leading zero, so one filter has two links, which the type check accepts.",
+  "expected": "The tests fail.",
+  "outcome": "inconclusive",
+  "inconclusiveReason": "the check already FAILS on the clean tree (exit 1: [ELIFECYCLE] Test failed. See above for more details.) — breaking something can prove nothing from here",
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "f8b3eca03849d5c8e893e8fdcb5008af0c5bced0",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/40878154653"
+}
