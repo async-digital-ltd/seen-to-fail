@@ -185,6 +185,13 @@
           "replace": "if [ ! -f \"$page\" ]; then",
           "with": "if [ ! -f $page ]; then",
           "expect": "In scripts/check-published-output\\.sh line [0-9]+:"
+        },
+        {
+          "name": "waiting-branches.yml uses actions/checkout@v7, a tag anyone who can write to that repository can move, rather than a commit SHA, which actionlint accepts.",
+          "file": ".github/workflows/waiting-branches.yml",
+          "replace": "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+          "with": "uses: actions/checkout@v7",
+          "expect": "actions/checkout@v7 is not pinned to a full commit SHA"
         }
       ]
     },

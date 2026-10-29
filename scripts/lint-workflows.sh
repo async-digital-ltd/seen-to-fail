@@ -3,9 +3,10 @@
 # Lints every workflow in .github/workflows with actionlint, and the shell in
 # each of their `run:` steps with shellcheck, both at pinned versions, and then
 # every tracked shell script under scripts/ with that same pinned tool. It
-# answers two questions. Would GitHub read these workflows the way they were
-# meant, before any of them runs. And does the shell in the scripts beside this
-# one, several of which the CI job runs, say what its author meant.
+# answers three questions. Would GitHub read these workflows the way they were
+# meant, before any of them runs. Does every action they use name a commit
+# rather than a tag that can be moved. And does the shell in the scripts beside
+# this one, several of which the CI job runs, say what its author meant.
 #
 # Two of the three workflows run only when somebody dispatches them or on the
 # Monday schedule: `record-run.yml` and `replay.yml`. Nothing else in the build
@@ -94,6 +95,12 @@
 # commit that added the script lint, failed this step in CI run 37221005997
 # with exit 1, after the workflow lint had passed, and no later step ran. Run
 # 37220995947, on that commit without the plant, passed it.
+#
+# The pin check between the two was watched failing on 29 October 2026
+# (#235). With waiting-branches.yml rewritten to use `actions/checkout@v7`,
+# `"pnpm/action-setup@master"` and `actions/setup-node@8207627`, actionlint
+# passed all three and the pin check exited 1, naming each line. With the file
+# put back it exited 0. canfail.json declares the first of those plants.
 
 set -euo pipefail
 
@@ -212,6 +219,54 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo "The workflow lint passed: actionlint $actionlint_version, with shellcheck $shellcheck_version, found nothing in ${workflows[*]}."
+
+# Every `uses:` in those workflows must name a full 40-character commit SHA
+# (#235). A tag or a branch is a pointer anyone who can write to the action's
+# repository can move to other code, and two of these workflows hold a token
+# that can write to this one (#223). actionlint accepts a tag without comment,
+# so before this nothing failed when an edit wrote `actions/checkout@v7`, and
+# the rule held only while every author remembered it.
+#
+# A local action (`./path`) carries no ref and is code in this repository, so
+# it passes. A `docker://` image must be pinned by its sha256 digest, for the
+# same reason. The release tag in the comment after the SHA is not read here:
+# it is a label for a person and for Dependabot, which proposes each new SHA as
+# a pull request and rewrites the comment with it (.github/dependabot.yml).
+#
+# It reads the files line by line rather than as YAML, so it sees a `uses:`
+# written as a block-style key, which is how every workflow here writes one. A
+# `uses` written in a flow mapping (`{ uses: ... }`) or folded onto the next
+# line would slip past it; none is, and the first line of this repository to
+# write one should teach this check to read it.
+unpinned=()
+uses_line='^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*(.*)$'
+pinned_action='^[^@[:space:]]+@[0-9a-f]{40}$'
+pinned_image='^docker://[^@[:space:]]+@sha256:[0-9a-f]{64}$'
+for workflow in "${workflows[@]}"; do
+  line_number=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line_number=$((line_number + 1))
+    [[ $line =~ $uses_line ]] || continue
+    ref="${BASH_REMATCH[2]}"
+    ref="${ref%%#*}"
+    ref="${ref%"${ref##*[![:space:]]}"}"
+    ref="${ref#[\"\']}"
+    ref="${ref%[\"\']}"
+    if [[ $ref == ./* || $ref =~ $pinned_action || $ref =~ $pinned_image ]]; then
+      continue
+    fi
+    unpinned+=("$workflow:$line_number: $ref")
+  done <"$workflow"
+done
+if [ "${#unpinned[@]}" -ne 0 ]; then
+  for entry in "${unpinned[@]}"; do
+    echo "$entry is not pinned to a full commit SHA." >&2
+  done
+  echo "The pin check failed: ${#unpinned[@]} uses: line(s) name a tag, a branch or a short SHA rather than a full commit SHA." >&2
+  exit 1
+fi
+
+echo "The pin check passed: every uses: in ${workflows[*]} names a full commit SHA."
 
 # The scripts, read by the pinned shellcheck directly. It exits 1 when it finds
 # something and higher when it could not run at all, and the status is passed
