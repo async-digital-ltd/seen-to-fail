@@ -52,6 +52,18 @@ export const MAX_DAYS = 1_721_426;
  */
 export const MAX_RUN_COUNT = 2_147_483_647;
 
+/**
+ * The longest area an `area` condition takes, in characters: the longest area
+ * a check can have.
+ *
+ * The number is held here rather than in the server, because a filter has to
+ * refuse an area no check can have and this package cannot import the server
+ * (#220). The server reads it from here as its limit on a name and an area, so
+ * the two cannot drift; why it is two hundred is beside that limit, in the
+ * server's `database/new-records.ts`.
+ */
+export const MAX_AREA_LENGTH = 200;
+
 /** A check's status is one of the five, or is anything but that one. */
 export interface StatusCondition {
   readonly field: 'status';

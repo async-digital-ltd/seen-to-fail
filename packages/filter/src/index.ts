@@ -21,6 +21,7 @@
 export {
   emptyFilter,
   JOINERS,
+  MAX_AREA_LENGTH,
   MAX_CONDITIONS_PER_GROUP,
   MAX_DAYS,
   MAX_GROUPS,

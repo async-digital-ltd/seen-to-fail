@@ -558,13 +558,13 @@ describe('the notice', () => {
       unreadable: [
         {
           path: 'groups[0].conditions[0]',
-          message: 'This filter language has no status.was condition.',
+          message: 'This filter language has no condition by that name.',
         },
       ],
     });
 
     expect(within(bar).getByRole('alert')).toHaveTextContent(
-      "The filter in this link couldn't be read, so every check is listed. This filter language has no status.was condition.",
+      "The filter in this link couldn't be read, so every check is listed. This filter language has no condition by that name.",
     );
   });
 

@@ -8,6 +8,7 @@ import { parseFilter, type FilterIssue } from './parse.ts';
 import {
   emptyFilter,
   JOINERS,
+  MAX_AREA_LENGTH,
   MAX_CONDITIONS_PER_GROUP,
   MAX_GROUPS,
   STATUSES,
@@ -507,6 +508,58 @@ it('refuses a link carrying a day count past the largest, or a NUL in an area', 
         'An area cannot contain a NUL character or an unpaired surrogate.',
     },
   ]);
+});
+
+/**
+ * The server refuses to write an area longer than `MAX_AREA_LENGTH`, so a
+ * longer one in a link can never match. It used to read as a valid filter and
+ * send the whole value to the database as a bound parameter: a 2,000,016
+ * character link compiled to one comparison against 2,000,000 characters
+ * (#220). It is refused at the value, with one issue, whatever its length.
+ */
+it('refuses a link carrying an area longer than any check can have, and reads the longest', () => {
+  const longest = 'x'.repeat(MAX_AREA_LENGTH);
+
+  expect(parsedOrThrow(`and!and*area.is.${longest}`)).toStrictEqual(
+    oneCondition({ field: 'area', op: 'is', value: longest }),
+  );
+  for (const length of [MAX_AREA_LENGTH + 1, 2_000_000]) {
+    expect(refusalOf(`and!and*area.is.${'x'.repeat(length)}`)).toStrictEqual([
+      {
+        path: 'groups[0].conditions[0].value',
+        message: `An area cannot be more than ${String(MAX_AREA_LENGTH)} characters.`,
+      },
+    ]);
+  }
+});
+
+/**
+ * A condition the language does not have used to be refused with its own name
+ * repeated in the message, at whatever length the link gave it, and the web
+ * client shows that message in an alert. A link could put words of its own
+ * choosing in the app's voice, or flood a live region a screen reader
+ * announces: a 2 MB name came back as one 2 MB message (#219). The message is
+ * now the same for every unknown name, so none of the link's text is in it.
+ */
+it('refuses a condition the language does not have without repeating its name', () => {
+  const planted = [
+    'Session-expired-sign-in-at-evil.com',
+    `${'x'.repeat(2_000_000)}.is`,
+  ];
+
+  for (const name of planted) {
+    const errors = refusalOf(`and!and*${name}`);
+
+    expect(errors).toStrictEqual([
+      {
+        path: 'groups[0].conditions[0]',
+        message: 'This filter language has no condition by that name.',
+      },
+    ]);
+    for (const issue of errors) {
+      expect(issue.message).not.toContain(name);
+    }
+  }
 });
 
 /**

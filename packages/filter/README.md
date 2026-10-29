@@ -72,6 +72,10 @@ carries four digits, so a value has one encoding rather than several.
 A value is compared exactly as it is written, so `area.is.ci` and `area.is.CI`
 are different conditions and only the second one matches an area spelled `CI`.
 
+An area value is at most 200 characters, `MAX_AREA_LENGTH`, which is the
+longest area the server will write. A longer one could never match, so it is
+refused rather than sent to the database.
+
 ### Examples
 
 1. `(status is Unproven OR status is Stale) AND area is CI`

@@ -1,3 +1,4 @@
+import { MAX_AREA_LENGTH } from '@seen-to-fail/filter';
 import { z } from 'zod';
 
 import { uuidPattern } from './checks.ts';
@@ -139,8 +140,14 @@ export const settledRunHasNoReason: RecordIssue = {
  * refuses a value whose index entry passes 2704 bytes. A character here is a
  * UTF-16 code unit, which is at most three bytes of UTF-8, so the longest name
  * this allows is 600 bytes and cannot reach that ceiling however it is written.
+ *
+ * The number itself is held by the filter package, as `MAX_AREA_LENGTH`,
+ * because a filter refuses an area longer than any check can have and that
+ * package cannot import this one (#220). It is read from there rather than
+ * restated, so the limit a filter applies and the limit a write applies are one
+ * number.
  */
-export const MAX_LABEL_LENGTH = 200;
+export const MAX_LABEL_LENGTH = MAX_AREA_LENGTH;
 
 /**
  * The longest any other text may be, in characters.
