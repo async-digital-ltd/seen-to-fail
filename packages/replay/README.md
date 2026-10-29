@@ -186,13 +186,14 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: ten of the eleven.** The ledger holds eleven
-checks, and all eleven carry runs, so each has a status the backstop can age.
-Ten have a plant, and all ten have been replayed: the four declared on #228
-carried an arming observation and no run until the replay dispatched on 5
-October 2026 was merged, because a check never replayed is measured against the
+**Which checks this covers: eleven of the twelve.** The ledger holds twelve
+checks, and all twelve carry runs, so each has a status the backstop can age.
+Eleven have a plant, and all eleven have been replayed: the four declared on
+#228 carried an arming observation and no run until the replay dispatched on 5
+October 2026 was merged, and the bundle check declared on #253 until the
+replay dispatched on 29 October 2026 was, because a check never replayed is measured against the
 empty tree and the dependency route selects it at the first replay after its
-declaration lands. The eleventh, `ci-codegen-check`, has no plant, for the
+declaration lands. The twelfth, `ci-codegen-check`, has no plant, for the
 reason given at the end of this section. Its one run was planted and typed in
 by a person on 5 October 2026 (#231), so it reads Proven, but there is no route
 here for a floor to keep that proof alive, and it goes Stale unless a person

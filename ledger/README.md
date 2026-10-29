@@ -178,15 +178,17 @@ above means the plant needs rewriting, and the tool that scores a replay
 separates its reasons inside an English sentence, so a category recovered by
 matching that prose would send a reader to rewrite a plant that is fine.
 
-That last is a fact about canfail 0.2.1 rather than about this repository, which
-has not yet recorded a replay that settled nothing. What can be checked here is
+That last is a fact about canfail 0.2.1. This repository has recorded one replay
+that settled nothing: the tests' plant in run 40878154653 on 29 October 2026,
+`runs/2026-10-29-ci-test-57733980d4ce.json`, scored because the tests already
+failed on the clean tree, with canfail's sentence saying so as its reason. What
+can be checked here is
 the mapping: `packages/replay/src/adapt.ts` sends two of canfail's four
 verdicts, `look` and `wrong-failure`, to `inconclusive`, and copies canfail's
 sentence into the reason.
 
-The record below is made up for the example: no run in `runs/` has settled
-nothing yet, the commit and the run link are placeholders, and the reason is
-invented. It has the ten keys the recorder writes into every replay record.
+The record below is made up for the example: the commit and the run link are
+placeholders, and the reason is invented. It has the ten keys the recorder writes into every replay record.
 
 ```json
 {

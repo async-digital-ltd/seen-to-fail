@@ -49,7 +49,7 @@ the check and not once per break, which is what makes them a statement about the
 check's proof rather than about one plant. The list above is shown short:
 `canfail.json` carries all eight of that check's entries, `canfail`'s own keys
 beside them, and its two declared breaks, and a list of its own for each of
-the other nine checks. What each of those nine plants, and why, is in
+the other ten checks. What each of those ten plants, and why, is in
 `packages/replay/README.md`.
 
 The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
