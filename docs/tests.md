@@ -56,7 +56,7 @@ of them, so a branch with runs on it needs no hand step. The replay counts,
 which a run does move, are printed by `pnpm ledger:counts` rather than
 committed (#270). The `Replay a plant` and `Record a run` workflows still run
 `pnpm readme` after writing their runs, from when it also wrote those counts
-(#265); it now changes nothing on such a branch, and
+(#265); it now changes nothing on such a branch (#271), and
 `scripts/stage-record.sh` still refuses the commit if anything outside
 `ledger/`, `docs/automatic.md` and `docs/tests.md` changed.
 
