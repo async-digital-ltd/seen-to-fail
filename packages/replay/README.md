@@ -186,13 +186,14 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: ten of the eleven.** The ledger holds eleven
-checks, and all eleven carry runs, so each has a status the backstop can age.
-Ten have a plant, and all ten have been replayed: the four declared on #228
-carried an arming observation and no run until the replay dispatched on 5
-October 2026 was merged, because a check never replayed is measured against the
+**Which checks this covers: eleven of the twelve.** The ledger holds twelve
+checks, and all twelve carry runs, so each has a status the backstop can age.
+Eleven have a plant, and all eleven have been replayed: the four declared on
+#228 carried an arming observation and no run until the replay dispatched on 5
+October 2026 was merged, and the bundle check declared on #253 until the
+replay dispatched on 29 October 2026 was, because a check never replayed is measured against the
 empty tree and the dependency route selects it at the first replay after its
-declaration lands. The eleventh, `ci-codegen-check`, has no plant, for the
+declaration lands. The twelfth, `ci-codegen-check`, has no plant, for the
 reason given at the end of this section. Its one run was planted and typed in
 by a person on 5 October 2026 (#231), so it reads Proven, but there is no route
 here for a floor to keep that proof alive, and it goes Stale unless a person
@@ -271,6 +272,26 @@ against is the only step in CI that can catch it:
   `/src/main.ts` where the entry is `/src/main.tsx`. That is the gap the step
   exists for: the type check never reads the page. Its `expect` is Vite saying
   it cannot resolve that script from `index.html`.
+
+One more was declared on #253. `ci-bundle-check` runs `pnpm build:web` and then
+`pnpm bundle:check`, the step CI runs straight after the build, which holds the
+bytes the build wrote to `packages/web/bundle-baseline.json`. A ratchet like
+that can pass for the wrong reason, by reading the wrong baseline, comparing the
+wrong way round, or tolerating any growth, so it has two breaks, both of which
+build and type check:
+
+- The client entry imports the whole of `graphql` and keeps it, which grows the
+  JavaScript by nearly half. Its `expect` is the check naming
+  `javascriptBytes, totalBytes` as grown past the tolerance.
+- The base stylesheet gains four shadow classes nothing uses, which grows the
+  CSS by about one and a half per cent against a tolerance of one, and the whole
+  build by well under one. Its `expect` is the check naming `cssBytes` alone, so
+  a check that compared only the total, or let its tolerance swallow a small
+  step, would not catch it.
+
+Both were seen caught under `canfail` 0.2.1 on a development machine before
+they were declared, beside a control that swapped the two `expect` lines, which
+scored `wrong-failure` for each.
 
 `ci-codegen-check` has no plant, and not for want of one. Its step regenerates
 the types and asks git whether anything differs from what is committed, so the

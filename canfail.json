@@ -342,6 +342,43 @@
           "expect": "Failed to resolve /src/main\\.ts from [^\\n]*index\\.html"
         }
       ]
+    },
+    {
+      "name": "The client bundle holds to its baseline",
+      "checkId": "ci-bundle-check",
+      "dependsOn": [
+        ".github/workflows/ci.yml",
+        ".nvmrc",
+        "canfail.json",
+        "package.json",
+        "packages/filter",
+        "packages/web",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json"
+      ],
+      "expected": "The bundle check fails, so the run does not go green.",
+      "run": "pnpm build:web && pnpm bundle:check",
+      "timeout": 60,
+      "evidence": {
+        "expect": "javascriptBytes: [0-9]+ bytes against a baseline of [0-9]+"
+      },
+      "breaks": [
+        {
+          "name": "The client entry imports the whole of graphql and keeps it, which builds and type checks while the JavaScript grows by about half.",
+          "file": "packages/web/src/main.tsx",
+          "replace": "import { Provider } from 'urql';\n",
+          "with": "import { Provider } from 'urql';\nimport * as graphql from 'graphql';\n\nObject.assign(window, { graphql });\n",
+          "expect": "javascriptBytes, totalBytes grew past the tolerance of [0-9.]+% over the baseline"
+        },
+        {
+          "name": "The base stylesheet gains four shadow classes nothing uses, which grows the CSS by about one and a half per cent and the whole build by well under one, so only the CSS limit can catch it.",
+          "file": "packages/web/src/styles/base.css",
+          "replace": "html {\n  /* Form controls follow the page",
+          "with": ".shadow-1 {\n  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.06);\n}\n\n.shadow-2 {\n  box-shadow: 0 2px 4px rgb(0 0 0 / 0.1), 0 6px 16px rgb(0 0 0 / 0.08);\n}\n\n.shadow-3 {\n  box-shadow: 0 4px 8px rgb(0 0 0 / 0.12), 0 12px 32px rgb(0 0 0 / 0.1);\n}\n\n.shadow-4 {\n  box-shadow: 0 8px 16px rgb(0 0 0 / 0.14), 0 24px 64px rgb(0 0 0 / 0.12);\n}\n\nhtml {\n  /* Form controls follow the page",
+          "expect": "\\ncssBytes grew past the tolerance of [0-9.]+% over the baseline"
+        }
+      ]
     }
   ]
 }
