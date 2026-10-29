@@ -18,11 +18,17 @@ import { writtenCount } from './readme.ts';
  * on 20 October 2026 three pull requests corrected counts in it and in
  * `ledger/README.md` by hand. A test holding those numbers would fail on every
  * replay pull request and teach whoever landed it to bump the number without
- * reading the sentence, so they are generated instead: `pnpm readme` writes
- * them, and the test that holds every generated block fails until it has been
- * run. What a person still writes in those files is the part a replay cannot
- * move: why a check is declared, where a hand run came from, and which run
- * first replayed it.
+ * reading the sentence, so they were generated instead, into blocks
+ * `pnpm readme` rewrote and a test held.
+ *
+ * Committing them had its own cost (#270). Every replay branch rewrote the same
+ * lines from the ledger as it stood when that branch ran, so two branches
+ * waiting at once always conflicted, and a newly declared check failed the
+ * tests until a replay had run against it. So nothing here is committed any
+ * more: `pnpm ledger:counts` prints the tables from the tree as it stands, and
+ * the published page shows every run and status from the same ledger at build
+ * time. What a person still writes in the documentation is the part a replay
+ * cannot move: why a check is declared and where a hand run came from.
  *
  * Nothing here reads the day it runs on or the git history, so the same tree
  * always writes the same text, whichever day and machine it is written on.

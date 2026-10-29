@@ -46,16 +46,11 @@ replay record too, though nothing here calls it that way. `pnpm ledger:replay`
 writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote one run for each break `canfail.json` declared, when it ran, for the
-checks it replayed. How many that was for each replay is written from `runs/`
-by `pnpm readme`, and CI fails while it differs from them:
+checks it replayed. `pnpm ledger:counts` prints how many that was for each
+replay, counted from `runs/` as it stands; it is not written here, because
+every replay that is merged would move it (#270).
 
-<!-- generated: runs-per-replay, by pnpm readme from ledger/runs/ -->
-
-Up to the replay of 29 October 2026, thirteen replays have written runs here: two for each of the first three, seven for the fourth, eight for the fifth, twelve for the sixth, thirteen each for the seventh and eighth, seventeen each for the ninth to the twelfth, and nineteen for the thirteenth.
-
-<!-- end generated: runs-per-replay -->
-
-The file has declared eleven checks and nineteen breaks between them since #253,
+The file declared eleven checks and nineteen breaks between them after #253,
 which gave the bundle check two breaks; it held ten checks and seventeen breaks
 from #228, which gave four more checks one break each, and six checks (#190,
 #146) and thirteen breaks (#200) before that.

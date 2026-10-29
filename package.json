@@ -34,6 +34,7 @@
     "ledger:replay": "node packages/server/src/scripts/record-replay.ts",
     "replay:select": "node packages/server/src/scripts/select-replays.ts",
     "ledger:build": "node packages/server/src/scripts/build-ledger.ts",
+    "ledger:counts": "node packages/server/src/scripts/ledger-counts.ts",
     "branches:waiting": "node packages/server/src/scripts/check-waiting-branches.ts"
   },
   "devDependencies": {
