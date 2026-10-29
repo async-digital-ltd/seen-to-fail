@@ -186,14 +186,18 @@ a public repository GitHub stops doing after sixty days without repository
 activity (recorded on #111). The floor answers a quiet repository only as far as
 those two hold.
 
-**Which checks this covers: eleven of the twelve.** The ledger holds twelve
-checks, and all twelve carry runs, so each has a status the backstop can age.
-Eleven have a plant, and all eleven have been replayed: the four declared on
-#228 carried an arming observation and no run until the replay dispatched on 5
-October 2026 was merged, and the bundle check declared on #253 until the
-replay dispatched on 29 October 2026 was, because a check never replayed is measured against the
-empty tree and the dependency route selects it at the first replay after its
-declaration lands. The twelfth, `ci-codegen-check`, has no plant, for the
+**Which checks this covers: every declared one.** Every check in the ledger
+carries runs, so each has a status the backstop can age, and every one but
+`ci-codegen-check` has a plant. A check never replayed is measured against the
+empty tree, so the dependency route selects it at the first replay after its
+declaration lands. The four declared on #228 carried an arming observation and
+no run until the replay dispatched on 5 October 2026 was merged, and the bundle
+check declared on #253 until the replay dispatched on 29 October 2026 was.
+Before #270 a declaration could not merge until its first replay had run on
+its branch, because the documentation's tests wanted that run named. Since
+then a declaration merges on its own and, with an arming observation, reads
+Unproven until the next replay
+reaches it. `ci-codegen-check` has no plant, for the
 reason given at the end of this section. Its one run was planted and typed in
 by a person on 5 October 2026 (#231), so it reads Proven, but there is no route
 here for a floor to keep that proof alive, and it goes Stale unless a person

@@ -19,17 +19,17 @@ import {
 import type { LedgerRun, ReplayRecord } from './replays.ts';
 
 /**
- * The generated replay counts, and the claims about replays that are still
- * typed by hand, held to `ledger/` and `canfail.json` (#243).
+ * The replay counts `pnpm ledger:counts` prints, and the claims about replays
+ * that are still typed by hand, held to `ledger/` and `canfail.json`.
  *
- * The generated blocks themselves are held by the test in `readme.test.ts`
- * that holds every generated block. What is held here is what a replay cannot
- * move and a person writes: which run first replayed each check, the days the
- * section dates its history by, the day `ci-codegen-check` goes Stale, and the
- * shapes of the hand records `ledger/README.md` counts. Each of those changes
- * only when somebody declares a check or types a run in by hand, which is a
- * pull request a person writes anyway, so a test is the right guard for them
- * and a generator would be the wrong one.
+ * The counts are tested on a made-up record, because they are printed rather
+ * than committed (#270). What is held against the real ledger is what a
+ * replay cannot move and a person writes: the day `ci-codegen-check` goes
+ * Stale, and the shapes of the hand records `ledger/README.md` counts. Each of
+ * those changes only when somebody types a run in by hand, which is a pull
+ * request a person writes anyway. Nothing here needs a newly declared check
+ * to have been replayed, so a declaration can go green before its first
+ * replay.
  */
 
 const actionsRun =
@@ -223,19 +223,6 @@ function dayOf(written: string): string {
   return `${parts[3] ?? ''}-${String(month + 1).padStart(2, '0')}-${(parts[1] ?? '').padStart(2, '0')}`;
 }
 
-/** The Actions run id a replay record links to. */
-function runId(run: LedgerRun): number {
-  return Number(/(\d+)$/u.exec(run.sourceRunUrl ?? '')?.[1] ?? NaN);
-}
-
-/** The run that first replayed a check: its earliest day, then its lowest run. */
-function firstReplayOf(checkId: string): LedgerRun | undefined {
-  return ledger.runs
-    .filter((run) => run.checkId === checkId && run.source === 'replay')
-    .sort((a, b) => a.runOn.localeCompare(b.runOn) || runId(a) - runId(b))
-    .at(0);
-}
-
 /**
  * The one match of a pattern in some prose. A sentence reworded so the
  * pattern no longer finds it, or written twice, is refused, so a claim can
@@ -253,69 +240,7 @@ function onlyMatch(prose: string, sentence: RegExp, where: string): string[] {
 }
 
 describe('docs/automatic.md, where a person writes it', () => {
-  const automatic = readDoc('automatic.md');
-  const prose = flattened(automatic);
-  const declared = [...ledger.declared.keys()];
-
-  it('dates the first replays of the declared checks as the ledger does', () => {
-    const [all, allBy, some, someBy] = onlyMatch(
-      prose,
-      /and all (\w+) had been replayed by (\d+ \w+ \d{4})\. (\w+) of them had first been replayed by (\d+ \w+ \d{4})\./gu,
-      'docs/automatic.md',
-    );
-    const firstBy = (day: string): number =>
-      declared.filter((checkId) => {
-        const first = firstReplayOf(checkId);
-        return first !== undefined && first.runOn <= day;
-      }).length;
-
-    expect(countOf(all ?? '')).toBe(declared.length);
-    expect(firstBy(dayOf(allBy ?? ''))).toBe(declared.length);
-    expect(firstBy(dayOf(someBy ?? ''))).toBe(countOf(some ?? ''));
-  });
-
-  /**
-   * The hand-written table's rows, by the checks each names in its first
-   * column, with the run each says first replayed them. Every declared check
-   * is in exactly one row that says so, and every row that says so is right
-   * about every check it names.
-   */
-  it('names, for every declared check, the run that first replayed it', () => {
-    const rows = automatic
-      .split('\n')
-      .filter((line) => line.startsWith('| `'))
-      .map((line) => line.split('|').map((cell) => cell.trim()))
-      .flatMap((cells) => {
-        const named =
-          /first replayed by run \[(\d+)\]\(https:\/\/github\.com\/async-digital-ltd\/seen-to-fail\/actions\/runs\/(\d+)\)/u.exec(
-            cells[2] ?? '',
-          );
-        if (named === null) {
-          return [];
-        }
-        expect(named[1], 'a run linked under another number').toBe(named[2]);
-        return [
-          {
-            checks: [...(cells[1] ?? '').matchAll(/`([^`]+)`/gu)].map(
-              (code) => code[1] ?? '',
-            ),
-            run: Number(named[1]),
-          },
-        ];
-      });
-
-    expect(rows.flatMap((row) => row.checks).sort()).toStrictEqual(
-      [...declared].sort(),
-    );
-    for (const row of rows) {
-      for (const checkId of row.checks) {
-        const first = firstReplayOf(checkId);
-        expect(first === undefined ? null : runId(first), checkId).toBe(
-          row.run,
-        );
-      }
-    }
-  });
+  const prose = flattened(readDoc('automatic.md'));
 
   it('says the day ci-codegen-check reads Stale from, and that nothing replays it', () => {
     expect(ledger.declared.has('ci-codegen-check')).toBe(false);
@@ -382,17 +307,5 @@ describe('ledger/README.md, where a person writes it', () => {
     expect([...new Set(sixKeys.map((run) => run.runOn))]).toStrictEqual([
       dayOf(day ?? ''),
     ]);
-  });
-
-  it("states the declaration's checks and breaks as canfail.json holds them", () => {
-    const [checks, breaks] = onlyMatch(
-      prose,
-      /The file has declared (\w+) checks and (\w+) breaks between them since/gu,
-      'ledger/README.md',
-    );
-    expect(countOf(checks ?? '')).toBe(ledger.declared.size);
-    expect(countOf(breaks ?? '')).toBe(
-      [...ledger.declared.values()].reduce((sum, count) => sum + count, 0),
-    );
   });
 });

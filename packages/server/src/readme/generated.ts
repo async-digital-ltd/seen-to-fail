@@ -2,12 +2,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { repositoryRoot } from '../ledger/location.ts';
-import {
-  readReplayRecord,
-  replayTable,
-  replayTotals,
-  runsPerReplay,
-} from './replays.ts';
 
 /**
  * The parts of the README that are a listing of something in the tree, written
@@ -31,14 +25,19 @@ import {
  * then. The text after the name in the opening comment is for the person
  * reading the Markdown and is not read here.
  *
- * The blocks sit in three files. `docs/tests.md`, the README's Tests section
- * moved out of it when the README was split into a front page and `docs/`
- * (#251), holds the lists written from the workflow and the packages.
- * `docs/automatic.md` and `ledger/README.md` hold the counts a replay moves,
- * written from `ledger/` and `canfail.json` (#243), because those went false
- * on every replay merge while they were typed by hand. `pnpm readme` keeps its
- * name, because every one of them is part of the README's account of the
- * project.
+ * The blocks sit in `docs/tests.md`, the README's Tests section moved out of
+ * it when the README was split into a front page and `docs/` (#251): the lists
+ * written from the workflow and the packages. `pnpm readme` keeps its name,
+ * because they are part of the README's account of the project.
+ *
+ * The counts a replay moves are not among them. From #243 to #270 they were
+ * generated blocks in `docs/automatic.md` and `ledger/README.md`, committed
+ * with every replay. Two replay branches waiting at once then always
+ * conflicted on those lines, and a newly declared check could not go green
+ * before its first replay. The published page derives the same record at
+ * build time and commits nothing, and `pnpm ledger:counts` prints the tables
+ * on demand, so neither can fall behind the ledger and nothing has to be
+ * merged by hand.
  */
 
 /** A file that holds generated blocks, and what writes each of them. */
@@ -372,20 +371,6 @@ export function generatedFiles(): GeneratedFile[] {
           ['packages', packageList()],
           ['ci-steps', ciSteps()],
         ]),
-    },
-    {
-      path: 'docs/automatic.md',
-      blocks: () => {
-        const record = readReplayRecord();
-        return new Map([
-          ['replay-table', replayTable(record)],
-          ['replay-totals', replayTotals(record)],
-        ]);
-      },
-    },
-    {
-      path: 'ledger/README.md',
-      blocks: () => new Map([['runs-per-replay', runsPerReplay()]]),
     },
   ];
 }

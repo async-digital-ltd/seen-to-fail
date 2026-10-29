@@ -4,15 +4,13 @@
 // rather than by hand. In docs/tests.md, the README's Tests section: the
 // commands a contributor runs and CI's steps, both from
 // .github/workflows/ci.yml, and the list of packages, from packages/ and each
-// package's own description. In docs/automatic.md and ledger/README.md: the
-// counts a replay moves, from ledger/ and canfail.json (#243). Nothing outside
-// those blocks is touched.
+// package's own description. Nothing outside those blocks is touched.
 //
 // A test in packages/server/src/readme fails while any block differs from what
 // this would write, so this is the fix for that failure, in the way
-// `pnpm codegen` is the fix for `pnpm codegen:check`. After a replay is
-// recorded, it is the one command that brings the documentation up to the
-// ledger.
+// `pnpm codegen` is the fix for `pnpm codegen:check`. A replay or a recorded
+// run moves none of these blocks; the counts a replay moves are printed by
+// `pnpm ledger:counts` instead of being committed (#270).
 
 import { readFileSync, writeFileSync } from 'node:fs';
 

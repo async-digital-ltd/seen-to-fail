@@ -1,16 +1,13 @@
 # A replay, start to finish
 
-Eleven checks are declared for replay by a job: `ci-type-check`,
-`ci-published-output`, `ledger-export-agreement`, `ledger-record-validation`,
-`ci-workflow-lint`, `ci-server-start`, `ci-format-check`, `ci-lint`, `ci-test`,
-`ci-build-web` and `ci-bundle-check`. `canfail.json` declares those eleven, with
-nineteen declared breaks between them; `ledger/checks/` holds twelve. So one of
-those twelve,
+Every check in `ledger/checks/` but one is declared for replay by a job:
+`canfail.json` declares a plant for each of them. The one left out,
 `ci-codegen-check`, has no plant for a job to apply, and no replay can produce a
 run for it; why it has none is under
-[How much of this record is automatic](automatic.md).
-How far replays have reached each of the eleven is the table there, which also
-says plainly what that leaves automatic and what it does not.
+[How much of this record is automatic](automatic.md), which also says plainly
+what that leaves automatic and what it does not. `pnpm ledger:counts` prints
+how far replays have reached each check, counted from the ledger as it
+stands.
 
 The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
 0.2.1 does it: handed a declaration of planted defects, it runs the check on a
@@ -49,7 +46,7 @@ the check and not once per break, which is what makes them a statement about the
 check's proof rather than about one plant. The list above is shown short:
 `canfail.json` carries all eight of that check's entries, `canfail`'s own keys
 beside them, and its two declared breaks, and a list of its own for each of
-the other ten checks. What each of those ten plants, and why, is in
+the other checks it declares. What each of those plants, and why, is in
 `packages/replay/README.md`.
 
 The job is `.github/workflows/replay.yml`. Its schedule asks for one run a week,
@@ -133,8 +130,8 @@ last replayed, or its newest settled run is older than an age floor,
 `REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
 days, chosen so that the weekly schedule gets two attempts at a refresh before
 the thirty-day rule takes a proof Stale. Either route can select only a check
-that has a plant in `canfail.json`, so today both reach the eleven checks declared
-there and not the one left out of it. For the
+that has a plant in `canfail.json`, so today both reach every check declared
+there and not `ci-codegen-check`, which is left out of it. For the
 dependency route, the range is worked out per check
 rather than once for the run. The anchor is the
 `sourceCommit` of that check's newest recorded replay, read back out of the

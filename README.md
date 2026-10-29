@@ -226,7 +226,7 @@ read `dist/ledger` where only the people who should see it can. Do not hand it
 to Pages.
 
 This ledger is safe to publish because every check it declares is about
-quality. All twelve checks in `ledger/checks/` have an `area` of Code, Build or
+quality. Every check in `ledger/checks/` has an `area` of Code, Build or
 Published record. Between them they catch a type error, a lint or formatting
 breach, a failing test, stale generated types, a workflow read differently from
 how it was written, a client that does not bundle or whose bundle grows past its
