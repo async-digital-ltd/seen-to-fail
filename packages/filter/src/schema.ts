@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   JOINERS,
+  MAX_AREA_LENGTH,
   MAX_CONDITIONS_PER_GROUP,
   MAX_DAYS,
   MAX_GROUPS,
@@ -94,8 +95,28 @@ function storable(text: string): boolean {
   return !text.includes('\u0000') && !unpairedSurrogate.test(text);
 }
 
+/**
+ * An area is also no longer than the longest a check can have, the limit the
+ * server applies to an area before it is written. A longer one could never
+ * match, and used to reach the database anyway as one bound value as long as
+ * the input: a 2,000,016 character link compiled to a comparison against
+ * 2,000,000 characters (#220). The number is the server's own, read from
+ * `MAX_AREA_LENGTH` rather than restated.
+ *
+ * The server measures an area after trimming it, and stores it trimmed, so no
+ * stored area has a space at either end. An area that is longer only because
+ * of such spaces cannot match either, so measuring it untrimmed refuses
+ * nothing a check can have.
+ *
+ * The length is checked first and stops the rule after it, so a value over it
+ * is refused with one issue, without the whole of it being scanned.
+ */
 const areaText = z
   .string()
+  .max(MAX_AREA_LENGTH, {
+    error: `An area cannot be more than ${String(MAX_AREA_LENGTH)} characters.`,
+    abort: true,
+  })
   .refine(
     storable,
     'An area cannot contain a NUL character or an unpaired surrogate.',

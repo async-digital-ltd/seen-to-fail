@@ -222,6 +222,8 @@ function refuse(message: string): ConditionRead {
   return { ok: false, message };
 }
 
+const NO_SUCH_CONDITION = 'This filter language has no condition by that name.';
+
 const NOT_A_CONDITION =
   'A condition reads as a field and an operator separated by a dot, with its value after a further dot where the operator takes one.';
 
@@ -249,7 +251,12 @@ function readCondition(token: string): ConditionRead {
   const name = field + PART_SEPARATOR + operator;
   const spec = ARGUMENT_BY_TOKEN.get(name);
   if (spec === undefined) {
-    return refuse(`This filter language has no ${name} condition.`);
+    // The name is not repeated: it is the link's own text, at whatever length
+    // the link gave it, and the web client shows this message in an alert. A
+    // link could otherwise put words of its own choosing in the app's voice,
+    // or flood a live region a screen reader announces (#219). Every other
+    // message below names a condition the language has, never the link's text.
+    return refuse(NO_SUCH_CONDITION);
   }
 
   switch (spec.holds) {

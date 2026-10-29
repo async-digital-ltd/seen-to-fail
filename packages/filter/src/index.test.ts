@@ -4,6 +4,7 @@ import {
   emptyFilter,
   filterSchema,
   JOINERS,
+  MAX_AREA_LENGTH,
   MAX_CONDITIONS_PER_GROUP,
   MAX_DAYS,
   MAX_GROUPS,
@@ -37,6 +38,7 @@ it('exports the rest of the language through the package entry point', () => {
   expect(MAX_GROUPS).toBe(10);
   expect(MAX_CONDITIONS_PER_GROUP).toBe(10);
   expect(MAX_DAYS).toBe(1_721_426);
+  expect(MAX_AREA_LENGTH).toBe(200);
   expect(MAX_RUN_COUNT).toBe(2_147_483_647);
   expect(filterSchema.safeParse(emptyFilter).success).toBe(true);
 });

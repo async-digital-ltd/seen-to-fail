@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 
 import { parseFilter, type FilterIssue } from './parse.ts';
 import {
+  MAX_AREA_LENGTH,
   MAX_CONDITIONS_PER_GROUP,
   MAX_DAYS,
   MAX_GROUPS,
@@ -143,6 +144,14 @@ it('accepts a filter filled to the group limit', () => {
   });
 
   expect(filter).toHaveProperty('groups.length', MAX_GROUPS);
+});
+
+it('accepts an area as long as the longest a check can have', () => {
+  const value = 'x'.repeat(MAX_AREA_LENGTH);
+
+  expect(
+    parsedOrThrow(groupedFilter({ field: 'area', op: 'is', value })),
+  ).toHaveProperty('groups.0.conditions.0.value', value);
 });
 
 /**
@@ -345,6 +354,32 @@ const bounds: readonly (readonly [string, unknown, FilterIssue])[] = [
     {
       path: 'groups[0].conditions[0].count',
       message: 'A run count cannot be more than 2147483647.',
+    },
+  ],
+  [
+    'an area one character longer than any check can have',
+    groupedFilter({
+      field: 'area',
+      op: 'is',
+      value: 'x'.repeat(MAX_AREA_LENGTH + 1),
+    }),
+    {
+      path: 'groups[0].conditions[0].value',
+      message: 'An area cannot be more than 200 characters.',
+    },
+  ],
+  [
+    // Stopped at its length, so the character rule does not also scan it and
+    // report a second issue about the NUL inside it.
+    'an area far longer than any check can have, with a NUL inside it',
+    groupedFilter({
+      field: 'area',
+      op: 'is',
+      value: 'x'.repeat(2_000_000) + '\u0000',
+    }),
+    {
+      path: 'groups[0].conditions[0].value',
+      message: 'An area cannot be more than 200 characters.',
     },
   ],
   [
