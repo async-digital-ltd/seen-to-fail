@@ -23,6 +23,7 @@ against, in UTC.
 | Check                      | Declared breaks | Runs | From a replay | Typed in by hand      | First replayed    | Latest replay   |
 | -------------------------- | --------------- | ---- | ------------- | --------------------- | ----------------- | --------------- |
 | `ci-build-web`             | 1               | 3    | 3             | 0                     | 5 October 2026    | 19 October 2026 |
+| `ci-bundle-check`          | 2               | 0    | 0             | 0                     | Never             | Never           |
 | `ci-codegen-check`         | Not declared    | 1    | 0             | 1 (5 October 2026)    | Never             | Never           |
 | `ci-format-check`          | 1               | 3    | 3             | 0                     | 5 October 2026    | 19 October 2026 |
 | `ci-lint`                  | 1               | 3    | 3             | 0                     | 5 October 2026    | 19 October 2026 |
@@ -38,7 +39,7 @@ against, in UTC.
 
 <!-- generated: replay-totals, by pnpm readme from ledger/checks/, ledger/runs/ and canfail.json -->
 
-Eleven checks are on the page, ten of them are declared for replay, and all ten have been replayed. All eleven have a run behind them. `ledger/runs/` holds 117 runs: 110 came from eleven replays and seven were typed in by hand. The latest replay among them ran on 19 October 2026.
+Twelve checks are on the page, eleven of them are declared for replay, and ten have been replayed. Eleven have a run behind them. `ledger/runs/` holds 117 runs: 110 came from eleven replays and seven were typed in by hand. The latest replay among them ran on 19 October 2026.
 
 <!-- end generated: replay-totals -->
 

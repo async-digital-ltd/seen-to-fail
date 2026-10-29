@@ -55,9 +55,10 @@ Up to the replay of 19 October 2026, eleven replays have written runs here: two 
 
 <!-- end generated: runs-per-replay -->
 
-The file has declared ten checks and seventeen breaks between them since #228,
-which gave four more checks one break each; it held six checks (#190, #146) and
-thirteen breaks (#200) before that.
+The file has declared eleven checks and nineteen breaks between them since #253,
+which gave the bundle check two breaks; it held ten checks and seventeen breaks
+from #228, which gave four more checks one break each, and six checks (#190,
+#146) and thirteen breaks (#200) before that.
 `jq '[(.checks | length), ([.checks[].breaks | length] | add)]' canfail.json`
 counts the checks and the breaks today. The adapter holds the report to the
 declaration (#128): an outcome for a break the declaration does not declare, a

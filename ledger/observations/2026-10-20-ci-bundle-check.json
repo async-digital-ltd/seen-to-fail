@@ -1,0 +1,6 @@
+{
+  "checkId": "ci-bundle-check",
+  "observedOn": "2026-10-20",
+  "armed": true,
+  "note": "Read on 29 October 2026 from run 39404331122 of the CI workflow on main at 0aa2082, which ran on 20 October 2026: the \"Check the client bundle against its baseline\" step ran and the run concluded success."
+}

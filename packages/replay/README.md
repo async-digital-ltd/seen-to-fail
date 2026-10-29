@@ -272,6 +272,26 @@ against is the only step in CI that can catch it:
   exists for: the type check never reads the page. Its `expect` is Vite saying
   it cannot resolve that script from `index.html`.
 
+One more was declared on #253. `ci-bundle-check` runs `pnpm build:web` and then
+`pnpm bundle:check`, the step CI runs straight after the build, which holds the
+bytes the build wrote to `packages/web/bundle-baseline.json`. A ratchet like
+that can pass for the wrong reason, by reading the wrong baseline, comparing the
+wrong way round, or tolerating any growth, so it has two breaks, both of which
+build and type check:
+
+- The client entry imports the whole of `graphql` and keeps it, which grows the
+  JavaScript by nearly half. Its `expect` is the check naming
+  `javascriptBytes, totalBytes` as grown past the tolerance.
+- The base stylesheet gains four shadow classes nothing uses, which grows the
+  CSS by about one and a half per cent against a tolerance of one, and the whole
+  build by well under one. Its `expect` is the check naming `cssBytes` alone, so
+  a check that compared only the total, or let its tolerance swallow a small
+  step, would not catch it.
+
+Both were seen caught under `canfail` 0.2.1 on a development machine before
+they were declared, beside a control that swapped the two `expect` lines, which
+scored `wrong-failure` for each.
+
 `ci-codegen-check` has no plant, and not for want of one. Its step regenerates
 the types and asks git whether anything differs from what is committed, so the
 defect it catches is a committed one, and a plant `canfail` applies is never

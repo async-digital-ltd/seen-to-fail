@@ -1,14 +1,15 @@
 # A replay, start to finish
 
-Ten checks are declared for replay by a job: `ci-type-check`,
+Eleven checks are declared for replay by a job: `ci-type-check`,
 `ci-published-output`, `ledger-export-agreement`, `ledger-record-validation`,
-`ci-workflow-lint`, `ci-server-start`, `ci-format-check`, `ci-lint`, `ci-test`
-and `ci-build-web`. `canfail.json` declares those ten, with seventeen declared
-breaks between them; `ledger/checks/` holds eleven. So one of those eleven,
+`ci-workflow-lint`, `ci-server-start`, `ci-format-check`, `ci-lint`, `ci-test`,
+`ci-build-web` and `ci-bundle-check`. `canfail.json` declares those eleven, with
+nineteen declared breaks between them; `ledger/checks/` holds twelve. So one of
+those twelve,
 `ci-codegen-check`, has no plant for a job to apply, and no replay can produce a
 run for it; why it has none is under
 [How much of this record is automatic](automatic.md).
-How far replays have reached each of the ten is the table there, which also
+How far replays have reached each of the eleven is the table there, which also
 says plainly what that leaves automatic and what it does not.
 
 The replaying is not this project's work. [`canfail`](https://pypi.org/project/canfail/)
@@ -72,12 +73,13 @@ Weekly rather than on every push, because a replay filed on every merge would
 bury the runs that say something under runs that say the same thing again. Each
 replay runs a check once on a clean tree and once per declared break, so a
 dispatch that replays every declared check runs one check per declared check
-and one per declared break. With `canfail.json` as it stands on 5 October 2026,
-ten checks and seventeen breaks, that is 27: three each of
+and one per declared break. With `canfail.json` as it stands on 29 October 2026,
+eleven checks and nineteen breaks, that is 30: three each of
 `pnpm typecheck`, the build, the build followed by the published-output script,
 `pnpm ledger:validate` and the server start script, four of
-`pnpm lint:workflows`, and two each of `pnpm format:check`, `pnpm lint`,
-`pnpm test` and `pnpm build:web`.
+`pnpm lint:workflows`, two each of `pnpm format:check`, `pnpm lint`,
+`pnpm test` and `pnpm build:web`, and three of `pnpm build:web` followed by
+`pnpm bundle:check`.
 While the
 repository was private those
 runs also spent a finite allowance of runner minutes; that reason lapsed when it
@@ -131,7 +133,7 @@ last replayed, or its newest settled run is older than an age floor,
 `REPLAY_AFTER_DAYS` in `packages/server/src/staleness.ts`, which is fourteen
 days, chosen so that the weekly schedule gets two attempts at a refresh before
 the thirty-day rule takes a proof Stale. Either route can select only a check
-that has a plant in `canfail.json`, so today both reach the ten checks declared
+that has a plant in `canfail.json`, so today both reach the eleven checks declared
 there and not the one left out of it. For the
 dependency route, the range is worked out per check
 rather than once for the run. The anchor is the
