@@ -273,6 +273,7 @@ const notInTheTree = new Map([
   ['packages/web/dist', 'What `pnpm build:web` writes, which git ignores.'],
   ['dist/ledger', 'What `pnpm ledger:build` writes, which git ignores.'],
   ['async-digital-ltd.github.io/seen-to-fail', 'A web address.'],
+  ['NVM_DIR=/opt/nvm', "A variable set to the cloud container's nvm."],
   [
     'repos/async-digital-ltd/seen-to-fail/actions/permissions/workflow',
     "A path in GitHub's REST API, which `gh api` is given.",

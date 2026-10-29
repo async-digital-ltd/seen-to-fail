@@ -266,6 +266,8 @@ replay workflow or pushing to a `ci-control/` branch, takes write access to it.
   agreement checks, and where the page is served.
 - [Tests](docs/tests.md): the commands to check a change, the packages, and
   CI's steps.
+- [Working from a cloud session](docs/cloud-sessions.md): what differs in the
+  container, and the setup that works there.
 - [How it is built](docs/how-it-is-built.md): who wrote the code, what was
   checked and what was not.
 - [What shipped, and where it could go](docs/roadmap.md): version 1, version 2,
