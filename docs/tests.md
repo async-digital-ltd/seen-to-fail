@@ -36,8 +36,13 @@ workflow before it runs, and neither runs on a pull request
 then reads every tracked shell script under `scripts/` with the same
 ShellCheck, because several of CI's steps are one of those scripts and
 actionlint reads only the shell written inside a workflow
-([#191](https://github.com/async-digital-ltd/seen-to-fail/issues/191)). It
-downloads both tools from their release pages on every run, so it needs a
+([#191](https://github.com/async-digital-ltd/seen-to-fail/issues/191)).
+Between the two it refuses any `uses:` in a workflow that is not pinned to a
+full 40-character commit SHA, because actionlint accepts a tag such as
+`@v7` after an action's name and a tag can be moved
+([#235](https://github.com/async-digital-ltd/seen-to-fail/issues/235)).
+Dependabot proposes each new pin as a pull request, from
+`.github/dependabot.yml`. It downloads both tools from their release pages on every run, so it needs a
 network connection, and refuses either one unless its SHA-256 matches the pin
 in `scripts/lint-workflows.sh`.
 

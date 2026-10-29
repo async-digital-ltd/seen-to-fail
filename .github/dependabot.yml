@@ -1,0 +1,20 @@
+# Proposes a new commit SHA, as a pull request, when an action these
+# workflows use publishes a release (#235). Every `uses:` is pinned to a full
+# commit SHA with its release tag in a comment, and `pnpm lint:workflows`
+# refuses one that is not, so nothing moves a pin but a reviewed change. Without
+# this, nothing would say when a pin had aged past a fix.
+#
+# Dependabot reads the tag comment, so the pull request moves the SHA and the
+# comment together, and CI runs on it like any other, workflow lint included.
+#
+# The cooldown holds back a release for a week after it is published, so a
+# compromised release that is pulled within days is never proposed here.
+# Security updates are not held back by it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
