@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-format-check",
+  "runOn": "2026-10-26",
+  "planted": "REPLAY_AFTER_DAYS loses the semicolon every other statement ends with, which the type check and the tests both accept.",
+  "expected": "The format check fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "0aa2082110d1bbdd4114081cc5ffe14d641f194b",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/40304757749"
+}

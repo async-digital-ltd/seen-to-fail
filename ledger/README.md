@@ -51,7 +51,7 @@ by `pnpm readme`, and CI fails while it differs from them:
 
 <!-- generated: runs-per-replay, by pnpm readme from ledger/runs/ -->
 
-Up to the replay of 29 October 2026, twelve replays have written runs here: two for each of the first three, seven for the fourth, eight for the fifth, twelve for the sixth, thirteen each for the seventh and eighth, seventeen each for the ninth to the eleventh, and nineteen for the twelfth.
+Up to the replay of 29 October 2026, thirteen replays have written runs here: two for each of the first three, seven for the fourth, eight for the fifth, twelve for the sixth, thirteen each for the seventh and eighth, seventeen each for the ninth to the twelfth, and nineteen for the thirteenth.
 
 <!-- end generated: runs-per-replay -->
 

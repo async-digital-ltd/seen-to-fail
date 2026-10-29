@@ -28,24 +28,24 @@ against, in UTC.
 
 | Check                      | Declared breaks | Runs | From a replay | Typed in by hand      | First replayed    | Latest replay   |
 | -------------------------- | --------------- | ---- | ------------- | --------------------- | ----------------- | --------------- |
-| `ci-build-web`             | 1               | 4    | 4             | 0                     | 5 October 2026    | 29 October 2026 |
+| `ci-build-web`             | 1               | 5    | 5             | 0                     | 5 October 2026    | 29 October 2026 |
 | `ci-bundle-check`          | 2               | 2    | 2             | 0                     | 29 October 2026   | 29 October 2026 |
 | `ci-codegen-check`         | Not declared    | 1    | 0             | 1 (5 October 2026)    | Never             | Never           |
-| `ci-format-check`          | 1               | 4    | 4             | 0                     | 5 October 2026    | 29 October 2026 |
-| `ci-lint`                  | 1               | 4    | 4             | 0                     | 5 October 2026    | 29 October 2026 |
-| `ci-published-output`      | 2               | 18   | 17            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
-| `ci-server-start`          | 2               | 15   | 14            | 1 (4 October 2026)    | 4 October 2026    | 29 October 2026 |
-| `ci-test`                  | 1               | 4    | 4             | 0                     | 5 October 2026    | 29 October 2026 |
-| `ci-type-check`            | 2               | 25   | 24            | 1 (18 September 2026) | 19 September 2026 | 29 October 2026 |
-| `ci-workflow-lint`         | 3               | 21   | 20            | 1 (2 October 2026)    | 4 October 2026    | 29 October 2026 |
-| `ledger-export-agreement`  | 2               | 19   | 18            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
-| `ledger-record-validation` | 2               | 19   | 18            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
+| `ci-format-check`          | 1               | 5    | 5             | 0                     | 5 October 2026    | 29 October 2026 |
+| `ci-lint`                  | 1               | 5    | 5             | 0                     | 5 October 2026    | 29 October 2026 |
+| `ci-published-output`      | 2               | 20   | 19            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
+| `ci-server-start`          | 2               | 17   | 16            | 1 (4 October 2026)    | 4 October 2026    | 29 October 2026 |
+| `ci-test`                  | 1               | 5    | 5             | 0                     | 5 October 2026    | 29 October 2026 |
+| `ci-type-check`            | 2               | 27   | 26            | 1 (18 September 2026) | 19 September 2026 | 29 October 2026 |
+| `ci-workflow-lint`         | 3               | 24   | 23            | 1 (2 October 2026)    | 4 October 2026    | 29 October 2026 |
+| `ledger-export-agreement`  | 2               | 21   | 20            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
+| `ledger-record-validation` | 2               | 21   | 20            | 1 (18 September 2026) | 28 September 2026 | 29 October 2026 |
 
 <!-- end generated: replay-table -->
 
 <!-- generated: replay-totals, by pnpm readme from ledger/checks/, ledger/runs/ and canfail.json -->
 
-Twelve checks are on the page, eleven of them are declared for replay, and all eleven have been replayed. All twelve have a run behind them. `ledger/runs/` holds 136 runs: 129 came from twelve replays and seven were typed in by hand. The latest replay among them ran on 29 October 2026.
+Twelve checks are on the page, eleven of them are declared for replay, and all eleven have been replayed. All twelve have a run behind them. `ledger/runs/` holds 153 runs: 146 came from thirteen replays and seven were typed in by hand. The latest replay among them ran on 29 October 2026.
 
 <!-- end generated: replay-totals -->
 
