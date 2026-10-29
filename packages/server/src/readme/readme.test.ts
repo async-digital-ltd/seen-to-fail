@@ -6,6 +6,7 @@ import { expect, it } from 'vitest';
 
 import { checksDirectory } from '../ledger/load.ts';
 import { ledgerDirectory, repositoryRoot } from '../ledger/location.ts';
+import { publishingRefusals } from '../ledger/publishable.ts';
 import {
   contributorCommands,
   fileAt,
@@ -451,40 +452,51 @@ function ledgerSection(): string {
 
 /**
  * The README says this ledger is safe to publish because every check in it is
- * about quality, and reads that off the areas the checks are filed under
- * (#216). A check added under any other area fails here, so the claim is read
- * again by a person before a check about security can reach a public page
- * under it.
+ * about quality. That used to be read off the area each check is filed under
+ * (#216), which its author chooses, so a secret scanner filed under Code would
+ * have passed (#234). It is read instead off a list of check ids that someone
+ * added by hand, so a new check fails here until a person has named it as safe
+ * to publish.
  */
-it('names every area the ledger files its checks under', () => {
+it('names every check in the ledger on the list of checks safe to publish', () => {
   const directory = join(ledgerDirectory, checksDirectory);
-  const areas = readdirSync(directory)
+  const ids = readdirSync(directory)
     .filter((name) => name.endsWith('.json'))
     .map(
       (name) =>
         (
           JSON.parse(readFileSync(join(directory, name), 'utf8')) as {
-            area: string;
+            id: string;
           }
-        ).area,
+        ).id,
     );
 
   const prose = ledgerSection();
   const found = [
     ...prose.matchAll(
-      /Every check in `ledger\/checks\/` has an `area` of Code, Build or Published record\./gu,
+      /Every check in `ledger\/checks\/` is named by hand on the list of checks safe to publish, in `packages\/server\/src\/ledger\/publishable\.ts`, and the tests refuse a check that is not on it, whatever area it is filed under\./gu,
     ),
   ];
   const [only] = found;
   if (only === undefined || found.length > 1) {
     throw new Error(
-      `The ledger section has ${String(found.length)} sentences naming the areas, and exactly one was expected.`,
+      `The ledger section has ${String(found.length)} sentences naming the list of checks safe to publish, and exactly one was expected.`,
     );
   }
 
-  expect([...new Set(areas)].sort()).toStrictEqual([
-    'Build',
-    'Code',
-    'Published record',
+  expect(publishingRefusals(ids)).toStrictEqual([]);
+});
+
+it('refuses a check nobody has listed, whatever its area, and a listed id nothing declares', () => {
+  const listed = ['ci-lint', 'ci-test'];
+
+  expect(publishingRefusals(['ci-lint', 'ci-test'], listed)).toStrictEqual([]);
+  expect(
+    publishingRefusals(['ci-lint', 'ci-test', 'ci-secret-scan'], listed),
+  ).toStrictEqual([
+    'ci-secret-scan is declared in ledger/checks/ but is not on the list of checks safe to publish. Add it to publishableCheckIds by name only once it is clear it guards no secret, access rule or leak.',
+  ]);
+  expect(publishingRefusals(['ci-lint'], listed)).toStrictEqual([
+    'ci-test is on the list of checks safe to publish, but no check in ledger/checks/ declares it. Take it off the list.',
   ]);
 });
