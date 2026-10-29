@@ -1,0 +1,7 @@
+{
+  "id": "ci-bundle-check",
+  "name": "The client bundle holds to its baseline",
+  "area": "Build",
+  "protects": "A client bundle that grows past the baseline committed in packages/web/bundle-baseline.json by more than its tolerance, which the build itself accepts because a bigger bundle still builds.",
+  "howToTellArmed": "The \"Check the client bundle against its baseline\" step appears in every run of the CI workflow."
+}
