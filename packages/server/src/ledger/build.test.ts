@@ -65,6 +65,30 @@ const check = {
   howToTellArmed: 'The step appears in the run list.',
 };
 
+/**
+ * The ids of the checks a fixture ledger declares, read off its files.
+ *
+ * The fixtures below are about what the build publishes, not about which checks
+ * it may publish, so each clears exactly the checks it declares. The list is
+ * held against the ledger in the tests that plant a disagreement with it.
+ */
+async function declaredIds(directory: string): Promise<string[]> {
+  const checks = join(directory, 'checks');
+  const names = await readdir(checks).catch(() => []);
+  return Promise.all(
+    names
+      .filter((name) => name.endsWith('.json'))
+      .map(
+        async (name) =>
+          (
+            JSON.parse(await readFile(join(checks, name), 'utf8')) as {
+              id: string;
+            }
+          ).id,
+      ),
+  );
+}
+
 async function build(
   directory: string,
   recordingCommits: ReadonlyMap<string, string> = new Map(),
@@ -78,6 +102,7 @@ async function build(
     builtFrom,
     recordingCommits,
     asOf,
+    publishableCheckIds: await declaredIds(directory),
   });
   return { ...result, outputDirectory };
 }
@@ -694,8 +719,74 @@ it('refuses a ledger that does not load, and writes nothing', async () => {
       builtFrom,
       recordingCommits: new Map(),
       asOf,
+      publishableCheckIds: ['ci-lint'],
     }),
   ).rejects.toThrow(LedgerRefusedError);
+
+  expect(await readdir(outputDirectory)).toEqual([]);
+});
+
+/**
+ * The allowlist #234 added, held by the build itself rather than only by a test
+ * the build never runs (#280). A check that is sound in every other way, filed
+ * under an innocent area, is refused because nobody cleared it, and nothing is
+ * written: not the page, and not the database the build derives it in.
+ */
+it('refuses a check nobody cleared for publication, and writes nothing', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    'checks/ci-secret-scan.json': {
+      id: 'ci-secret-scan',
+      name: 'Secret scan',
+      area: 'Code',
+      protects: 'A credential being committed.',
+      howToTellArmed: 'The step appears in the run list.',
+    },
+  });
+
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'seen-to-fail-site-'));
+  const client = database.client();
+  await client.query('TRUNCATE TABLE checks RESTART IDENTITY CASCADE');
+  await expect(
+    buildLedger(client, {
+      directory,
+      ledgerPath: 'ledger',
+      outputDirectory,
+      repository,
+      builtFrom,
+      recordingCommits: new Map(),
+      asOf,
+      publishableCheckIds: ['ci-lint'],
+    }),
+  ).rejects.toThrow(
+    /ci-secret-scan is declared in ledger\/checks\/ but is not on the list of checks safe to publish/u,
+  );
+
+  expect(await readdir(outputDirectory)).toEqual([]);
+  const { rows } = await client.query('SELECT count(*)::int AS n FROM checks');
+  expect(rows).toEqual([{ n: 0 }]);
+});
+
+it('refuses a list that clears a check nobody declares, and writes nothing', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'seen-to-fail-site-'));
+  await expect(
+    buildLedger(database.client(), {
+      directory,
+      ledgerPath: 'ledger',
+      outputDirectory,
+      repository,
+      builtFrom,
+      recordingCommits: new Map(),
+      asOf,
+      publishableCheckIds: ['ci-lint', 'ci-test'],
+    }),
+  ).rejects.toThrow(
+    /ci-test is on the list of checks safe to publish, but no check in ledger\/checks\/ declares it/u,
+  );
 
   expect(await readdir(outputDirectory)).toEqual([]);
 });

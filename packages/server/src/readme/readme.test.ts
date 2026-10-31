@@ -457,7 +457,7 @@ function ledgerSection(): string {
  * (#216), which its author chooses, so a secret scanner filed under Code would
  * have passed (#234). It is read instead off a list of check ids that someone
  * added by hand, so a new check fails here until a person has named it as safe
- * to publish.
+ * to publish. The build refuses the same ledger (#280).
  */
 it('names every check in the ledger on the list of checks safe to publish', () => {
   const directory = join(ledgerDirectory, checksDirectory);
@@ -475,7 +475,7 @@ it('names every check in the ledger on the list of checks safe to publish', () =
   const prose = ledgerSection();
   const found = [
     ...prose.matchAll(
-      /Every check in `ledger\/checks\/` is named by hand on the list of checks safe to publish, in `packages\/server\/src\/ledger\/publishable\.ts`, and the tests refuse a check that is not on it, whatever area it is filed under\./gu,
+      /Every check in `ledger\/checks\/` is named by hand on the list of checks safe to publish, in `packages\/server\/src\/ledger\/publishable\.ts`, and the build and the tests refuse a check that is not on it, whatever area it is filed under\./gu,
     ),
   ];
   const [only] = found;
