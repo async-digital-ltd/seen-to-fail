@@ -24,6 +24,7 @@ import {
   renderExport,
   renderPage,
 } from './page.ts';
+import { publishingRefusals } from './publishable.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { disagreements, LedgerDisagreementError } from './verify.ts';
@@ -89,6 +90,12 @@ export interface BuildOptions {
   readonly recordingCommits: ReadonlyMap<string, string>;
   /** The day the statuses are read as of. */
   readonly asOf: IsoDate;
+  /**
+   * The ids of the checks cleared for publication, which in this repository is
+   * `publishableCheckIds`. Required rather than defaulted, so that no caller can
+   * build a page without saying which checks it may carry (#280).
+   */
+  readonly publishableCheckIds: readonly string[];
   /** The threshold they are read against. Defaults to the app's own. */
   readonly staleAfterDays?: number;
 }
@@ -228,6 +235,17 @@ export async function buildLedger(
   });
   if (!loaded.ok) {
     throw new LedgerRefusedError(describeIssues(loaded.issues));
+  }
+
+  // A check nobody has cleared for publication stops the build here, before
+  // the database is touched, rather than only in a test the build never runs
+  // (#280). The list is the one #234 added; see publishable.ts.
+  const refusals = publishingRefusals(
+    loaded.contents.checks.map((entry) => entry.record.id),
+    options.publishableCheckIds,
+  );
+  if (refusals.length > 0) {
+    throw new LedgerRefusedError(refusals.join('\n'));
   }
 
   await writeLedgerToDatabase(client, options.ledgerPath, loaded.contents);

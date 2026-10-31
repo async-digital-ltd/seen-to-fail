@@ -9,6 +9,10 @@
 // been checked, and unlike `pnpm db:seed` it leaves saved filters alone. The
 // ledger is the record in full, so a row left over from before would be
 // published as though somebody had recorded it.
+//
+// It refuses, and writes nothing, when a declared check is not on the list of
+// checks safe to publish in packages/server/src/ledger/publishable.ts, or the
+// list names a check nobody declares (#280).
 
 import '../environment.ts';
 
@@ -31,6 +35,7 @@ import {
   ledgerPath,
   repositoryRoot,
 } from '../ledger/location.ts';
+import { publishableCheckIds } from '../ledger/publishable.ts';
 import { forwardedArguments } from './arguments.ts';
 
 const { values } = parseArgs({
@@ -70,6 +75,7 @@ try {
     builtFrom: await currentCommit(repositoryRoot),
     recordingCommits: await commitsThatAdded(repositoryRoot, ledgerPath),
     asOf: todayInUtc(),
+    publishableCheckIds,
   });
 
   const runCount = result.ledger.checks.reduce(

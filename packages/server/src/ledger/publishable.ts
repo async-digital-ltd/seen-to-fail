@@ -6,7 +6,8 @@
  * including any time it was off, would reach the public page under it (#234).
  * This list is the reading that cannot be declared into: a check is safe to
  * publish when someone has added its id here, in a change a reviewer reads,
- * after deciding that it guards no secret, access rule or leak.
+ * after deciding that it guards no secret, access rule or leak. The build
+ * refuses a ledger that disagrees with it (#280), and so does a test.
  *
  * Before adding an id, read what the check protects. A check about security,
  * such as a secret scanner, an access control test or a leak gate, never goes

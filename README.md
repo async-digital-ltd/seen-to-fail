@@ -227,8 +227,8 @@ to Pages.
 
 This ledger is safe to publish because every check it declares is about
 quality. Every check in `ledger/checks/` is named by hand on the list of checks
-safe to publish, in `packages/server/src/ledger/publishable.ts`, and the tests
-refuse a check that is not on it, whatever area it is filed under. Between them they catch a type error, a lint or formatting
+safe to publish, in `packages/server/src/ledger/publishable.ts`, and the build
+and the tests refuse a check that is not on it, whatever area it is filed under. Between them they catch a type error, a lint or formatting
 breach, a failing test, stale generated types, a workflow read differently from
 how it was written, a client that does not bundle or whose bundle grows past its
 baseline, a server that does not start,
