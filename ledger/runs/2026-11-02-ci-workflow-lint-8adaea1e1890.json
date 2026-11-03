@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-workflow-lint",
+  "runOn": "2026-11-02",
+  "planted": "waiting-branches.yml uses actions/checkout@v7, a tag anyone who can write to that repository can move, rather than a commit SHA, which actionlint accepts.",
+  "expected": "The workflow lint or the script lint fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "c36d7c678e76f2c62416cac176bec24f17530434",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/41444189227"
+}
