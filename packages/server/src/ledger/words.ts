@@ -331,7 +331,7 @@ const cyStatuses = {
   Broken: 'Wedi torri',
   Stale: 'Wedi dyddio',
   Unproven: 'Heb ei brofi',
-  Unarmed: 'Heb ei arfogi',
+  Unarmed: 'Heb ei alluogi',
 } as const satisfies Record<Status, string>;
 
 /** Each outcome's name, which the run's line marks and the how section defines. */
@@ -368,7 +368,7 @@ export const welsh: PageWords = {
   previewImageAlt:
     'Nod Seen to Fail, llygad â chroes yn gannwyll iddo, wrth ymyl y geiriau Seen to Fail.',
   about: (repositoryHref) =>
-    `Mae Seen to Fail yn gofnod sy’n dangos a welwyd pob un o wiriadau’r prosiect hwn yn dal nam a blannwyd yn fwriadol. Mae’n cael ei gadw yn <a href="${repositoryHref}">yr ystorfa ar GitHub</a>.`,
+    `Mae <span lang="en">Seen to Fail</span> yn gofnod sy’n dangos a welwyd pob un o wiriadau’r prosiect hwn yn dal nam a blannwyd yn fwriadol. Mae’n cael ei gadw yn <a href="${repositoryHref}">yr ystorfa ar GitHub</a>.`,
 
   headlineEmpty: 'Nid oes dim wedi’i gofnodi eto',
   headline: (proven, total) =>
@@ -379,7 +379,7 @@ export const welsh: PageWords = {
       areaNames.length === 0
         ? ''
         : `Dyma wiriadau’r prosiect ${areaNames.length === 1 ? 'yn y maes hwn' : 'yn y meysydd hyn'}: ${listed(named, cyAnd)}. `;
-    return `${areasSentence}Mae gwiriadau sy’n ymwneud â diogelwch, fel sganio am gyfrinachau, yn cael eu gadael oddi ar gyfriflyfr cyhoeddus yn fwriadol; <a href="${whyHref}">pam</a> (yn Saesneg).`;
+    return `${areasSentence}Mae gwiriadau sy’n ymwneud â diogelwch, fel sganio am gyfrinachau, yn cael eu hepgor o gyfriflyfr cyhoeddus yn fwriadol; <a href="${whyHref}">pam</a> (yn Saesneg).`;
   },
 
   statuses: cyStatuses,
@@ -399,7 +399,7 @@ export const welsh: PageWords = {
       .map((part) => `${cyStatuses[part.status]}: ${String(part.count)}`)
       .join(', '),
 
-  idea: 'Dim ond ar ôl i rywun blannu’r nam y mae yno i’w ddal, ei redeg, a’i wylio’n troi’n goch y mae gwiriad yn ennill ymddiriedaeth.',
+  idea: 'Nid yw gwiriad yn ennill ymddiriedaeth nes i rywun blannu’r nam y mae i fod i’w ddal, rhedeg y gwiriad, a gwylio’r gwiriad yn troi’n goch.',
   viewRepository: 'Gweld yr ystorfa ar GitHub ↗',
   builtFromCommit: 'Adeiladwyd o ymrwymiad',
   readAsOf: (day) => `gyda’r statws fel yr oedd ar ${day}`,
@@ -419,7 +419,7 @@ export const welsh: PageWords = {
   howToTellArmed: 'Sut i wybod ei fod wedi’i droi ymlaen',
   lastSeen: 'Gwelwyd ddiwethaf',
   notWrittenDown: 'Nid oes neb wedi ysgrifennu hyn.',
-  notYetObserved: 'Heb ei arsylwi eto.',
+  notYetObserved: 'Heb ei weld eto.',
   seenSwitched: (armed) => `Gwelwyd ei fod ${armed ? 'ymlaen' : 'i ffwrdd'}`,
   seenSwitchedOn: (armed, day) =>
     `Gwelwyd ei fod ${armed ? 'ymlaen' : 'i ffwrdd'} ar ${day}.`,
@@ -446,17 +446,17 @@ export const welsh: PageWords = {
   latestSettledNothing: (reason, since) =>
     `Ni phenderfynodd y rhediad diweddaraf ddim: ${reason} ${since}`,
   nothingEverSettled:
-    'Nid oes yr un rhediad erioed wedi penderfynu dim ar gyfer y gwiriad hwn.',
+    'Nid oes yr un rhediad erioed wedi penderfynu dim ynghylch y gwiriad hwn.',
   statusReadFrom: (day) =>
-    `Mae ei statws yn cael ei ddarllen o ${day}, y rhediad olaf a benderfynodd rywbeth.`,
+    `Mae ei statws yn cael ei ddarllen o’r rhediad ar ${day}, y rhediad olaf a benderfynodd rywbeth.`,
 
   howThisPageWorks: 'Sut mae’r dudalen hon yn gweithio',
   howItWorks: (
     staleAfterDays,
   ) => `<p>Mae’r gwiriadau ar y dudalen hon wedi’u cofnodi mewn cyfriflyfr a gedwir yn yr ystorfa hon, ac mae’r dudalen yn cael ei hadeiladu ohono ar yr ymrwymiad a enwir isod.</p>
-<p>I brofi gwiriad, mae nam y dylai ei ddal yn cael ei blannu’n fwriadol, mae’r gwiriad yn cael ei redeg, ac mae’r canlyniad yn cael ei gofnodi fel un o dri chanlyniad.</p>
+<p>I brofi gwiriad, mae nam y dylai’r gwiriad ei ddal yn cael ei blannu’n fwriadol, mae’r gwiriad yn cael ei redeg, ac mae’r canlyniad yn cael ei gofnodi fel un o dri chanlyniad.</p>
 <dl class="pair"><dt>${cyOutcomeNames.caught}</dt><dd>Trodd y gwiriad yn goch.</dd><dt>${cyOutcomeNames.missed}</dt><dd>Arhosodd y gwiriad yn wyrdd.</dd><dt>${cyOutcomeNames.inconclusive}</dt><dd>Ni ddywedodd y rhediad ddim wrthym am y gwiriad, ac mae’r rheswm yn cael ei ddangos fel y cafodd ei ysgrifennu, yn Saesneg. Nid oes statws yn cael ei ddarllen ohono.</dd></dl>
-<p>Rhediad â llaw yw un y mae rhywun wedi’i blannu, ei wylio a’i gofnodi. Mae ailchwarae yn cael ei blannu a’i sgorio gan swydd yn erbyn cod mwy newydd, felly mae gwiriad a ddatganwyd ar gyfer ailchwarae yn dal i gael ei brofi ar ôl ei brawf cyntaf. Dim ond pan fydd rhywun yn plannu nam â llaw y caiff gwiriad nad yw wedi’i ddatgan ei brofi. Mae prawf sydd dros ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} oed yn cael y statws ${cyStatuses.Stale}.</p>
+<p>Rhediad â llaw yw un y mae rhywun wedi’i blannu, ei wylio a’i gofnodi. Mae ailchwarae yn cael ei blannu a’i sgorio gan swydd yn erbyn cod newyddach, felly mae gwiriad a ddatganwyd ar gyfer ailchwarae yn dal i gael ei brofi ar ôl ei brawf cyntaf. Dim ond pan fydd rhywun yn plannu nam â llaw y caiff gwiriad nad yw wedi’i ddatgan ei brofi. Mae prawf sy’n hŷn na ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} yn cael y statws ${cyStatuses.Stale}.</p>
 <p>Mae pob rhediad yn ffeil yn yr ystorfa, wedi’i hychwanegu gan ymrwymiad fel unrhyw newid arall, felly mae gan gofnod anghywir awdur, gwahaniaeth i’w ddarllen, a ffordd o’i ddadwneud.</p>
 <p>Darllen yn unig yw’r dudalen hon: nid oes ganddi far hidlo na gweinydd y tu ôl iddi. Mae’r hidlydd yn gweithio pan fyddwch yn rhedeg yr ap yn lleol. Cyhoeddir yr un cyfriflyfr wrth ymyl y dudalen hon fel <a href="ledger.json"><code>ledger.json</code></a>.</p>`,
   onGitHub: (repository) => `${repository} ar GitHub ↗`,

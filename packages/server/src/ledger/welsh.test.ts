@@ -246,6 +246,20 @@ it('words every outcome a run can have in Welsh', () => {
 });
 
 /**
+ * The product's name is English, so where a Welsh sentence on the page says
+ * it, it is tagged English the way the records' own text is, and a screen
+ * reader says it in English. The title and the meta tags cannot hold markup
+ * and carry it plain.
+ */
+it('tags the product name as English inside the Welsh sentence that says what the page is', () => {
+  const welsh = renderPage(fixtureSnapshot(), 'cy');
+
+  expect(welsh).toContain(
+    '<p class="eyebrow about">Mae <span lang="en">Seen to Fail</span> yn gofnod ',
+  );
+});
+
+/**
  * Each page names itself as canonical, names both languages and a default
  * with hreflang, and links the other page in its own language's name, so a
  * reader on either can reach the other and a crawler can pair them.
