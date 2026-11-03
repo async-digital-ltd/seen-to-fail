@@ -20,17 +20,19 @@ import {
 } from './discovery.ts';
 import {
   iconFilenames,
+  languagePageFilenames,
   notFoundFilename,
   previewImageFilename,
   renderExport,
   renderNotFoundPage,
-  renderPage,
+  renderPages,
 } from './page.ts';
 import { publishingRefusals } from './publishable.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { disagreements, LedgerDisagreementError } from './verify.ts';
 import type { DatabaseTotals } from './verify.ts';
+import type { PageLanguage } from './words.ts';
 
 /**
  * The build: files in the repository to a page nothing has to serve.
@@ -50,8 +52,13 @@ import type { DatabaseTotals } from './verify.ts';
  * publishes nothing, rather than publishing the disagreement.
  */
 
-/** The files the build writes, under the output directory. */
-export const pageFilename = 'index.html';
+/**
+ * The files the build writes, under the output directory. The page is written
+ * once in English and once in Welsh (#284), from the same snapshot in the same
+ * run, so the two cannot describe different records.
+ */
+export const pageFilename = languagePageFilenames.en;
+export const welshPageFilename = languagePageFilenames.cy;
 export const exportFilename = 'ledger.json';
 export {
   iconFilenames,
@@ -62,12 +69,13 @@ export {
 };
 
 /**
- * The pages the build writes, which is the list the sitemap is drawn from. One
- * today; a second page goes here and is listed by the same change. The
- * not-found page (#283) is written too, and is not one of these: it asks search
- * engines to leave it out, so a sitemap that listed it would contradict it.
+ * The pages the build writes, which is the list the sitemap is drawn from: the
+ * page in each of its languages. A page added goes here and is listed by the
+ * same change. The not-found page (#283) is written too, and is not one of
+ * these: it asks search engines to leave it out, so a sitemap that listed it
+ * would contradict it.
  */
-export const pageFilenames = [pageFilename] as const;
+export const pageFilenames = [pageFilename, welshPageFilename] as const;
 
 /**
  * The files committed beside the renderer and copied out as they are: the
@@ -112,7 +120,10 @@ export interface BuildOptions {
 
 export interface BuildResult {
   readonly ledger: PublishedLedger;
+  /** The English page, which is the site's index. */
   readonly page: string;
+  /** The page in every language it is published in, the English one included. */
+  readonly pages: Readonly<Record<PageLanguage, string>>;
   /** The files written, as absolute paths. */
   readonly written: readonly string[];
 }
@@ -275,12 +286,13 @@ export async function buildLedger(
     staleAfterDays,
     recordingCommits: options.recordingCommits,
   });
-  const page = renderPage(snapshot);
+  const pages = renderPages(snapshot);
+  const page = pages.en;
 
   const found = disagreements({
     contents: loaded.contents,
     snapshot,
-    page,
+    pages,
     ledgerPath: options.ledgerPath,
     databaseTotals: await countRows(client),
     statusTotals: await countChecksByStatus(
@@ -298,6 +310,8 @@ export async function buildLedger(
   const pagePath = join(options.outputDirectory, pageFilename);
   const exportPath = join(options.outputDirectory, exportFilename);
   await writeFile(pagePath, page, 'utf8');
+  const welshPagePath = join(options.outputDirectory, welshPageFilename);
+  await writeFile(welshPagePath, pages.cy, 'utf8');
   await writeFile(exportPath, renderExport(snapshot), 'utf8');
   const notFoundPath = join(options.outputDirectory, notFoundFilename);
   await writeFile(notFoundPath, renderNotFoundPage(snapshot), 'utf8');
@@ -322,8 +336,10 @@ export async function buildLedger(
   return {
     ledger: snapshot,
     page,
+    pages,
     written: [
       pagePath,
+      welshPagePath,
       exportPath,
       notFoundPath,
       robotsPath,

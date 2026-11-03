@@ -8,6 +8,8 @@ import { ledgerCheckUuid } from './identity.ts';
 import { escapeHtml } from './page.ts';
 import type { LedgerContents } from './load.ts';
 import type { PublishedLedger } from './snapshot.ts';
+import { pageLanguages, pageWords } from './words.ts';
+import type { PageLanguage } from './words.ts';
 
 /**
  * The check that runs between building the published output and writing it.
@@ -31,7 +33,8 @@ import type { PublishedLedger } from './snapshot.ts';
  *    its own file says about what the check did or where the run came from,
  *  - the export's own tally of statuses against the database's independent
  *    count of them,
- *  - the export against the rendered page, which catches a renderer that left a
+ *  - the export against the rendered page, in every language it is published
+ *    in, which catches a renderer that left a
  *    check out,
  *  - the first settled run in each check's exported table against the run the
  *    derivation says its status was read from, which catches the table and the
@@ -58,7 +61,8 @@ export interface DatabaseTotals {
 export interface VerificationInput {
   readonly contents: LedgerContents;
   readonly snapshot: PublishedLedger;
-  readonly page: string;
+  /** The page in every language it is published in, keyed by the language. */
+  readonly pages: Readonly<Record<PageLanguage, string>>;
   /** Where the ledger sits in the repository, such as `ledger`. */
   readonly ledgerPath: string;
   /** Counted straight off the tables, not from the summaries. */
@@ -67,6 +71,78 @@ export interface VerificationInput {
   readonly statusTotals: StatusTotals;
   /** What the derivation worked out for each check, keyed inside by its uuid. */
   readonly summaries: readonly CheckSummary[];
+}
+
+/**
+ * How a refusal names each page. The English page is "the page", as it was
+ * before there was a second one, so a refusal about it reads as it always has.
+ */
+const pageNames = {
+  en: 'the page',
+  cy: 'the Welsh page',
+} as const satisfies Record<PageLanguage, string>;
+
+function capitalised(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+/** Text as a regular expression that matches it and nothing else. */
+function literally(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+/**
+ * What one page says about itself that the record can be held to: the commit
+ * it was built from, on each of its "Built from" lines, and that it carries no
+ * script.
+ *
+ * A line is found by its words followed by a raw `<`, the start of the
+ * renderer's link, which nothing a record contributes can produce, since every
+ * record's text is escaped. The words are the page's own language's (#284).
+ */
+function pageDisagreements(
+  page: string,
+  language: PageLanguage,
+  builtFrom: string,
+): string[] {
+  const found: string[] = [];
+  const name = capitalised(pageNames[language]);
+  const words = literally(pageWords[language].builtFromCommit);
+
+  // The page states the commit it was built from on its "Built from" lines,
+  // one under the headline and one in the footer, and those lines are what is
+  // read here. This used to look for the short commit anywhere on the page. A
+  // page built at the commit that added one of its runs names that commit in
+  // the run's `Recorded in` link too, so the search found it whatever the
+  // lines said: the defect #141 removed from the CI step, left here (#164).
+  //
+  // Each is held to a link to the full commit around its first seven
+  // characters, as scripts/check-published-output.sh holds them.
+  const stamps = page.match(new RegExp(`${words} <[^,]*`, 'gu')) ?? [];
+  if (stamps.length === 0) {
+    found.push(`${name} does not name the commit it was built from.`);
+  }
+  const shape = new RegExp(
+    `^${words} <a href="https:\\/\\/github\\.com\\/[^"]+\\/commit\\/([^"]+)"><code>([^<]+)<\\/code><\\/a>$`,
+    'u',
+  );
+  for (const stamp of stamps) {
+    const named = shape.exec(stamp);
+    if (named?.[1] !== builtFrom || named[2] !== builtFrom.slice(0, 7)) {
+      found.push(
+        `${name} has a "Built from" line that does not name ${builtFrom}, the commit it was built from: ${stamp}`,
+      );
+    }
+  }
+
+  // The published page is a document, not an application. A script tag in it
+  // would mean something on the page is worked out in the reader's browser
+  // rather than at build time, which is the one property the whole publishing
+  // route exists to have.
+  if (/<script/i.test(page)) {
+    found.push(`${name} carries a script, so it is not a static record.`);
+  }
+  return found;
 }
 
 /** The latest of a set of days, or null when the set is empty. */
@@ -117,7 +193,7 @@ function compare(
  */
 export function disagreements(input: VerificationInput): string[] {
   const found: string[] = [];
-  const { contents, snapshot, page } = input;
+  const { contents, snapshot, pages } = input;
 
   compare(
     found,
@@ -272,8 +348,12 @@ export function disagreements(input: VerificationInput): string[] {
       }
     }
 
-    if (!page.includes(escapeHtml(entry.record.name))) {
-      found.push(`${label} is published and its name is not on the page.`);
+    for (const language of pageLanguages) {
+      if (!pages[language].includes(escapeHtml(entry.record.name))) {
+        found.push(
+          `${label} is published and its name is not on ${pageNames[language]}.`,
+        );
+      }
     }
   }
 
@@ -363,43 +443,10 @@ export function disagreements(input: VerificationInput): string[] {
     );
   }
 
-  // The page states the commit it was built from on its "Built from" lines,
-  // one under the headline and one in the footer, and those lines are what is
-  // read here. This used to look for the short commit anywhere on the page. A
-  // page built at the commit that added one of its runs names that commit in
-  // the run's `Recorded in` link too, so the search found it whatever the
-  // lines said: the defect #141 removed from the CI step, left here (#164).
-  //
-  // A line is found by the words followed by a raw `<`, the start of the
-  // renderer's link, which nothing a record contributes can produce, since
-  // every record's text is escaped. Each is held to a link to the full commit
-  // around its first seven characters, as scripts/check-published-output.sh
-  // holds them.
-  const stamps = page.match(/Built from commit <[^,]*/gu) ?? [];
-  if (stamps.length === 0) {
-    found.push('The page does not name the commit it was built from.');
-  }
-  for (const stamp of stamps) {
-    const named =
-      /^Built from commit <a href="https:\/\/github\.com\/[^"]+\/commit\/([^"]+)"><code>([^<]+)<\/code><\/a>$/u.exec(
-        stamp,
-      );
-    if (
-      named?.[1] !== snapshot.builtFrom ||
-      named[2] !== snapshot.builtFrom.slice(0, 7)
-    ) {
-      found.push(
-        `The page has a "Built from" line that does not name ${snapshot.builtFrom}, the commit it was built from: ${stamp}`,
-      );
-    }
-  }
-
-  // The published page is a document, not an application. A script tag in it
-  // would mean something on the page is worked out in the reader's browser
-  // rather than at build time, which is the one property the whole publishing
-  // route exists to have.
-  if (/<script/i.test(page)) {
-    found.push('The page carries a script, so it is not a static record.');
+  for (const language of pageLanguages) {
+    found.push(
+      ...pageDisagreements(pages[language], language, snapshot.builtFrom),
+    );
   }
 
   return found;

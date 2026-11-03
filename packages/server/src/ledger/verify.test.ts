@@ -12,7 +12,7 @@ import {
   fixtureSummariesWithAnUnsettledRun,
 } from '../testing/ledger.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
-import { renderPage } from './page.ts';
+import { renderPage, renderPages } from './page.ts';
 import type { PublishedLedger, PublishedRun } from './snapshot.ts';
 import { disagreements } from './verify.ts';
 import type { VerificationInput } from './verify.ts';
@@ -32,7 +32,7 @@ function sound(): VerificationInput {
   return {
     contents: fixtureContents(),
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
     ledgerPath: fixtureLedgerPath,
     databaseTotals: fixtureDatabaseTotals(),
     statusTotals: fixtureStatusTotals(),
@@ -45,7 +45,7 @@ function withSnapshot(
   change: (snapshot: PublishedLedger) => PublishedLedger,
 ): VerificationInput {
   const snapshot = change(fixtureSnapshot());
-  return { ...sound(), snapshot, page: renderPage(snapshot) };
+  return { ...sound(), snapshot, pages: renderPages(snapshot) };
 }
 
 it('finds nothing wrong with a build that agrees with its record', () => {
@@ -166,7 +166,10 @@ it('finds a check the page left out although the export holds it', () => {
   }
   const found = disagreements({
     ...input,
-    page: input.page.replaceAll(first.name, 'something else'),
+    pages: {
+      ...input.pages,
+      en: input.pages.en.replaceAll(first.name, 'something else'),
+    },
   });
   expect(found.join('\n')).toContain('its name is not on the page');
 });
@@ -176,7 +179,10 @@ it('refuses a page that carries a script', () => {
   expect(
     disagreements({
       ...input,
-      page: `${input.page}<script>fetch('/graphql')</script>`,
+      pages: {
+        ...input.pages,
+        en: `${input.pages.en}<script>fetch('/graphql')</script>`,
+      },
     }).join('\n'),
   ).toContain('script');
 });
@@ -186,12 +192,96 @@ it('refuses a page that does not name the commit it was built from', () => {
   expect(
     disagreements({
       ...input,
-      page: input.page.replaceAll(
-        input.snapshot.builtFrom.slice(0, 7),
-        'zzzzzzz',
-      ),
+      pages: {
+        ...input.pages,
+        en: input.pages.en.replaceAll(
+          input.snapshot.builtFrom.slice(0, 7),
+          'zzzzzzz',
+        ),
+      },
     }).join('\n'),
   ).toContain('the commit it was built from');
+});
+
+/**
+ * The Welsh page (#284) is held to the record the same way as the English one,
+ * each defect planted in it alone with the English page left sound, so a guard
+ * that read only the English page passes every one of these.
+ */
+it('finds a check the Welsh page left out although the English page holds it', () => {
+  const input = sound();
+  const [first] = input.snapshot.checks;
+  if (first === undefined) {
+    throw new Error('The fixture has no checks.');
+  }
+  expect(input.pages.cy).toContain(first.name);
+  const found = disagreements({
+    ...input,
+    pages: {
+      ...input.pages,
+      cy: input.pages.cy.replaceAll(first.name, 'something else'),
+    },
+  });
+  expect(found).toStrictEqual([
+    `The check ${first.id} is published and its name is not on the Welsh page.`,
+  ]);
+});
+
+it('refuses a Welsh page that carries a script', () => {
+  const input = sound();
+  expect(
+    disagreements({
+      ...input,
+      pages: { ...input.pages, cy: `${input.pages.cy}<script></script>` },
+    }),
+  ).toStrictEqual([
+    'The Welsh page carries a script, so it is not a static record.',
+  ]);
+});
+
+it('refuses a Welsh page whose "Built from" lines name another commit', () => {
+  const input = sound();
+  const built = input.snapshot.builtFrom;
+  const other = '0123456789abcdef0123456789abcdef01234567';
+  const stamp = (commit: string): string =>
+    `Adeiladwyd o ymrwymiad <a href="https://github.com/${input.snapshot.repository}/commit/${commit}"><code>${commit.slice(0, 7)}</code></a>`;
+  expect(input.pages.cy.split(stamp(built))).toHaveLength(3);
+
+  const found = disagreements({
+    ...input,
+    pages: {
+      ...input.pages,
+      cy: input.pages.cy.replaceAll(stamp(built), stamp(other)),
+    },
+  });
+  expect(found).toHaveLength(2);
+  for (const line of found) {
+    expect(line).toContain(
+      `The Welsh page has a "Built from" line that does not name ${built}`,
+    );
+  }
+});
+
+/**
+ * A Welsh page that states its commit in English has no Welsh "Built from"
+ * line at all, and is refused for it, rather than passed because the English
+ * words are on it.
+ */
+it('refuses a Welsh page that states its commit only in English', () => {
+  const input = sound();
+  const found = disagreements({
+    ...input,
+    pages: {
+      ...input.pages,
+      cy: input.pages.cy.replaceAll(
+        'Adeiladwyd o ymrwymiad <a',
+        'Built from commit <a',
+      ),
+    },
+  });
+  expect(found).toStrictEqual([
+    'The Welsh page does not name the commit it was built from.',
+  ]);
 });
 
 /**
@@ -211,7 +301,7 @@ it('refuses "Built from" lines naming another commit, though a run row names the
       runs: check.runs.map((run) => ({ ...run, recordedIn: built })),
     })),
   };
-  const page = renderPage(snapshot);
+  const page = renderPage(snapshot, 'en');
   const stamp = (commit: string): string =>
     `Built from commit <a href="https://github.com/${snapshot.repository}/commit/${commit}"><code>${commit.slice(0, 7)}</code></a>`;
   const planted = page.replaceAll(
@@ -225,9 +315,15 @@ it('refuses "Built from" lines naming another commit, though a run row names the
   expect(planted).not.toContain(stamp(built));
   expect(planted).toContain(built.slice(0, 7));
 
-  expect(disagreements({ ...input, snapshot, page })).toStrictEqual([]);
   expect(
-    disagreements({ ...input, snapshot, page: planted }).join('\n'),
+    disagreements({ ...input, snapshot, pages: renderPages(snapshot) }),
+  ).toStrictEqual([]);
+  expect(
+    disagreements({
+      ...input,
+      snapshot,
+      pages: { ...renderPages(snapshot), en: planted },
+    }).join('\n'),
   ).toContain(`does not name ${built}`);
 });
 
@@ -240,7 +336,7 @@ it('refuses "Built from" lines naming another commit, though a run row names the
 function soundReplay(): VerificationInput {
   const contents = fixtureContentsFromAReplay();
   const snapshot = fixtureSnapshot(contents);
-  return { ...sound(), contents, snapshot, page: renderPage(snapshot) };
+  return { ...sound(), contents, snapshot, pages: renderPages(snapshot) };
 }
 
 /** The same input, with one run's published fields changed. */
@@ -255,7 +351,7 @@ function withRun(
       runs: check.runs.map(change),
     })),
   };
-  return { ...input, snapshot, page: renderPage(snapshot) };
+  return { ...input, snapshot, pages: renderPages(snapshot) };
 }
 
 it('finds nothing wrong with a replay that agrees with its record', () => {
@@ -318,7 +414,7 @@ function soundUnsettled(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
     databaseTotals: { ...totals, runs: totals.runs + 1 },
     summaries: fixtureSummariesWithAnUnsettledRun(),
   };
@@ -336,7 +432,7 @@ function withUnsettledRun(
       runs: check.runs.map(change),
     })),
   };
-  return { ...input, snapshot, page: renderPage(snapshot) };
+  return { ...input, snapshot, pages: renderPages(snapshot) };
 }
 
 it('finds nothing wrong with a ledger whose newest run settled nothing', () => {
@@ -469,7 +565,7 @@ function soundTied(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
     databaseTotals: { ...totals, runs: totals.runs + 1 },
     summaries,
   };
@@ -496,7 +592,7 @@ it('finds a table headed by a different run from the one the status was read fro
   const found = disagreements({
     ...input,
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
   });
 
   const { latest, other } = tiedIds();
@@ -602,7 +698,7 @@ function soundTiedObservations(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
     databaseTotals: { ...totals, observations: totals.observations + 1 },
     summaries,
   };
@@ -629,7 +725,7 @@ it('finds a list headed by a different observation from the one the armed state 
   const found = disagreements({
     ...input,
     snapshot,
-    page: renderPage(snapshot),
+    pages: renderPages(snapshot),
   });
 
   const { latest, other } = tiedObservationIds();
