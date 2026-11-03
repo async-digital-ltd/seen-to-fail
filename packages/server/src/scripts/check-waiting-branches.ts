@@ -1,6 +1,6 @@
 // node packages/server/src/scripts/check-waiting-branches.ts \
 //   [--repository <a checkout>] [--remote <name>] [--main <branch>] \
-//   [--kept-off-main <file>]
+//   [--kept-off-main <file>] [--annotations <file>]
 //
 // Whether a recorded branch has been left waiting for a person (#122).
 //
@@ -27,16 +27,21 @@
 //      read, so nothing was judged
 //
 // The report goes to standard output as Markdown, which the workflow appends
-// to its run summary.
+// to its run summary. Given --annotations, it also writes one GitHub `::error`
+// workflow command per line to that file, one for each overdue branch and each
+// stale entry, naming it and what to do; the workflow prints the file, so the
+// annotations alone are enough to act on (#287). The file is written empty when
+// nothing needs a person.
 
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 
 import { isShallowRepository } from '../ledger/commits.ts';
 import { ledgerPath, repositoryRoot } from '../ledger/location.ts';
 import {
+  describeWaitingAnnotations,
   describeWaitingReport,
   judgeRecordedBranches,
   parseKeptOffMain,
@@ -60,6 +65,7 @@ const { values } = parseArgs({
     remote: { type: 'string', default: 'origin' },
     main: { type: 'string', default: 'main' },
     'kept-off-main': { type: 'string' },
+    annotations: { type: 'string' },
   },
 });
 
@@ -159,9 +165,12 @@ for (const line of listing.split('\n').filter((entry) => entry !== '')) {
     ),
   );
   // What the branch holds that main does not, among the files it changed.
-  // A file main has since changed again would read as unlanded here; no
-  // ledger record has ever been edited after landing, and a false alarm is
-  // loud where a false pass would be silent.
+  // A file main has since changed again would read as unlanded here. That is
+  // why only records decide the verdict: main rewrote ledger/README.md after
+  // branches carrying an older one had landed (#287), while no record has
+  // ever been edited after landing, and a false alarm is loud where a false
+  // pass would be silent. Which paths are records is the judgment's to say,
+  // so every changed path under ledger/ is handed over.
   const unlandedPaths =
     ledgerPaths.length === 0
       ? []
@@ -190,6 +199,13 @@ for (const line of listing.split('\n').filter((entry) => entry !== '')) {
 
 const report = judgeRecordedBranches(branches, keptOffMain.value, new Date());
 process.stdout.write(describeWaitingReport(report, keptOffMainFile));
+if (values.annotations !== undefined) {
+  const annotations = describeWaitingAnnotations(report, keptOffMainFile);
+  await writeFile(
+    values.annotations,
+    annotations.map((annotation) => `${annotation}\n`).join(''),
+  );
+}
 if (report.needsAPerson) {
   process.exitCode = needsAPerson;
 }

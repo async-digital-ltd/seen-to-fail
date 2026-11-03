@@ -7,12 +7,16 @@ name: Find recorded branches left waiting
 # the summary of one green run. Three replay branches waited unnoticed from 5 to
 # 18 October 2026 that way (#122).
 #
-# This goes red when a recorded branch carries ledger files `main` does not
-# hold and has waited longer than LANDING_GRACE_DAYS in
+# This goes red when a recorded branch carries records `main` does not hold
+# and has waited longer than LANDING_GRACE_DAYS in
 # packages/server/src/ledger/waiting.ts, or when an entry in
-# .github/kept-off-main.json no longer describes the remote. A failed scheduled
-# run is what GitHub notifies about without anyone opening the Actions tab,
-# which is the point: it fires without somebody happening to list branches.
+# .github/kept-off-main.json no longer describes the remote. A record is a file
+# in one of the directories the ledger loader reads; the ledger's README is not
+# one (#287). A failed scheduled run is what GitHub notifies about without
+# anyone opening the Actions tab, which is the point: it fires without somebody
+# happening to list branches. Each thing that needs a person is also an
+# annotation of its own, naming the branch or entry and what to do, so the red
+# can be acted on by whoever reads only the annotations.
 #
 # It is a workflow of its own rather than a step in replay.yml, because a red
 # replay run means nothing from that replay landed, and this finding is about a
@@ -73,10 +77,14 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          pnpm --silent branches:waiting > "$RUNNER_TEMP/waiting.md" || status=$?
+          pnpm --silent branches:waiting --annotations "$RUNNER_TEMP/annotations.txt" \
+            > "$RUNNER_TEMP/waiting.md" || status=$?
           cat "$RUNNER_TEMP/waiting.md" >> "$GITHUB_STEP_SUMMARY"
           cat "$RUNNER_TEMP/waiting.md"
-          if [ "$status" -eq 2 ]; then
-            echo "::error title=A recorded branch needs a person::See the run summary for which branch and what to do."
+          # One ::error line per overdue branch and per stale entry. The script
+          # writes the file empty when nothing needs a person, and not at all
+          # when it refused, which exits 1 with the reason in the log.
+          if [ -f "$RUNNER_TEMP/annotations.txt" ]; then
+            cat "$RUNNER_TEMP/annotations.txt"
           fi
           exit "$status"
