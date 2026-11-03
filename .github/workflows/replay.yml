@@ -355,7 +355,7 @@ jobs:
       - name: Replay the declared plants
         id: canfail
         if: steps.select.outputs.config != ''
-        uses: async-digital-ltd/canfail-action@5ffd94d2598c9f9ce91aecf1122b9296a38b56e7 # v1.0.0
+        uses: async-digital-ltd/canfail-action@8ead9b4fdc34df83fa5d468e1fb6d664401d5ffd # v1.0.1
         with:
           declaration: ${{ steps.select.outputs.config }}
           fail-on-mismatch: 'false'
