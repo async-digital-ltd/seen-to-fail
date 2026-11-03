@@ -25,7 +25,10 @@ import {
 } from './build.ts';
 import type { BuildResult } from './build.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
+import { loadLedger } from './load.ts';
 import { recordRun } from './record.ts';
+import { shownTexts } from './record-text.ts';
+import type { RecordWelsh } from './record-text.ts';
 import type { PublishedLedger } from './snapshot.ts';
 
 /**
@@ -91,6 +94,38 @@ async function declaredIds(directory: string): Promise<string[]> {
   );
 }
 
+/**
+ * Welsh for every text a fixture ledger shows, read off its files (#284).
+ *
+ * The fixtures below are about what the build publishes, not about the Welsh
+ * it publishes, so each is given an entry for every text it holds, the way
+ * `declaredIds` clears every check it declares. Each entry is numbered rather
+ * than copied from the English, so no English, and no English month, reaches
+ * the Welsh page, and it keeps whatever the record marks as code. The refusal
+ * of a text with no entry is tested below with an entry left out.
+ */
+async function welshFor(directory: string): Promise<RecordWelsh> {
+  const loaded = await loadLedger({ directory, today: asOf });
+  if (!loaded.ok) {
+    return new Map();
+  }
+  const texts = [
+    ...new Set(
+      shownTexts(loaded.contents, 'ledger').map((text) => text.english),
+    ),
+  ];
+  return new Map(
+    texts.map((english, index) => {
+      const code = english
+        .split('`')
+        .filter((_, part) => part % 2 === 1)
+        .map((span) => ` \`${span}\``)
+        .join('');
+      return [english, `Testun Cymraeg ${String(index + 1)}${code}`];
+    }),
+  );
+}
+
 async function build(
   directory: string,
   recordingCommits: ReadonlyMap<string, string> = new Map(),
@@ -105,6 +140,7 @@ async function build(
     recordingCommits,
     asOf,
     publishableCheckIds: await declaredIds(directory),
+    recordWelsh: await welshFor(directory),
   });
   return { ...result, outputDirectory };
 }
@@ -751,6 +787,7 @@ it('refuses a ledger that does not load, and writes nothing', async () => {
       recordingCommits: new Map(),
       asOf,
       publishableCheckIds: ['ci-lint'],
+      recordWelsh: new Map(),
     }),
   ).rejects.toThrow(LedgerRefusedError);
 
@@ -788,6 +825,7 @@ it('refuses a check nobody cleared for publication, and writes nothing', async (
       recordingCommits: new Map(),
       asOf,
       publishableCheckIds: ['ci-lint'],
+      recordWelsh: await welshFor(directory),
     }),
   ).rejects.toThrow(
     /ci-secret-scan is declared in ledger\/checks\/ but is not on the list of checks safe to publish/u,
@@ -814,10 +852,99 @@ it('refuses a list that clears a check nobody declares, and writes nothing', asy
       recordingCommits: new Map(),
       asOf,
       publishableCheckIds: ['ci-lint', 'ci-test'],
+      recordWelsh: await welshFor(directory),
     }),
   ).rejects.toThrow(
     /ci-test is on the list of checks safe to publish, but no check in ledger\/checks\/ declares it/u,
   );
 
+  expect(await readdir(outputDirectory)).toEqual([]);
+});
+
+/**
+ * The refusal #284 ruled: a record whose text has no Welsh stops the build,
+ * so neither page is written and the site keeps both at their last good
+ * version. It names the text, quoted so it can be copied into the table, and
+ * the record it came from, and it stops before the database is touched.
+ *
+ * Seen to fail both ways: the same ledger builds once its one missing entry
+ * is written, so the refusal is about that entry and nothing else.
+ */
+it('refuses a record text with no Welsh, writes nothing, and builds once the entry is added', async () => {
+  const planted = 'A rule violation nobody has translated.';
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    'runs/one.json': {
+      checkId: 'ci-lint',
+      runOn: '2026-09-18',
+      planted,
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+  });
+  const complete = await welshFor(directory);
+  const withoutOne = new Map(
+    [...complete].filter(([english]) => english !== planted),
+  );
+  expect(withoutOne.size).toBe(complete.size - 1);
+
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'seen-to-fail-site-'));
+  const client = database.client();
+  await client.query('TRUNCATE TABLE checks RESTART IDENTITY CASCADE');
+  const options = {
+    directory,
+    ledgerPath: 'ledger',
+    outputDirectory,
+    repository,
+    builtFrom,
+    recordingCommits: new Map<string, string>(),
+    asOf,
+    publishableCheckIds: ['ci-lint'],
+  };
+  await expect(
+    buildLedger(client, { ...options, recordWelsh: withoutOne }),
+  ).rejects.toThrow(
+    'ledger/runs/one.json, what was planted, has no Welsh: "A rule violation nobody has translated."',
+  );
+  expect(await readdir(outputDirectory)).toEqual([]);
+  const { rows } = await client.query('SELECT count(*)::int AS n FROM checks');
+  expect(rows).toEqual([{ n: 0 }]);
+
+  const { written } = await buildLedger(client, {
+    ...options,
+    recordWelsh: complete,
+  });
+  expect(written).toContain(join(outputDirectory, pageFilename));
+  expect(written).toContain(join(outputDirectory, welshPageFilename));
+});
+
+/**
+ * Welsh that marks as code something the English does not print as it is,
+ * such as a mistyped identifier, is refused the same way: neither page is
+ * written.
+ */
+it('refuses Welsh whose code is not printed in the English, and writes nothing', async () => {
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+  });
+  const recordWelsh = new Map(await welshFor(directory));
+  recordWelsh.set(check.protects, 'Rheol lint yn cael ei thorri ar `mian`.');
+
+  const outputDirectory = await mkdtemp(join(tmpdir(), 'seen-to-fail-site-'));
+  await expect(
+    buildLedger(database.client(), {
+      directory,
+      ledgerPath: 'ledger',
+      outputDirectory,
+      repository,
+      builtFrom,
+      recordingCommits: new Map(),
+      asOf,
+      publishableCheckIds: ['ci-lint'],
+      recordWelsh,
+    }),
+  ).rejects.toThrow(
+    'the Welsh marks `mian` as code once, and the English prints it as a word of its own 0 times',
+  );
   expect(await readdir(outputDirectory)).toEqual([]);
 });

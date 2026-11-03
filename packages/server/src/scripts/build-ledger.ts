@@ -12,7 +12,9 @@
 //
 // It refuses, and writes nothing, when a declared check is not on the list of
 // checks safe to publish in packages/server/src/ledger/publishable.ts, or the
-// list names a check nobody declares (#280).
+// list names a check nobody declares (#280). It does the same when a record's
+// text has no Welsh in packages/server/src/ledger/record-welsh.ts, naming each
+// text and its record, so neither page is published until both can be (#284).
 
 import '../environment.ts';
 
@@ -36,6 +38,7 @@ import {
   repositoryRoot,
 } from '../ledger/location.ts';
 import { publishableCheckIds } from '../ledger/publishable.ts';
+import { recordWelsh } from '../ledger/record-welsh.ts';
 import { forwardedArguments } from './arguments.ts';
 
 const { values } = parseArgs({
@@ -76,6 +79,7 @@ try {
     recordingCommits: await commitsThatAdded(repositoryRoot, ledgerPath),
     asOf: todayInUtc(),
     publishableCheckIds,
+    recordWelsh,
   });
 
   const runCount = result.ledger.checks.reduce(

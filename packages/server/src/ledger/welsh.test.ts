@@ -3,8 +3,14 @@ import { expect, it } from 'vitest';
 
 import { testRunOutcomes } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
-import { fixtureSnapshot } from '../testing/ledger.ts';
+import {
+  fixtureContentsWithAnUnsettledRun,
+  fixtureRecordWelsh,
+  fixtureSnapshot,
+  fixtureSummariesWithAnUnsettledRun,
+} from '../testing/ledger.ts';
 import { readableDay, renderPage } from './page.ts';
+import { recordWelsh } from './record-welsh.ts';
 import type { PublishedLedger } from './snapshot.ts';
 
 /**
@@ -136,6 +142,12 @@ function everyOutcome(): PublishedLedger {
   };
 }
 
+/** The fixture's Welsh, with the reason the run above settled nothing. */
+const withEveryOutcome = new Map([
+  ...fixtureRecordWelsh,
+  ['The plant did not apply.', 'Ni chymhwyswyd y nam a blannwyd.'],
+]);
+
 /** What a pill for this status says on a page, one entry per pill. */
 function pillLabels(page: string, status: string): string[] {
   const pattern = new RegExp(
@@ -164,7 +176,7 @@ function outcomeLabels(page: string): string[] {
 }
 
 it('gives the Welsh page its language', () => {
-  const page = renderPage(fixtureSnapshot(), 'cy');
+  const page = renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh);
 
   expect(page).toMatch(/^<!doctype html>\n<html lang="cy">\n/u);
 });
@@ -178,7 +190,7 @@ it('prints no English month or day name on the Welsh page, in any month', () => 
   for (let month = 1; month <= 12; month += 1) {
     const ledger = allIn(month);
     const english = renderPage(ledger, 'en');
-    const welsh = renderPage(ledger, 'cy');
+    const welsh = renderPage(ledger, 'cy', fixtureRecordWelsh);
 
     expect(englishDateWordsIn(english)).toContain(
       englishMonths[month - 1]?.slice(0, 3),
@@ -208,7 +220,7 @@ it('names every day in Welsh, from its own list of months', () => {
  */
 it('gives every status the ledger can emit a Welsh label and a Welsh meaning', () => {
   const english = renderPage(fixtureSnapshot(), 'en');
-  const welsh = renderPage(fixtureSnapshot(), 'cy');
+  const welsh = renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh);
 
   for (const status of STATUSES) {
     const englishLabels = pillLabels(english, status);
@@ -229,7 +241,9 @@ it('gives every status the ledger can emit a Welsh label and a Welsh meaning', (
 
 it('words every outcome a run can have in Welsh', () => {
   const english = outcomeLabels(renderPage(everyOutcome(), 'en'));
-  const welsh = outcomeLabels(renderPage(everyOutcome(), 'cy'));
+  const welsh = outcomeLabels(
+    renderPage(everyOutcome(), 'cy', withEveryOutcome),
+  );
 
   expect(english.map((label) => label.split(':')[0])).toStrictEqual([
     ...testRunOutcomes,
@@ -247,15 +261,116 @@ it('words every outcome a run can have in Welsh', () => {
 
 /**
  * The product's name is English, so where a Welsh sentence on the page says
- * it, it is tagged English the way the records' own text is, and a screen
- * reader says it in English. The title and the meta tags cannot hold markup
- * and carry it plain.
+ * it, it is tagged English the way code is, and a screen reader says it in
+ * English. The title and the meta tags cannot hold markup and carry it plain.
  */
 it('tags the product name as English inside the Welsh sentence that says what the page is', () => {
-  const welsh = renderPage(fixtureSnapshot(), 'cy');
+  const welsh = renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh);
 
   expect(welsh).toContain(
     '<p class="eyebrow about">Mae <span lang="en">Seen to Fail</span> yn gofnod ',
+  );
+});
+
+/**
+ * The records' own text on the Welsh page is its Welsh (#284): every field
+ * the page shows, from the check's name and area to what was planted, what
+ * was expected, why a run settled nothing and its note. None of it is tagged
+ * English, and the note that once said it was English is gone. The only text
+ * left tagged English is the product's name and the code inside a sentence.
+ */
+it('prints every record text the Welsh page shows in Welsh, with nothing tagged English but code and the product name', () => {
+  const ledger = fixtureSnapshot(
+    fixtureContentsWithAnUnsettledRun(),
+    fixtureSummariesWithAnUnsettledRun(),
+  );
+  const welsh = renderPage(ledger, 'cy', fixtureRecordWelsh);
+
+  for (const english of [
+    'A check with a catch behind it',
+    'Review',
+    'A defect reaching',
+    'The step appears in the run list.',
+    'A type error.',
+    'The type check fails.',
+    'The anchor matches',
+  ]) {
+    expect(welsh).not.toContain(english);
+  }
+  expect(welsh).toContain('›</span>Gwiriad â daliad y tu ôl iddo</span>');
+  expect(welsh).toContain('<span class="area-title">Adolygu</span>');
+  expect(welsh).toContain(
+    '<dd>Nam yn cyrraedd <code lang="en">main</code>.</dd>',
+  );
+  expect(welsh).toContain('<dd>Gwall math.</dd>');
+  expect(welsh).toContain('<dd>Mae’r gwiriad mathau yn methu.</dd>');
+  expect(welsh).toContain(
+    'Ni phenderfynodd y rhediad diweddaraf ddim: Mae’r angor yn cyfateb',
+  );
+  expect(welsh).not.toContain('lang-note');
+  expect(welsh).not.toContain('yn Saesneg, fel y cafodd ei ysgrifennu');
+
+  const taggedEnglish = [...welsh.matchAll(/<(\w+)[^>]* lang="en"[^>]*>/gu)];
+  expect(taggedEnglish.length).toBeGreaterThan(0);
+  for (const [tag, element] of taggedEnglish) {
+    expect(['code', 'span']).toContain(element);
+    if (element === 'span') {
+      expect(welsh).toContain(`${tag}Seen to Fail</span>`);
+    }
+  }
+  expect(
+    taggedEnglish.filter(([, element]) => element === 'span'),
+  ).toHaveLength(1);
+});
+
+/**
+ * An identifier or a file name inside a record's text is printed as it is on
+ * both pages, as code tagged English, from the one mark in its Welsh entry,
+ * so the two pages mark the same code.
+ */
+it('marks the same code on both pages, as code tagged English', () => {
+  const ledger = fixtureSnapshot(
+    fixtureContentsWithAnUnsettledRun(),
+    fixtureSummariesWithAnUnsettledRun(),
+  );
+  const code = '<code lang="en">packages/filter/src/types.ts</code>';
+
+  expect(renderPage(ledger, 'en', fixtureRecordWelsh)).toContain(
+    `The anchor matches 0 times in ${code} and must match exactly once`,
+  );
+  expect(renderPage(ledger, 'cy', fixtureRecordWelsh)).toContain(
+    `Mae’r angor yn cyfateb 0 gwaith yn ${code} a rhaid iddo`,
+  );
+});
+
+/**
+ * The areas are Welsh on the Welsh page, so the one after "a" in the line
+ * under the headline takes the aspirate mutation, and "a" is "ac" before a
+ * vowel: "Cofnod cyhoeddedig a Chod", "Cod ac Adeiladu". Read with the real
+ * table's area names, in the order the page puts the areas.
+ */
+it('joins the Welsh area names with the mutation the last one takes', () => {
+  // The proven check's area comes first on the page, the other's second.
+  const areasAs = (first: string, second: string): PublishedLedger => {
+    const ledger = fixtureSnapshot();
+    return {
+      ...ledger,
+      checks: ledger.checks.map((check) => ({
+        ...check,
+        area: check.id === 'first-check' ? first : second,
+      })),
+    };
+  };
+  const table = new Map([...fixtureRecordWelsh, ...recordWelsh]);
+
+  expect(
+    renderPage(areasAs('Published record', 'Code'), 'cy', table),
+  ).toContain('yn y meysydd hyn: Cofnod cyhoeddedig a Chod. ');
+  expect(renderPage(areasAs('Code', 'Build'), 'cy', table)).toContain(
+    'yn y meysydd hyn: Cod ac Adeiladu. ',
+  );
+  expect(renderPage(areasAs('Code', 'Code'), 'cy', table)).toContain(
+    'yn y maes hwn: Cod. ',
   );
 });
 
@@ -266,7 +381,7 @@ it('tags the product name as English inside the Welsh sentence that says what th
  */
 it('pairs the two pages with hreflang, a canonical each and a link to the other', () => {
   const english = renderPage(fixtureSnapshot(), 'en');
-  const welsh = renderPage(fixtureSnapshot(), 'cy');
+  const welsh = renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh);
   const root = 'https://seen-to-fail.async-digital.com/';
   const welshAddress = `${root}index.cy.html`;
   const alternates = [
