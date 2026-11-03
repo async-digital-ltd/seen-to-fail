@@ -43,7 +43,7 @@ import { renderPage } from './page.ts';
 /** The stylesheet exactly as the page publishes it. */
 const style = (() => {
   const found = /<style>([\s\S]*?)<\/style>/.exec(
-    renderPage(fixtureSnapshot()),
+    renderPage(fixtureSnapshot(), 'en'),
   );
   if (found?.[1] === undefined) {
     throw new Error('The rendered page carries no stylesheet.');

@@ -13,6 +13,7 @@ import {
   previewImageFilename,
   renderPage,
 } from '../ledger/page.ts';
+import type { PageLanguage } from '../ledger/words.ts';
 import { fixtureSnapshot } from '../testing/ledger.ts';
 
 /**
@@ -54,17 +55,25 @@ const anotherCommit = '0123456789abcdef0123456789abcdef01234567';
  * recorded in another. A run recorded in the checkout's own commit is the
  * normal state of a page built at a commit that added a run, and it puts that
  * commit on the page in the run's row whatever the "Built from" line says.
+ * In English unless another language is asked for (#284).
  */
-function aPage(builtFrom: string, recordedIn: string): string {
+function aPage(
+  builtFrom: string,
+  recordedIn: string,
+  language: PageLanguage = 'en',
+): string {
   const ledger = fixtureSnapshot();
-  return renderPage({
-    ...ledger,
-    builtFrom,
-    checks: ledger.checks.map((check) => ({
-      ...check,
-      runs: check.runs.map((entry) => ({ ...entry, recordedIn })),
-    })),
-  });
+  return renderPage(
+    {
+      ...ledger,
+      builtFrom,
+      checks: ledger.checks.map((check) => ({
+        ...check,
+        runs: check.runs.map((entry) => ({ ...entry, recordedIn })),
+      })),
+    },
+    language,
+  );
 }
 
 /**
@@ -110,9 +119,9 @@ const theIcons = Object.fromEntries(
   ),
 );
 
-/** The robots.txt and sitemap the build writes for its one page. */
+/** The robots.txt and sitemap the build writes for its two pages. */
 const aRobots = renderRobots();
-const aSitemap = renderSitemap(['index.html'], '2026-10-15');
+const aSitemap = renderSitemap(['index.html', 'index.cy.html'], '2026-10-15');
 
 /** A directory holding exactly these files, under the system's temporary one. */
 async function anOutputWith(
@@ -149,12 +158,23 @@ async function exitCodeAgainst(directory: string): Promise<number> {
 }
 
 /**
+ * The page in Welsh (#284), built from the checkout's commit like a sound
+ * English page, so an output holding it fails only for what a test plants.
+ */
+const theCommit = await head();
+const aWelshPage = aPage(theCommit, theCommit, 'cy');
+
+/**
  * Every file a sound output holds beside its page. A test that plants a defect
  * in one of them overrides that one and leaves the rest sound.
  */
-function soundFiles(page: string): Record<string, string | Buffer> {
+function soundFiles(
+  page: string,
+  welshPage: string = aWelshPage,
+): Record<string, string | Buffer> {
   return {
     'index.html': page,
+    'index.cy.html': welshPage,
     'ledger.json': anExport,
     [previewImageFilename]: aPreview,
     'robots.txt': aRobots,
@@ -235,18 +255,21 @@ it('passes a page whose run rows quote the wrong-commit plant’s description, a
 
   const commit = await head();
   const ledger = fixtureSnapshot();
-  const page = renderPage({
-    ...ledger,
-    builtFrom: commit,
-    checks: ledger.checks.map((check) => ({
-      ...check,
-      runs: check.runs.map((entry) => ({
-        ...entry,
-        recordedIn: commit,
-        planted: quoting[0] ?? '',
+  const page = renderPage(
+    {
+      ...ledger,
+      builtFrom: commit,
+      checks: ledger.checks.map((check) => ({
+        ...check,
+        runs: check.runs.map((entry) => ({
+          ...entry,
+          recordedIn: commit,
+          planted: quoting[0] ?? '',
+        })),
       })),
-    })),
-  });
+    },
+    'en',
+  );
   expect(page).toContain('&quot;Built from&quot;');
 
   expect(await exitCodeFor(page)).toBe(0);
@@ -601,7 +624,10 @@ it('refuses a robots.txt that is missing, shuts crawlers out, or does not name t
 it('refuses a sitemap that leaves out a served page, lists one that is not served, or is missing, and passes it once corrected', async () => {
   const page = await aSoundPage();
   const withAnotherPage = { ...soundFiles(page), 'about.html': '<p>About</p>' };
-  const listedBoth = renderSitemap(['index.html', 'about.html'], '2026-10-15');
+  const listedBoth = renderSitemap(
+    ['index.html', 'index.cy.html', 'about.html'],
+    '2026-10-15',
+  );
   const without = soundFiles(page);
   delete without['sitemap.xml'];
   const undated = aSitemap.replace(/ *<lastmod>[^<]*<\/lastmod>\n/, '');
@@ -640,4 +666,123 @@ it('passes a sitemap that leaves out a noindex page or a redirect stub, and exit
   };
 
   expect(await exitCodeAgainst(await anOutputWith(output))).toBe(0);
+});
+
+/** The code the script exits on for a Welsh page beside a sound output. */
+async function exitCodeForWelsh(welshPage: string): Promise<number> {
+  return exitCodeAgainst(
+    await anOutputWith(soundFiles(await aSoundPage(), welshPage)),
+  );
+}
+
+/**
+ * The page in Welsh (#284). Each defect is planted in one page alone, with the
+ * other left sound, so a check that read only the English page passes every
+ * one of these.
+ */
+it('passes the Welsh page beside the English one, and refuses an output without it, and exits 1', async () => {
+  const files = soundFiles(await aSoundPage());
+  expect(await exitCodeAgainst(await anOutputWith(files))).toBe(0);
+
+  delete files['index.cy.html'];
+  expect(await exitCodeAgainst(await anOutputWith(files))).toBe(1);
+});
+
+it('refuses a Welsh page that does not give its language as cy, and exits 1', async () => {
+  expect(
+    await exitCodeForWelsh(
+      swapped(aWelshPage, '<html lang="cy">', '<html lang="en-GB">'),
+    ),
+  ).toBe(1);
+});
+
+/**
+ * Built from another commit, or stating its commit only in the English words,
+ * which leaves the Welsh page with no Welsh "Built from" line at all.
+ */
+it('refuses a Welsh page built from another commit, or naming its commit only in English, and exits 1', async () => {
+  expect(await exitCodeForWelsh(aPage(anotherCommit, theCommit, 'cy'))).toBe(1);
+  expect(
+    await exitCodeForWelsh(
+      swapped(aWelshPage, 'Adeiladwyd o ymrwymiad <a', 'Built from commit <a'),
+    ),
+  ).toBe(1);
+});
+
+it('refuses a Welsh page that carries a script or asks not to be indexed, and exits 1', async () => {
+  expect(await exitCodeForWelsh(`${aWelshPage}<script></script>\n`)).toBe(1);
+  expect(
+    await exitCodeForWelsh(
+      swapped(
+        aWelshPage,
+        '<meta name="viewport"',
+        '<meta name="robots" content="noindex">\n<meta name="viewport"',
+      ),
+    ),
+  ).toBe(1);
+});
+
+it('refuses a Welsh page that gives the English address as its own, and exits 1', async () => {
+  const welshAddress = `${livePage}index.cy.html`;
+  expect(
+    await exitCodeForWelsh(
+      swapped(
+        aWelshPage,
+        `<link rel="canonical" href="${welshAddress}">`,
+        `<link rel="canonical" href="${livePage}">`,
+      ),
+    ),
+  ).toBe(1);
+  expect(
+    await exitCodeForWelsh(
+      swapped(
+        aWelshPage,
+        `<meta property="og:url" content="${welshAddress}">`,
+        `<meta property="og:url" content="${livePage}">`,
+      ),
+    ),
+  ).toBe(1);
+});
+
+/**
+ * Each hreflang alternate is taken off each page in turn, and then given
+ * twice, and every one of those is refused.
+ */
+it('refuses either page without each of its hreflang alternates, or with one twice, and exits 1', async () => {
+  const sound = await aSoundPage();
+  const alternates = [
+    `<link rel="alternate" hreflang="en-GB" href="${livePage}">\n`,
+    `<link rel="alternate" hreflang="cy" href="${livePage}index.cy.html">\n`,
+    `<link rel="alternate" hreflang="x-default" href="${livePage}">\n`,
+  ];
+  for (const alternate of alternates) {
+    expect(await exitCodeFor(swapped(sound, alternate, ''))).toBe(1);
+    expect(await exitCodeForWelsh(swapped(aWelshPage, alternate, ''))).toBe(1);
+    expect(
+      await exitCodeForWelsh(
+        swapped(aWelshPage, alternate, `${alternate}${alternate}`),
+      ),
+    ).toBe(1);
+  }
+});
+
+it('refuses either page without its link to the other, and exits 1', async () => {
+  expect(
+    await exitCodeFor(
+      swapped(
+        await aSoundPage(),
+        '<a href="index.cy.html" hreflang="cy" lang="cy">Cymraeg</a>',
+        '',
+      ),
+    ),
+  ).toBe(1);
+  expect(
+    await exitCodeForWelsh(
+      swapped(
+        aWelshPage,
+        '<a href="./" hreflang="en-GB" lang="en-GB">English</a>',
+        '',
+      ),
+    ),
+  ).toBe(1);
 });

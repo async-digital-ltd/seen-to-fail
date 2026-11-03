@@ -12,7 +12,10 @@
 # under the headline that says what its count covers and links why checks about
 # security are left off. Since #254 it holds what a crawler reads: the page's
 # language, its canonical address, its icons, a robots.txt naming the sitemap,
-# and a sitemap listing every page served and nothing else.
+# and a sitemap listing every page served and nothing else. Since #284 it holds
+# the page in Welsh beside it: there, in Welsh, built from the same commit,
+# canonical at its own address, and paired with the English page by hreflang
+# and by a link each way.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
@@ -268,6 +271,81 @@ if [ ! -f "$directory/favicon.ico" ]; then
   exit 1
 fi
 
+# The page in Welsh (#284), which the same build writes from the same
+# snapshot. It is held to what makes it the same record in another language:
+# it is there, it says it is in Welsh, its own "Built from" lines, in Welsh,
+# name the commit it was built from, it carries no script and does not ask to
+# be left out of search, and it gives its own address as canonical and as its
+# link preview's. Each page then names both languages and a default with
+# hreflang, and links the other in that page's language. The sitemap check
+# below expects it like any other page served.
+#
+# Its refusals start "The published page" like the English page's, because
+# that is what the replay reads as evidence that this ran.
+welsh_page="$directory/index.cy.html"
+welsh_url="${og_url}index.cy.html"
+if [ ! -f "$welsh_page" ]; then
+  echo "The published page index.cy.html, the ledger in Welsh, is not there: $welsh_page." >&2
+  exit 1
+fi
+
+if ! grep -qx '<html lang="cy">' "$welsh_page"; then
+  echo "The published page index.cy.html does not give its language as cy." >&2
+  exit 1
+fi
+
+welsh_expected="^Adeiladwyd o ymrwymiad <a href=\"https://github\\.com/[^\"]+/commit/${commit}\"><code>${short}</code></a>\$"
+welsh_stamps=0
+while IFS= read -r stamp; do
+  welsh_stamps=$((welsh_stamps + 1))
+  if [[ ! "$stamp" =~ $welsh_expected ]]; then
+    echo "The published page index.cy.html has a \"Built from\" line that does not name $commit, the commit it was built from: $stamp" >&2
+    exit 1
+  fi
+done < <(grep -o 'Adeiladwyd o ymrwymiad <[^,]*' "$welsh_page")
+
+if [ "$welsh_stamps" -eq 0 ]; then
+  echo "The published page index.cy.html has no \"Built from\" line in Welsh, so it does not say which commit it was built from." >&2
+  exit 1
+fi
+
+if grep -qi '<script' "$welsh_page"; then
+  echo "The published page index.cy.html carries a script." >&2
+  exit 1
+fi
+
+if grep -qi 'noindex' "$welsh_page"; then
+  echo "The published page index.cy.html asks search engines not to index it." >&2
+  exit 1
+fi
+
+welsh_canonicals="$({ grep -o '<link rel="canonical" href="[^"]*">' "$welsh_page" || true; } | sed -E 's/.*href="([^"]*)">$/\1/')"
+welsh_og_urls="$({ grep -o '<meta property="og:url" content="[^"]*">' "$welsh_page" || true; } | sed -E 's/.*content="([^"]*)">$/\1/')"
+if [ "$welsh_canonicals" != "$welsh_url" ] || [ "$welsh_og_urls" != "$welsh_url" ]; then
+  echo "The published page index.cy.html does not give $welsh_url, and only that, as its canonical address and its og:url." >&2
+  exit 1
+fi
+
+for file in "$page" "$welsh_page"; do
+  for alternate in "en-GB $og_url" "cy $welsh_url" "x-default $og_url"; do
+    language="${alternate%% *}"
+    address="${alternate#* }"
+    if [ "$(grep -cxF "<link rel=\"alternate\" hreflang=\"$language\" href=\"$address\">" "$file" || true)" -ne 1 ]; then
+      echo "The published page $(basename "$file") does not name $address, once, as its hreflang $language alternate." >&2
+      exit 1
+    fi
+  done
+done
+
+if ! grep -qF '<a href="index.cy.html" hreflang="cy" lang="cy">Cymraeg</a>' "$page"; then
+  echo "The published page index.html does not link the Welsh page, in Welsh." >&2
+  exit 1
+fi
+if ! grep -qF '<a href="./" hreflang="en-GB" lang="en-GB">English</a>' "$welsh_page"; then
+  echo "The published page index.cy.html does not link the English page, in English." >&2
+  exit 1
+fi
+
 # robots.txt lets every crawler in and names the sitemap by its absolute
 # address.
 robots="$directory/robots.txt"
@@ -321,4 +399,4 @@ if [ "$dated" -ne "$(printf '%s\n' "$listed" | grep -c .)" ]; then
   exit 1
 fi
 
-echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline."
+echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline, beside the page in Welsh at $welsh_url, built from the same commit and paired with it by hreflang."
