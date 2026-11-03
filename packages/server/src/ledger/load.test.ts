@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 
 import { writeTemporaryLedger } from '../testing/ledger.ts';
-import { loadLedger } from './load.ts';
+import { loadLedger, recordDirectories } from './load.ts';
 import type { LoadResult } from './load.ts';
 
 /**
@@ -163,6 +163,30 @@ it('refuses a file that is not a .json file at all', async () => {
     'runs/notes.txt': 'a run, written in prose',
   });
   expect(said(result)).toContain('.json');
+});
+
+/**
+ * `recordDirectories` is what the waiting-branches check counts as a record
+ * (#287), so it has to be exactly what this loader reads: a file it refuses in
+ * every listed directory, and nothing at all from the README or a directory
+ * it does not list.
+ */
+it('reads exactly the record directories it lists, and nothing beside them', async () => {
+  const result = await load({
+    ...Object.fromEntries(
+      recordDirectories.map((directory) => [
+        `${directory}/notes.txt`,
+        'not a record',
+      ]),
+    ),
+    'README.md': 'not a record',
+    'other/notes.txt': 'not a record',
+  });
+  expect(
+    result.ok ? [] : result.issues.map((issue) => issue.file),
+  ).toStrictEqual(
+    recordDirectories.map((directory) => `${directory}/notes.txt`),
+  );
 });
 
 it('refuses a directory nested inside a record directory', async () => {

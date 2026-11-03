@@ -37,6 +37,19 @@ export const checksDirectory = 'checks';
 export const runsDirectory = 'runs';
 export const observationsDirectory = 'observations';
 
+/**
+ * Every directory `loadLedger` reads, which is the whole of what the ledger
+ * calls a record. Anything else under the ledger directory, its README
+ * included, is never read as one, so nothing that judges records may count it
+ * as one either (#287). A fourth kind of record belongs in this list as well
+ * as in `loadLedger`, and a test holds the two to each other.
+ */
+export const recordDirectories = [
+  checksDirectory,
+  runsDirectory,
+  observationsDirectory,
+] as const;
+
 /** One thing wrong with the ledger, and where it is. */
 export interface LedgerIssue {
   /** The file at fault, relative to the ledger directory. */

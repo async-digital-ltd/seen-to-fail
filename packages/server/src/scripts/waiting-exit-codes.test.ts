@@ -1,5 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,8 @@ import { LANDING_GRACE_DAYS } from '../ledger/waiting.ts';
 /**
  * Finding a recorded branch left waiting (#122), judged the way the workflow
  * judges it: by the status the script exits with. Nothing here reads a printed
- * message.
+ * message. The one output read is the annotations file, and only for how many
+ * lines it holds, because the workflow prints it as one annotation per line.
  *
  * Every case runs against a real remote and a real clone of it, because the
  * part that can silently pass is the git reading: which refs are listed, where
@@ -70,16 +71,20 @@ async function commit(message: string, committedAt?: Date): Promise<string> {
 }
 
 /**
- * Push a recorded branch onto the remote, carrying one run file, committed
- * this many days ago. Returns its head.
+ * Push a recorded branch onto the remote, carrying one run file and any other
+ * files given, committed this many days ago. Returns its head.
  */
 async function aRecordedBranch(
   branch: string,
   daysOld: number,
   file: string,
+  alongside: Readonly<Record<string, string>> = {},
 ): Promise<string> {
   await git(origin, ['switch', '--quiet', '--create', branch, 'main']);
   await put(origin, `ledger/runs/${file}`, `{"run":"${file}"}\n`);
+  for (const [path, text] of Object.entries(alongside)) {
+    await put(origin, path, text);
+  }
   const head = await commit(
     `Record ${file}`,
     new Date(Date.now() - daysOld * day),
@@ -104,13 +109,18 @@ async function keptOffMain(entries: readonly unknown[]) {
 }
 
 /** Clone the remote fresh and run the script in the clone. */
-async function judge(): Promise<number> {
+async function judge(...args: readonly string[]): Promise<number> {
   const checkout = join(workspace, `checkout-${String(Date.now())}`);
   await git(workspace, ['clone', '--quiet', origin, checkout]);
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      [join(scripts, 'check-waiting-branches.ts'), '--repository', checkout],
+      [
+        join(scripts, 'check-waiting-branches.ts'),
+        '--repository',
+        checkout,
+        ...args,
+      ],
       { stdio: 'ignore' },
     );
     child.on('error', reject);
@@ -160,9 +170,54 @@ describe('a recorded branch', () => {
     expect(await judge()).toBe(0);
   });
 
+  /**
+   * The false red of 2 and 3 November 2026 (#287): the records landed, and
+   * main then rewrote the generated README the branch also carried.
+   */
+  it('passes a landed branch whose only difference from main is a file that is not a record', async () => {
+    await put(origin, 'ledger/README.md', 'The ledger.\n');
+    await commit('Write the ledger README', new Date(Date.now() - 20 * day));
+    await aRecordedBranch('replay/1', LANDING_GRACE_DAYS + 2, 'one.json', {
+      'ledger/README.md': 'The ledger.\n\nReplays: 1 run.\n',
+    });
+    await squashOntoMain('replay/1');
+    await put(origin, 'ledger/README.md', 'The ledger, with no counts.\n');
+    await commit('Stop committing the counts');
+    expect(await judge()).toBe(0);
+  });
+
+  it('fails when a record is unlanded beside a file that is not a record', async () => {
+    await aRecordedBranch('replay/1', LANDING_GRACE_DAYS + 2, 'one.json', {
+      'ledger/README.md': 'Replays: 1 run.\n',
+    });
+    expect(await judge()).toBe(needsAPerson);
+  });
+
   it('ignores branches outside the recorded lanes', async () => {
     await aRecordedBranch('ci-control/1', LANDING_GRACE_DAYS + 2, 'one.json');
     expect(await judge()).toBe(0);
+  });
+});
+
+describe('the annotations file', () => {
+  async function linesOf(file: string): Promise<number> {
+    const text = await readFile(file, 'utf8');
+    return text.split('\n').filter((line) => line !== '').length;
+  }
+
+  it('holds one line for each overdue branch', async () => {
+    const file = join(workspace, 'annotations.txt');
+    await aRecordedBranch('replay/1', LANDING_GRACE_DAYS + 2, 'one.json');
+    await aRecordedBranch('record/2', LANDING_GRACE_DAYS + 2, 'two.json');
+    expect(await judge('--annotations', file)).toBe(needsAPerson);
+    expect(await linesOf(file)).toBe(2);
+  });
+
+  it('is written empty when nothing needs a person', async () => {
+    const file = join(workspace, 'annotations.txt');
+    await aRecordedBranch('replay/1', LANDING_GRACE_DAYS - 1, 'one.json');
+    expect(await judge('--annotations', file)).toBe(0);
+    expect(await readFile(file, 'utf8')).toBe('');
   });
 });
 
