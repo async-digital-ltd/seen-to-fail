@@ -24,8 +24,10 @@ import { fixtureSnapshot } from '../testing/ledger.ts';
  * same check against the plants `canfail.json` declares for it, and two copies
  * of a check are two checks. These tests run that script as a process against
  * a directory of their own, holding a page drawn by the page's own renderer,
- * and change one thing at a time. Each refusal is asserted on the code and
- * never on the wording, which is the number the workflow reads.
+ * and change one thing at a time. Each refusal is asserted on the code, which
+ * is the number the workflow reads. Where more than one check refuses the same
+ * plant, the test also reads the refusal's own words on stderr, so a check
+ * that stopped refusing it cannot pass behind another that still does.
  *
  * The page is drawn rather than typed here so that what the script reads is the
  * markup a real page carries. A change to how the page states the commit it was
@@ -134,17 +136,29 @@ async function anOutputWith(
   return directory;
 }
 
+/** The code the script exited on, and what it wrote to stderr before it did. */
+interface Outcome {
+  readonly code: number;
+  readonly stderr: string;
+}
+
 /**
- * Runs the script against a directory and answers with the code it exited on.
+ * Runs the script against a directory and answers with the code it exited on
+ * and what it wrote to stderr, which is where every refusal is written.
  *
  * From the repository root, because the script reads the commit from the
  * checkout it sits in and that is what the page is held to.
  */
-async function exitCodeAgainst(directory: string): Promise<number> {
+async function outcomeAgainst(directory: string): Promise<Outcome> {
   return new Promise((resolve, reject) => {
     const child = spawn('bash', [script, directory], {
       cwd: repositoryRoot,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
     });
     child.on('error', reject);
     child.on('close', (code) => {
@@ -152,9 +166,14 @@ async function exitCodeAgainst(directory: string): Promise<number> {
         reject(new Error('The script was killed rather than exiting.'));
         return;
       }
-      resolve(code);
+      resolve({ code, stderr });
     });
   });
+}
+
+/** The code alone, which is what the workflow reads. */
+async function exitCodeAgainst(directory: string): Promise<number> {
+  return (await outcomeAgainst(directory)).code;
 }
 
 /**
@@ -680,12 +699,26 @@ async function exitCodeForWelsh(welshPage: string): Promise<number> {
  * other left sound, so a check that read only the English page passes every
  * one of these.
  */
+
+/**
+ * A missing Welsh page is refused by more than the check that looks for it:
+ * the checks after it each refuse a file that is not there, and a sitemap that
+ * lists it refuses an output that does not serve it. So the sitemap here lists
+ * the English page alone, as a build that wrote no Welsh page would, and the
+ * test reads the refusal's own words, so it fails if the check that says the
+ * page is not there stops saying it.
+ */
 it('passes the Welsh page beside the English one, and refuses an output without it, and exits 1', async () => {
   const files = soundFiles(await aSoundPage());
   expect(await exitCodeAgainst(await anOutputWith(files))).toBe(0);
 
   delete files['index.cy.html'];
-  expect(await exitCodeAgainst(await anOutputWith(files))).toBe(1);
+  files['sitemap.xml'] = renderSitemap(['index.html'], '2026-10-15');
+  const refused = await outcomeAgainst(await anOutputWith(files));
+  expect(refused.code).toBe(1);
+  expect(refused.stderr).toContain(
+    'The published page index.cy.html, the ledger in Welsh, is not there:',
+  );
 });
 
 it('refuses a Welsh page that does not give its language as cy, and exits 1', async () => {
@@ -709,17 +742,31 @@ it('refuses a Welsh page built from another commit, or naming its commit only in
   ).toBe(1);
 });
 
+/**
+ * A Welsh page that asks not to be indexed is also one the sitemap leaves out
+ * of what it expects, so the sitemap that lists it refuses the output as well.
+ * The test reads the refusal's own words, so it fails if the check that reads
+ * the Welsh page for `noindex` stops refusing it.
+ */
 it('refuses a Welsh page that carries a script or asks not to be indexed, and exits 1', async () => {
   expect(await exitCodeForWelsh(`${aWelshPage}<script></script>\n`)).toBe(1);
-  expect(
-    await exitCodeForWelsh(
-      swapped(
-        aWelshPage,
-        '<meta name="viewport"',
-        '<meta name="robots" content="noindex">\n<meta name="viewport"',
+
+  const refused = await outcomeAgainst(
+    await anOutputWith(
+      soundFiles(
+        await aSoundPage(),
+        swapped(
+          aWelshPage,
+          '<meta name="viewport"',
+          '<meta name="robots" content="noindex">\n<meta name="viewport"',
+        ),
       ),
     ),
-  ).toBe(1);
+  );
+  expect(refused.code).toBe(1);
+  expect(refused.stderr).toContain(
+    'The published page index.cy.html asks search engines not to index it.',
+  );
 });
 
 it('refuses a Welsh page that gives the English address as its own, and exits 1', async () => {
@@ -744,24 +791,40 @@ it('refuses a Welsh page that gives the English address as its own, and exits 1'
   ).toBe(1);
 });
 
+/** The hreflang alternates both pages carry, one line each. */
+const theAlternates = [
+  `<link rel="alternate" hreflang="en-GB" href="${livePage}">\n`,
+  `<link rel="alternate" hreflang="cy" href="${livePage}index.cy.html">\n`,
+  `<link rel="alternate" hreflang="x-default" href="${livePage}">\n`,
+];
+
 /**
  * Each hreflang alternate is taken off each page in turn, and then given
- * twice, and every one of those is refused.
+ * twice on the Welsh page, and every one of those is refused.
  */
 it('refuses either page without each of its hreflang alternates, or with one twice, and exits 1', async () => {
   const sound = await aSoundPage();
-  const alternates = [
-    `<link rel="alternate" hreflang="en-GB" href="${livePage}">\n`,
-    `<link rel="alternate" hreflang="cy" href="${livePage}index.cy.html">\n`,
-    `<link rel="alternate" hreflang="x-default" href="${livePage}">\n`,
-  ];
-  for (const alternate of alternates) {
+  for (const alternate of theAlternates) {
     expect(await exitCodeFor(swapped(sound, alternate, ''))).toBe(1);
     expect(await exitCodeForWelsh(swapped(aWelshPage, alternate, ''))).toBe(1);
     expect(
       await exitCodeForWelsh(
         swapped(aWelshPage, alternate, `${alternate}${alternate}`),
       ),
+    ).toBe(1);
+  }
+});
+
+/**
+ * The same alternates given twice on the English page, apart from the Welsh
+ * page's, so a check that counted them on the Welsh page and only looked for
+ * them on the English one fails here alone.
+ */
+it('refuses the English page with one of its hreflang alternates twice, and exits 1', async () => {
+  const sound = await aSoundPage();
+  for (const alternate of theAlternates) {
+    expect(
+      await exitCodeFor(swapped(sound, alternate, `${alternate}${alternate}`)),
     ).toBe(1);
   }
 });
