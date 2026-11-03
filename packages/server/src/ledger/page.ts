@@ -690,8 +690,7 @@ details[open] > summary .chevron { transform: rotate(90deg); }
 .check { border-top: 1px solid var(--border); }
 .check > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; padding: 0.375rem 0.5rem 0.375rem 2rem; min-height: 3.5rem; }
 .check-name { flex: 1 1 15rem; display: flex; align-items: center; gap: 0.625rem; font-weight: 600; line-height: 1.4; }
-.check-state { display: flex; align-items: center; gap: 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; }
-.fact { white-space: nowrap; }
+.check-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; }
 .check-body { margin: 0 0 1rem 2rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); display: flex; flex-direction: column; gap: 1rem; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 2rem; margin: 0; }
 .facts dt, h4 { color: var(--muted); font-size: 0.875rem; }
