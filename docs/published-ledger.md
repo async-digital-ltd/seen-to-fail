@@ -44,7 +44,10 @@ before anything is written, commits the record and pushes a branch. The
 command it prints to open the pull request takes its ticket number from
 `TICKET` and will not run until that is set, so a squash merge's subject names
 the issue the run evidences
-([#174](https://github.com/async-digital-ltd/seen-to-fail/issues/174)).
+([#174](https://github.com/async-digital-ltd/seen-to-fail/issues/174)). The
+pull request cannot land until every text in the new record has its Welsh,
+because the build refuses to publish either page without it
+([What the build refuses to publish](publishing.md)).
 
 The watching has a lane of its own. CI runs on every push to a branch under
 `ci-control/` as well as on `main` and on pull requests, which is where a defect
