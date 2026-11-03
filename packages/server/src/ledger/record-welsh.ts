@@ -123,9 +123,9 @@ const entries: Readonly<Record<string, string>> = {
   'The check of the published output fails, so the run does not go green.':
     'Mae’r gwiriad ar yr allbwn a gyhoeddwyd yn methu, felly nid yw’r rhediad yn troi’n wyrdd.',
   'The validator refuses the ledger and exits non-zero, and nothing is recorded.':
-    'Mae’r dilyswr yn gwrthod y cyfriflyfr ac yn gadael â chod heblaw sero, ac ni chofnodir dim.',
+    'Mae’r dilyswr yn gwrthod y cyfriflyfr ac yn gadael â chod nad yw’n sero, ac ni chofnodir dim.',
   'The build refuses to publish, exits non-zero, and writes no files at all.':
-    'Mae’r broses adeiladu yn gwrthod cyhoeddi, yn gadael â chod heblaw sero, ac nid yw’n ysgrifennu unrhyw ffeil o gwbl.',
+    'Mae’r broses adeiladu yn gwrthod cyhoeddi, yn gadael â chod nad yw’n sero, ac nid yw’n ysgrifennu unrhyw ffeil o gwbl.',
   'The step fails, so the run does not go green.':
     'Mae’r cam yn methu, felly nid yw’r rhediad yn troi’n wyrdd.',
   'The Type check step fails, so the CI run does not go green.':
@@ -144,7 +144,7 @@ const entries: Readonly<Record<string, string>> = {
   'STALE_AFTER_DAYS is written as a string rather than a number.':
     'Mae `STALE_AFTER_DAYS` wedi’i ysgrifennu fel llinyn yn hytrach na rhif.',
   'The build writes a script tag into the page after the page it checked, so the file on disk is not the page it verified.':
-    'Mae’r broses adeiladu yn ysgrifennu tag sgript i’r dudalen ar ôl y dudalen a wiriodd, felly nid y ffeil ar y ddisg yw’r dudalen a ddilysodd.',
+    'Mae’r broses adeiladu yn ysgrifennu tag sgript i’r dudalen ar ôl iddi wirio’r dudalen, felly nid y ffeil ar y ddisg yw’r dudalen a ddilysodd.',
   'The build reads the commit it was built from as the parent of HEAD, so the page\'s "Built from" lines name a commit the page was not built from.':
     'Mae’r broses adeiladu yn darllen yr ymrwymiad y mae’n adeiladu ohono fel rhiant `HEAD`, felly mae llinellau “Adeiladwyd o ymrwymiad” y dudalen yn enwi ymrwymiad nad adeiladwyd y dudalen ohono.',
   'One observation dropped from the export, inside the function that builds it, so the page holds one fewer than the ledger.':
@@ -184,9 +184,9 @@ const entries: Readonly<Record<string, string>> = {
   'A script tag appended to the built page, which the step exists to refuse.':
     'Tag sgript wedi’i atodi i’r dudalen a adeiladwyd, y mae’r cam yn bod er mwyn ei wrthod.',
   'A run file whose outcome was neither caught nor missed, and a second file naming a check that does not exist, dated in the future.':
-    'Ffeil rhediad nad oedd ei chanlyniad yn `caught` nac yn `missed`, ac ail ffeil sy’n enwi gwiriad nad yw’n bod, wedi’i dyddio yn y dyfodol.',
+    'Ffeil rhediad nad oedd ei chanlyniad yn “Wedi dal” nac yn “Heb ddal”, ac ail ffeil sy’n enwi gwiriad nad yw’n bod, wedi’i dyddio yn y dyfodol.',
   'One record dropped from the export, inside the function that builds it, so the page held five arming observations where the ledger held six.':
-    'Un cofnod wedi’i ollwng o’r allforiad, y tu mewn i’r ffwythiant sy’n ei adeiladu, felly roedd gan y dudalen bum arsylwad ymlaen neu i ffwrdd lle roedd gan y cyfriflyfr chwech.',
+    'Un cofnod wedi’i ollwng o’r allforiad, y tu mewn i’r ffwythiant sy’n ei adeiladu, felly roedd gan y dudalen bum arsylwad ynghylch a oedd gwiriad wedi’i droi ymlaen lle roedd gan y cyfriflyfr chwech.',
   'STALE_AFTER_DAYS was changed from the number 30 to the string 30 in quotes, on a ci-control branch pushed to this repository.':
     'Newidiwyd `STALE_AFTER_DAYS` o’r rhif 30 i’r llinyn 30 mewn dyfynodau, ar gangen `ci-control` a wthiwyd i’r ystorfa hon.',
   "The entry point's import of ./environment.ts lost its file extension, on a ci-control branch pushed to this repository.":
@@ -202,11 +202,11 @@ const entries: Readonly<Record<string, string>> = {
   'Seen on 2026-09-18 while building #63. The build published before the plant, refused with it in place and left no output directory behind, and published again once it was removed.':
     'Gwelwyd ar 18 Medi 2026 wrth adeiladu #63. Cyhoeddodd y broses adeiladu cyn plannu’r nam, gwrthododd gyda’r nam yn ei le heb adael cyfeiriadur allbwn ar ôl, a chyhoeddodd eto ar ôl ei dynnu.',
   'Seen on 2026-09-18 while building #63, against a copy of the real built page. Worth knowing how it got here: the step was first written as a negated grep, and set -e does not apply to a command whose status is inverted, so that version went green with the script sitting in the page. The plant is what showed it up. It was rewritten as an if and seen to deny before it ran anywhere.':
-    'Gwelwyd ar 18 Medi 2026 wrth adeiladu #63, yn erbyn copi o’r dudalen go iawn a adeiladwyd. Mae’n werth gwybod sut y daeth i hyn: ysgrifennwyd y cam yn gyntaf fel `grep` wedi’i wrthdroi, ac nid yw `set -e` yn berthnasol i orchymyn y mae ei statws wedi’i wrthdroi, felly trodd y fersiwn honno’n wyrdd gyda’r sgript yn eistedd yn y dudalen. Y nam a blannwyd a ddangosodd hynny. Ailysgrifennwyd y cam fel `if`, a gwelwyd ef yn gwrthod cyn iddo redeg yn unman.',
+    'Gwelwyd ar 18 Medi 2026 wrth adeiladu #63, yn erbyn copi o’r dudalen go iawn a adeiladwyd. Mae’n werth gwybod sut y cyrhaeddwyd yma: ysgrifennwyd y cam yn gyntaf fel `grep` wedi’i wrthdroi, ac nid yw `set -e` yn berthnasol i orchymyn y mae ei statws wedi’i wrthdroi, felly trodd y fersiwn honno’n wyrdd gyda’r sgript yn dal yn y dudalen. Y nam a blannwyd a ddangosodd hynny. Ailysgrifennwyd y cam fel `if`, a gwelwyd ef yn gwrthod cyn iddo redeg yn unman.',
   'Run 36984692843 of the CI workflow at fcf8ee3 concluded failure, with Lint the workflows the step that failed, on exit 1, and every step after it skipped. It named both lines. Run 36984912818 at c89be24, with both plants removed, passed. Typed in on 4 October 2026 from those two runs and from the account on #157, by a session that did not watch them (#190).':
     'Daeth rhediad 36984692843 o’r llif gwaith CI ar `fcf8ee3` i ben â methiant, gyda `Lint the workflows` y cam a fethodd, â chod gadael 1, a phob cam ar ei ôl wedi’i hepgor. Enwodd y ddwy linell. Pasiodd rhediad 36984912818 ar `c89be24`, gyda’r ddau nam wedi’u tynnu. Teipiwyd i mewn ar 4 Hydref 2026 o’r ddau rediad hynny ac o’r hanes ar #157, gan sesiwn na wyliodd mohonynt (#190).',
   'Recorded by hand because a replay cannot plant this: the check only sees a committed defect, and a replay never commits its breaks (#228). CI run https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37295226381 failed at the generated-types step with a diff of gql.ts and graphql.ts removing total.':
-    'Cofnodwyd â llaw am na all ailchwarae blannu hyn: dim ond nam sydd wedi’i ymrwymo y mae’r gwiriad yn ei weld, ac nid yw ailchwarae byth yn ymrwymo’r namau y mae’n eu plannu (#228). Methodd rhediad CI `https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37295226381` wrth y cam sy’n gwirio’r mathau a gynhyrchwyd, gyda gwahaniaeth i `gql.ts` a `graphql.ts` a oedd yn tynnu `total`.',
+    'Cofnodwyd â llaw am na all ailchwarae blannu hyn: dim ond nam sydd wedi’i ymrwymo y mae’r gwiriad yn ei weld, ac nid yw ailchwarae byth yn ymrwymo’r namau y mae’n eu plannu (#228). Methodd rhediad CI `https://github.com/async-digital-ltd/seen-to-fail/actions/runs/37295226381` yn y cam sy’n gwirio’r mathau a gynhyrchwyd, gyda gwahaniaeth yn `gql.ts` a `graphql.ts` yn tynnu `total`.',
   'Planted on the ci-control lane the README documents. Run 37219973975 on branch ci-control/146-server-start-plant at e50ff76 concluded failure, with Check the server starts the only step that failed, on exit 1, every step before it green and every step after it skipped: the type check accepts the import and Node cannot resolve it. Run 36991152739 on main at a7cd00d, the same tree without the plant, passed the step. The pull request that added the step, #145, gives an account of more plants watched failing it locally on 27 September 2026, which nothing here can check (#146).':
     'Plannwyd ar lôn `ci-control` a ddisgrifir yn y README. Daeth rhediad 37219973975 ar y gangen `ci-control/146-server-start-plant` ar `e50ff76` i ben â methiant, gyda `Check the server starts` yr unig gam a fethodd, â chod gadael 1, pob cam o’i flaen yn wyrdd a phob cam ar ei ôl wedi’i hepgor: mae’r gwiriad mathau yn derbyn y mewnforiad ac ni all Node ei ddatrys. Ar `main` ar `a7cd00d`, yr un goeden heb y nam, pasiodd rhediad 36991152739 y cam. Mae’r cais tynnu a ychwanegodd y cam, #145, yn rhoi hanes rhagor o namau a welwyd yn ei fethu’n lleol ar 27 Medi 2026, na all dim yma ei wirio (#146).',
   'Planted on the ci-control lane the README documents. Run 35405796729 on branch ci-control/63-type-check-plant at d6c0575 concluded failure, with Type check the only step that failed and every other step green or skipped. The branch was deleted and the constant put back afterwards.':
@@ -214,7 +214,7 @@ const entries: Readonly<Record<string, string>> = {
 
   // Why a replay settled nothing, as canfail reported it.
   'the check already FAILS on the clean tree (exit 1: [ELIFECYCLE] Test failed. See above for more details.) — breaking something can prove nothing from here':
-    'mae’r gwiriad eisoes yn METHU ar y goeden lân (cod gadael 1: `[ELIFECYCLE] Test failed. See above for more details.`), felly ni all torri rhywbeth brofi dim o’r fan hon',
+    'Mae’r gwiriad eisoes yn METHU ar y goeden lân (cod gadael 1: `[ELIFECYCLE] Test failed. See above for more details.`), felly ni all torri rhywbeth brofi dim o’r fan hon',
 
   // The notes on the observations of whether a check is switched on.
   'Read from run 35375392138 of the CI workflow on main at 14b479e, where the step ran and the run concluded success.':
