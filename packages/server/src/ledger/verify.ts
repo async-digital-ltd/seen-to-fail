@@ -5,8 +5,10 @@ import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
 import type { CheckSummary } from '../database/summaries.ts';
 import { ledgerCheckUuid } from './identity.ts';
-import { escapeHtml } from './page.ts';
+import { recordHtml } from './page.ts';
 import type { LedgerContents } from './load.ts';
+import { RecordTextError } from './record-text.ts';
+import type { RecordWelsh } from './record-text.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { pageLanguages, pageWords } from './words.ts';
 import type { PageLanguage } from './words.ts';
@@ -71,6 +73,8 @@ export interface VerificationInput {
   readonly statusTotals: StatusTotals;
   /** What the derivation worked out for each check, keyed inside by its uuid. */
   readonly summaries: readonly CheckSummary[];
+  /** The Welsh the pages were rendered with, which names each check in Welsh. */
+  readonly recordWelsh: RecordWelsh;
 }
 
 /**
@@ -92,13 +96,65 @@ function literally(text: string): string {
 }
 
 /**
+ * The English names of the months and the days of the week, in full and as
+ * their first three letters, which is how the English page abbreviates a
+ * month. The Welsh page names neither in English anywhere outside code (#284).
+ */
+const englishMonths = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const englishDays = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+const englishDateWord = new RegExp(
+  `\\b(?:${[...englishMonths, ...englishDays]
+    .flatMap((name) => [name, name.slice(0, 3)])
+    .join('|')})\\b`,
+  'giu',
+);
+
+/**
+ * Every English month or day name on a page outside its code, as whole words
+ * and in any case, so `Oct`, `OCT` and `October` are all found and `Hydref`
+ * and `Mai` are not.
+ *
+ * Code is left out because it is printed as it is: an identifier or a line of
+ * tool output that happens to hold a month is not the page naming one. A code
+ * element holds no markup, so it ends at the first closing tag.
+ */
+export function englishDateWordsOutsideCode(page: string): string[] {
+  const outsideCode = page.replace(/<code\b[^>]*>[^<]*<\/code>/gu, ' ');
+  return [...outsideCode.matchAll(englishDateWord)].map((match) => match[0]);
+}
+
+/**
  * What one page says about itself that the record can be held to: the commit
  * it was built from, on each of its "Built from" lines, and that it carries no
- * script.
+ * script. On the Welsh page, also that it names no month or day in English.
  *
  * A line is found by its words followed by a raw `<`, the start of the
- * renderer's link, which nothing a record contributes can produce, since every
- * record's text is escaped. The words are the page's own language's (#284).
+ * renderer's link. The only raw tag a record's text can produce is the
+ * `<code lang="en">` its Welsh entry marks, since every record's text is
+ * escaped around it; a record whose code came straight after those words would
+ * be read as a line and refused, which is the safe way to be wrong. The words
+ * are the page's own language's (#284).
  */
 function pageDisagreements(
   page: string,
@@ -141,6 +197,20 @@ function pageDisagreements(
   // route exists to have.
   if (/<script/i.test(page)) {
     found.push(`${name} carries a script, so it is not a static record.`);
+  }
+
+  // A date is the likeliest English left on the Welsh page, because the
+  // records write their own in prose, such as "4 October 2026", and a Welsh
+  // entry copied from one keeps the English month unless someone rewrites it.
+  // A regex swap of the month inside the English would be no better: it
+  // would be the English sentence with one Welsh word in it.
+  if (language === 'cy') {
+    const english = englishDateWordsOutsideCode(page);
+    if (english.length > 0) {
+      found.push(
+        `${name} names a month or a day in English outside code: ${[...new Set(english)].join(', ')}.`,
+      );
+    }
   }
   return found;
 }
@@ -348,8 +418,24 @@ export function disagreements(input: VerificationInput): string[] {
       }
     }
 
+    // Each page names the check in its own language: the English page as the
+    // record has it, and the Welsh page as its entry in record-welsh.ts does.
+    // A name with no Welsh is refused before the build renders anything, so
+    // it is refused here too rather than looked for.
     for (const language of pageLanguages) {
-      if (!pages[language].includes(escapeHtml(entry.record.name))) {
+      let named: string;
+      try {
+        named = recordHtml(entry.record.name, language, input.recordWelsh);
+      } catch (cause) {
+        if (!(cause instanceof RecordTextError)) {
+          throw cause;
+        }
+        found.push(
+          `${label} has a name ${pageNames[language]} cannot print: ${cause.message}`,
+        );
+        continue;
+      }
+      if (!pages[language].includes(named)) {
         found.push(
           `${label} is published and its name is not on ${pageNames[language]}.`,
         );

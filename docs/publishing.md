@@ -64,9 +64,54 @@ not the other fails to compile. Every month on the Welsh page is named from a
 fixed Welsh list rather than by the platform's date formatting, which can name
 a Welsh month in English without saying so. Each page gives its own address as
 canonical, names both pages with hreflang and the English one as the default,
-and links the other in that page's language, and the sitemap lists both. The
-records' own text, such as a check's name and what was planted, is shown as it
-was written, in English, tagged as English, and the Welsh page says so.
+and links the other in that page's language, and the sitemap lists both.
+
+The records' own text is Welsh on the Welsh page too: every check's name, area,
+what it protects against and how to tell it is switched on, and every run's
+plant, expected outcome, note and reason for settling nothing, and every
+observation's note. The records themselves stay in English, as a person or the
+replay wrote them, and carry no Welsh field. The Welsh comes from a table in
+the generator, `packages/server/src/ledger/record-welsh.ts`, keyed on each text
+exactly as its record holds it, so a record whose English is edited has no
+entry until its Welsh is updated. Identifiers and quoted tool output, such as
+`REPLAY_AFTER_DAYS` or the line pnpm prints when a test fails, are printed as
+they are on both pages, as code tagged as English, inside the sentence around
+them. The build also refuses a Welsh page that names a month or a day of the
+week in English anywhere outside code, and so does the published-output check.
+
+**When the build refuses a record for its Welsh.** A record whose text has no
+entry stops the build before the database is touched, and nothing is written:
+neither page, nor anything beside them. So a push to `main` with an
+untranslated record fails CI, the publish job never runs, and the site keeps
+both pages as they were at the last good build. The English page is never
+published alone, and English never stands in on the Welsh page. The refusal
+names each text, quoted as JSON so it can be copied exactly, the record it came
+from, and how many other records share it. To clear it:
+
+1. Add an entry to `entries` in `packages/server/src/ledger/record-welsh.ts`.
+   The key is the English exactly as quoted in the refusal, every character of
+   it, including its full stop and any straight quotes. A text many records
+   share, such as what every replay of one check expected, needs one entry.
+2. Write the Welsh with backticks around every identifier, file name, commit,
+   branch name, CI step name and piece of quoted tool output, and leave what is
+   inside them exactly as the English prints it. The build refuses an entry
+   whose code the English does not print as a word of its own as many times as
+   the Welsh marks it, so a mistyped identifier fails rather than being
+   printed. The English page marks the same code from the same entry.
+3. Write any date as the Welsh page writes a day, with the Welsh month, such as
+   4 Hydref 2026, rather than changing the month inside an English sentence.
+4. Run `pnpm ledger:build` and the server's tests, which hold every entry to
+   the committed ledger and to every break `canfail.json` declares.
+5. Ask someone fluent in Welsh to read the new entry. The build can tell that
+   an entry exists and that its code matches; it cannot tell whether the Welsh
+   is right.
+
+A replay records each declared break's name as what was planted and its
+check's expected outcome as what was expected, and the server's tests require
+an entry for each before the replay runs, so a replay of the current
+declaration needs nothing new in the table. A reason a replay gives for
+settling nothing is canfail's own sentence, and a new one needs its entry, on
+the replay's branch or on `main`, before the branch can land.
 
 Pull requests and pushes to a `ci-control/` branch build and check the same page
 and keep it as a build artefact for seven days, but never serve it. A proposed

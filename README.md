@@ -82,7 +82,13 @@ copy:
 
 1. Replace the files in `ledger/checks/` with one per check of yours, and empty
    `ledger/runs/` and `ledger/observations/`, which hold this repository's own
-   record. `ledger/README.md` gives the shape of each file.
+   record. `ledger/README.md` gives the shape of each file. The ledger is
+   published in English and in Welsh, and the build refuses to publish either
+   page while any record's text has no Welsh in
+   `packages/server/src/ledger/record-welsh.ts`, so replace that file's entries
+   with your own.
+   [What the build refuses to publish](docs/publishing.md) says how an entry
+   is written.
 2. Replace `canfail.json` with your declaration, and add `checkId` and
    `dependsOn` beside each check.
 3. In `.github/workflows/ci.yml`, keep the steps that create the databases and
@@ -263,7 +269,8 @@ replay workflow or pushing to a `ci-control/` branch, takes write access to it.
 - [How much of this record is automatic](docs/automatic.md): which checks a
   replay reaches, with the counts.
 - [What the build refuses to publish](docs/publishing.md): the build's
-  agreement checks, and where the page is served.
+  agreement checks, where the page is served, and what to do when a record
+  has no Welsh.
 - [Tests](docs/tests.md): the commands to check a change, the packages, and
   CI's steps.
 - [Working from a cloud session](docs/cloud-sessions.md): what differs in the

@@ -128,4 +128,6 @@ sitemap, and a `sitemap.xml` listing every page served and nothing else. Since
 [#284](https://github.com/async-digital-ltd/seen-to-fail/issues/284) it holds
 the page in Welsh beside it: there, `lang="cy"`, built from the same commit,
 canonical at its own address, and paired with the English page by hreflang and
-by a link each way.
+by a link each way. The build refuses any record text with no Welsh in
+`packages/server/src/ledger/record-welsh.ts`, and both it and the published-output
+check refuse a Welsh page that names a month or a day in English outside code.
