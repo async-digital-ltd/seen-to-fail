@@ -479,7 +479,11 @@ function unsettledNotice(words: PageWords, check: PublishedCheck): string {
     check.lastSettledOn === null
       ? words.nothingEverSettled
       : words.statusReadFrom(dayOn(words, check.lastSettledOn));
-  return `<p class="unsettled">${words.latestSettledNothing(asWritten(words, escapeHtml(latest.inconclusiveReason)), since)}</p>`;
+  // The reason is shown as it was written, so it may end without a full stop.
+  // One is added outside the quoted text, so it does not run into the next sentence.
+  const reason = latest.inconclusiveReason.trimEnd();
+  const stop = /[.!?…]$/u.test(reason) ? '' : '.';
+  return `<p class="unsettled">${words.latestSettledNothing(`${asWritten(words, escapeHtml(reason))}${stop}`, since)}</p>`;
 }
 
 /**
@@ -692,7 +696,7 @@ details[open] > summary .chevron { transform: rotate(90deg); }
 .check-name { flex: 1 1 15rem; display: flex; align-items: center; gap: 0.625rem; font-weight: 600; line-height: 1.4; }
 .check-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; }
 .check-body { margin: 0 0 1rem 2rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); display: flex; flex-direction: column; gap: 1rem; }
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 2rem; margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 1rem 2rem; margin: 0; }
 .facts dt, h4 { color: var(--muted); font-size: 0.875rem; }
 .facts dd { margin: 0.125rem 0 0; }
 h4 { margin: 0; font-weight: 600; }

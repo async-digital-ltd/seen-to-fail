@@ -501,6 +501,40 @@ it('shows a run that settled nothing, its reason, and the day the status is read
 });
 
 /**
+ * A reason is shown as it was written, and a writer may leave off its full
+ * stop. The notice then adds one, so the reason does not run on into the
+ * sentence after it, and a reason that already ends in one gets no second.
+ */
+it('ends a reason written without a full stop before the next sentence starts', () => {
+  const snapshot = fixtureSnapshot(
+    fixtureContentsWithAnUnsettledRun(),
+    fixtureSummariesWithAnUnsettledRun(),
+  );
+  const unstopped = fixtureUnsettledReason.replace(/\.$/u, '');
+  const withoutStop = {
+    ...snapshot,
+    checks: snapshot.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((run) =>
+        run.inconclusiveReason === null
+          ? run
+          : { ...run, inconclusiveReason: unstopped },
+      ),
+    })),
+  };
+
+  expect(renderPage(withoutStop, 'en')).toContain(
+    `${escapeHtml(unstopped)}. Its status is read from`,
+  );
+  expect(renderPage(withoutStop, 'cy')).toContain(
+    `${escapeHtml(unstopped)}</span>. Mae ei statws`,
+  );
+  expect(renderPage(snapshot, 'en')).toContain(
+    `${escapeHtml(fixtureUnsettledReason)} Its status is read from`,
+  );
+});
+
+/**
  * The fact beside a check's name says what it leaves out.
  *
  * On a check where nothing settled nothing the figure is absent, and that is
