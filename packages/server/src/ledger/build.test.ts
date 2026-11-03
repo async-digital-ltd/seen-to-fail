@@ -16,10 +16,12 @@ import {
   exportFilename,
   iconFilenames,
   LedgerRefusedError,
+  notFoundFilename,
   pageFilename,
   previewImageFilename,
   robotsFilename,
   sitemapFilename,
+  welshPageFilename,
 } from './build.ts';
 import type { BuildResult } from './build.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
@@ -621,9 +623,12 @@ it('publishes the statuses the check_summaries function derives', async () => {
  * accounted for. Beside the page and the export are the link-preview image the
  * page's `og:image` names (#237), held here because a page naming an image the
  * build did not write previews as a broken picture, and since #254 the icons
- * the page names, the robots.txt and the sitemap.
+ * the page names, the robots.txt and the sitemap. Since #283 the not-found
+ * page GitHub Pages serves for a missed address is there too, and since #284
+ * the page in Welsh, written by the same run from the same snapshot and listed
+ * in the sitemap beside the English one.
  */
-it('writes a page, an export, the preview image, the icons, robots.txt and the sitemap, and nothing else', async () => {
+it('writes a page in English and in Welsh, an export, the not-found page, the preview image, the icons, robots.txt and the sitemap, and nothing else', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
   });
@@ -631,10 +636,12 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
   const { outputDirectory, written } = await build(directory);
   const expected = [
     exportFilename,
+    notFoundFilename,
     pageFilename,
     previewImageFilename,
     robotsFilename,
     sitemapFilename,
+    welshPageFilename,
     ...iconFilenames,
   ].sort();
   expect((await readdir(outputDirectory)).sort()).toEqual(expected);
@@ -645,6 +652,12 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
     'utf8',
   );
   expect(sitemap).toContain(`<lastmod>${asOf}</lastmod>`);
+  expect(
+    [...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]),
+  ).toEqual([
+    'https://seen-to-fail.async-digital.com/',
+    'https://seen-to-fail.async-digital.com/index.cy.html',
+  ]);
 
   const image = await readFile(join(outputDirectory, previewImageFilename));
   expect(image.subarray(1, 4).toString('latin1')).toBe('PNG');
@@ -654,6 +667,24 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
   const page = await readFile(join(outputDirectory, pageFilename), 'utf8');
   expect(page).not.toMatch(/<script/i);
   expect(page).not.toMatch(/fetch\(/);
+
+  // The same record in both: the check's name, by its anchor, on each page.
+  const welsh = await readFile(
+    join(outputDirectory, welshPageFilename),
+    'utf8',
+  );
+  expect(welsh).toMatch(/^<!doctype html>\n<html lang="cy">\n/u);
+  expect(welsh).not.toMatch(/<script/i);
+  expect(page).toContain('<details class="check" id="ci-lint">');
+  expect(welsh).toContain('<details class="check" id="ci-lint">');
+
+  const notFound = await readFile(
+    join(outputDirectory, notFoundFilename),
+    'utf8',
+  );
+  expect(notFound).toContain('<meta name="robots" content="noindex">');
+  expect(notFound).not.toMatch(/<script/i);
+  expect(sitemap).not.toContain(notFoundFilename);
 });
 
 it('writes an export the page was rendered from', async () => {

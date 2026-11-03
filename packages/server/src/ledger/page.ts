@@ -1,7 +1,7 @@
 import type { Status } from '@seen-to-fail/filter';
 
 import { outcomeSettlesSomething } from '../database/rows.ts';
-import type { IsoDate, TestRunOutcome } from '../database/rows.ts';
+import type { IsoDate } from '../database/rows.ts';
 import type {
   PublishedCheck,
   PublishedLedger,
@@ -9,6 +9,8 @@ import type {
   PublishedRun,
 } from './snapshot.ts';
 import { studioMark } from './studio-mark.ts';
+import { pageLanguages, pageWords } from './words.ts';
+import type { PageLanguage, PageWords } from './words.ts';
 
 /**
  * The published page: one HTML file, rendered from the export and from nothing
@@ -57,18 +59,6 @@ export const previewImageFilename = 'preview.png';
 export const previewImageWidth = 1200;
 export const previewImageHeight = 630;
 const previewImageUrl = new URL(previewImageFilename, publishedUrl).href;
-const previewImageAlt =
-  'The Seen to Fail mark, an eye with a cross for its pupil, beside the words Seen to Fail.';
-
-/**
- * What the page is, said once, for a reader who arrives with no context.
- *
- * The same words open the page and fill the link preview's description, so the
- * two cannot come to describe different things.
- */
-const whatItIs =
-  "a record of whether each of this project's own checks has been seen to catch a defect planted on purpose";
-const pageDescription = `${whatItIs.charAt(0).toUpperCase()}${whatItIs.slice(1)}.`;
 
 /**
  * The page's icons, committed beside this file and copied out by the build
@@ -87,11 +77,21 @@ export const iconFilenames = [
   'apple-touch-icon.png',
 ] as const;
 
-const iconLinks = [
-  '<link rel="icon" href="favicon.ico" sizes="32x32">',
-  '<link rel="icon" href="favicon.svg" type="image/svg+xml">',
-  '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
-].join('\n');
+/**
+ * The icon links, with each address under `base`. The page passes nothing,
+ * because it is the root. The not-found page passes `/`, because GitHub Pages
+ * serves it at whatever address was missed, where a relative address would
+ * resolve under that address instead of the root.
+ */
+function iconLinksUnder(base: '' | '/'): string {
+  return [
+    `<link rel="icon" href="${base}favicon.ico" sizes="32x32">`,
+    `<link rel="icon" href="${base}favicon.svg" type="image/svg+xml">`,
+    `<link rel="apple-touch-icon" href="${base}apple-touch-icon.png">`,
+  ].join('\n');
+}
+
+const iconLinks = iconLinksUnder('');
 
 /**
  * The README section that says why checks about security are not on a public
@@ -103,37 +103,6 @@ const iconLinks = [
  * refuse this anchor when no heading there would produce it.
  */
 export const publicLedgerAnchor = 'what-belongs-on-a-public-ledger';
-
-const numberWords = [
-  'no',
-  'one',
-  'two',
-  'three',
-  'four',
-  'five',
-  'six',
-  'seven',
-  'eight',
-  'nine',
-  'ten',
-];
-
-/** A count as a reader would write it in a sentence: words up to ten. */
-function counted(count: number, noun: string): string {
-  const number = numberWords[count] ?? String(count);
-  return `${number} ${count === 1 ? noun : `${noun}s`}`;
-}
-
-/** Names joined as a list is written: "A", "A and B", "A, B and C". */
-function listed(names: readonly string[]): string {
-  const last = names.at(-1);
-  if (last === undefined) {
-    return '';
-  }
-  return names.length === 1
-    ? last
-    : `${names.slice(0, -1).join(', ')} and ${last}`;
-}
 
 /**
  * The line under the headline that says what the count is a count of (#240).
@@ -149,15 +118,12 @@ function listed(names: readonly string[]): string {
  * one it does.
  */
 function scopeLine(
+  words: PageWords,
   ledger: PublishedLedger,
   areaNames: readonly string[],
 ): string {
-  const areasSentence =
-    areaNames.length === 0
-      ? ''
-      : `These are the project&#39;s checks in ${counted(areaNames.length, 'area')}: ${escapeHtml(listed(areaNames))}. `;
   const why = `${repositoryHref(ledger)}#${publicLedgerAnchor}`;
-  return `<p class="eyebrow scope">${areasSentence}Checks about security, such as secret scanning, are left off a public ledger on purpose; <a href="${escapeHtml(why)}">why</a>.</p>`;
+  return `<p class="eyebrow scope">${words.scope(areaNames.map(escapeHtml), escapeHtml(why))}</p>`;
 }
 
 /**
@@ -194,23 +160,6 @@ const statusMarks = {
 } as const satisfies Record<Status, string>;
 
 /**
- * What each status means, in the line a reader gets when they tap it.
- *
- * Stale takes the threshold the statuses were read against, so the sentence
- * cannot name a number of days the build did not use.
- */
-function statusMeaning(status: Status, staleAfterDays: number): string {
-  const meanings = {
-    Proven: 'Caught a planted defect.',
-    Broken: 'Its latest run missed.',
-    Stale: `Its last proof is older than ${String(staleAfterDays)} days.`,
-    Unproven: 'Never seen to fail.',
-    Unarmed: 'No evidence it is switched on.',
-  } as const satisfies Record<Status, string>;
-  return meanings[status];
-}
-
-/**
  * The five characters that would otherwise let a record's text change the page
  * around it.
  *
@@ -229,30 +178,17 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const monthNames = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const;
-
 /**
- * A day as a reader says it, such as 18 Sep 2026.
+ * A day as a reader says it in the page's language, such as 18 Sep 2026 or
+ * 18 Medi 2026, from that language's own list of months.
  *
  * Worked out from the three parts of the ISO day rather than through Date, so
- * no time zone can move it to the day before.
+ * no time zone can move it to the day before and no runtime's locale data can
+ * decide what a month is called.
  */
-export function readableDay(value: IsoDate): string {
+export function readableDay(value: IsoDate, language: PageLanguage): string {
   const [year, month, dayOfMonth] = value.split('-');
-  const name = monthNames[Number(month) - 1];
+  const name = pageWords[language].months[Number(month) - 1];
   if (year === undefined || dayOfMonth === undefined || name === undefined) {
     throw new Error(`${value} is not a day this page can print.`);
   }
@@ -278,17 +214,40 @@ function commitLink(ledger: PublishedLedger, commit: string): string {
 }
 
 /** A link to a commit on GitHub, or a plain statement that there is none. */
-function commitCell(ledger: PublishedLedger, commit: string | null): string {
+function commitCell(
+  words: PageWords,
+  ledger: PublishedLedger,
+  commit: string | null,
+): string {
   return commit === null
-    ? '<span class="muted">not committed yet</span>'
+    ? `<span class="muted">${words.notCommittedYet}</span>`
     : commitLink(ledger, commit);
 }
 
+/**
+ * Text from a record, which is in English as somebody wrote it (#284). On a
+ * page in another language it is tagged as English, so a screen reader reads
+ * it in English and nothing claims it is Welsh. The English page needs no tag.
+ */
+function asWritten(words: PageWords, html: string): string {
+  return words.language === 'en' ? html : `<span lang="en">${html}</span>`;
+}
+
+/** The same tag, for an element that holds nothing but a record's text. */
+function writtenLang(words: PageWords): string {
+  return words.language === 'en' ? '' : ' lang="en"';
+}
+
 /** Text a person may not have written down, said either way. */
-function written(text: string): string {
+function written(words: PageWords, text: string): string {
   return text === ''
-    ? '<span class="muted">Nobody has written this down.</span>'
-    : escapeHtml(text);
+    ? `<span class="muted">${words.notWrittenDown}</span>`
+    : asWritten(words, escapeHtml(text));
+}
+
+/** A day on the page, in the page's language, escaped. */
+function dayOn(words: PageWords, value: IsoDate): string {
+  return escapeHtml(readableDay(value, words.language));
 }
 
 /** The id of the popover that explains a status. */
@@ -304,11 +263,12 @@ function meaningId(status: Status): string {
  * a check's summary line the button takes the tap for itself, so explaining a
  * status never opens or closes the check around it.
  */
-function statusPill(status: Status, count?: number): string {
+function statusPill(words: PageWords, status: Status, count?: number): string {
+  const name = words.statuses[status];
   const label =
     count === undefined
-      ? `${statusMarks[status]} ${status}`
-      : `${statusMarks[status]} ${status} ${String(count)}`;
+      ? `${statusMarks[status]} ${name}`
+      : `${statusMarks[status]} ${name} ${String(count)}`;
   const quiet = count === 0 ? ' pill-quiet' : '';
   return `<button type="button" class="pill-button" popovertarget="${meaningId(status)}"><span class="pill pill-${status}${quiet}">${escapeHtml(label)}</span></button>`;
 }
@@ -317,11 +277,11 @@ function statusPill(status: Status, count?: number): string {
  * The five explanations, one per status, each opened by every pill that shows
  * that status.
  */
-function meanings(ledger: PublishedLedger): string {
+function meanings(words: PageWords, ledger: PublishedLedger): string {
   return publishedStatusOrder
     .map(
       (status) =>
-        `<div popover id="${meaningId(status)}" class="meaning"><strong>${status}</strong>: ${escapeHtml(statusMeaning(status, ledger.staleAfterDays))}</div>`,
+        `<div popover id="${meaningId(status)}" class="meaning"><strong>${escapeHtml(words.statuses[status])}</strong>: ${escapeHtml(words.statusMeaning(status, ledger.staleAfterDays))}</div>`,
     )
     .join('\n');
 }
@@ -340,15 +300,18 @@ function cells(
 }
 
 /** What the squares say, for a reader who cannot see them. */
-function cellsLabel(checks: readonly PublishedCheck[]): string {
-  const parts = publishedStatusOrder
-    .map((status) => ({
-      status,
-      count: checks.filter((check) => check.status === status).length,
-    }))
-    .filter((part) => part.count > 0)
-    .map((part) => `${String(part.count)} ${part.status.toLowerCase()}`);
-  return parts.join(', ');
+function cellsLabel(
+  words: PageWords,
+  checks: readonly PublishedCheck[],
+): string {
+  return words.cellsLabel(
+    publishedStatusOrder
+      .map((status) => ({
+        status,
+        count: checks.filter((check) => check.status === status).length,
+      }))
+      .filter((part) => part.count > 0),
+  );
 }
 
 function byReadingOrder(left: PublishedCheck, right: PublishedCheck): number {
@@ -357,21 +320,6 @@ function byReadingOrder(left: PublishedCheck, right: PublishedCheck): number {
     publishedStatusOrder.indexOf(right.status)
   );
 }
-
-/**
- * What each outcome is called on the page, and the mark it carries.
- *
- * "Settled nothing" rather than "inconclusive", because the word a reader needs
- * is the one that says the run tells them nothing about the check, and every
- * other sentence on the page about this outcome is worded the same way. Keyed
- * by the outcome, so an outcome added and not worded fails to compile rather
- * than printing its own label at a reader.
- */
-const outcomeWords = {
-  caught: '✓ Caught',
-  missed: '✕ Missed',
-  inconclusive: 'Settled nothing',
-} as const satisfies Record<TestRunOutcome, string>;
 
 /**
  * Where the proof of a run is, and what a reader is told about where it came
@@ -389,16 +337,17 @@ const outcomeWords = {
  * rather than rendering a row that quietly drops the evidence.
  */
 function provenance(
+  words: PageWords,
   ledger: PublishedLedger,
   run: PublishedRun,
 ): { method: string; proof: string; detail: string } {
-  const recorded = `Recorded in ${commitCell(ledger, run.recordedIn)}.`;
+  const recorded = words.recordedIn(commitCell(words, ledger, run.recordedIn));
   if (run.source === 'hand') {
     const proof =
       run.recordedIn === null
         ? ''
-        : `<a class="proof" href="${escapeHtml(commitHref(ledger, run.recordedIn))}">View proof</a>`;
-    return { method: 'By hand', proof, detail: recorded };
+        : `<a class="proof" href="${escapeHtml(commitHref(ledger, run.recordedIn))}">${words.viewProof}</a>`;
+    return { method: words.byHand, proof, detail: recorded };
   }
   if (run.sourceCommit === null || run.sourceRunUrl === null) {
     throw new Error(
@@ -407,9 +356,9 @@ function provenance(
     );
   }
   return {
-    method: 'By replay',
-    proof: `<a class="proof" href="${escapeHtml(run.sourceRunUrl)}">View proof</a>`,
-    detail: `Ran against ${commitLink(ledger, run.sourceCommit)}. ${recorded}`,
+    method: words.byReplay,
+    proof: `<a class="proof" href="${escapeHtml(run.sourceRunUrl)}">${words.viewProof}</a>`,
+    detail: `${words.ranAgainst(commitLink(ledger, run.sourceCommit))} ${recorded}`,
   };
 }
 
@@ -423,41 +372,53 @@ function provenance(
  * English sentence, and a category recovered by matching that prose would send
  * a reader to rewrite a plant that is fine.
  */
-function runItem(ledger: PublishedLedger, run: PublishedRun): string {
-  const { method, proof, detail } = provenance(ledger, run);
+function runItem(
+  words: PageWords,
+  ledger: PublishedLedger,
+  run: PublishedRun,
+): string {
+  const { method, proof, detail } = provenance(words, ledger, run);
+  const asIs = writtenLang(words);
   const reason =
     run.inconclusiveReason === null
       ? ''
-      : `<p class="note">${escapeHtml(run.inconclusiveReason)}</p>`;
+      : `<p class="note"${asIs}>${escapeHtml(run.inconclusiveReason)}</p>`;
   const note =
-    run.note === null ? '' : `<p class="note">${escapeHtml(run.note)}</p>`;
+    run.note === null
+      ? ''
+      : `<p class="note"${asIs}>${escapeHtml(run.note)}</p>`;
   return `<li class="run">
-<p class="run-head"><span class="run-day">${escapeHtml(readableDay(run.runOn))}</span><span class="outcome outcome-${run.outcome}">${outcomeWords[run.outcome]}</span><span class="muted">${method}</span>${proof}</p>
-${reason}<dl class="pair"><dt>Planted</dt><dd>${escapeHtml(run.planted)}</dd><dt>Expected</dt><dd>${escapeHtml(run.expected)}</dd></dl>
+<p class="run-head"><span class="run-day">${dayOn(words, run.runOn)}</span><span class="outcome outcome-${run.outcome}">${words.outcomes[run.outcome]}</span><span class="muted">${method}</span>${proof}</p>
+${reason}<dl class="pair"><dt>${words.planted}</dt><dd${asIs}>${escapeHtml(run.planted)}</dd><dt>${words.expected}</dt><dd${asIs}>${escapeHtml(run.expected)}</dd></dl>
 ${note}<p class="note">${detail}</p>
 </li>`;
 }
 
-function runsList(ledger: PublishedLedger, check: PublishedCheck): string {
+function runsList(
+  words: PageWords,
+  ledger: PublishedLedger,
+  check: PublishedCheck,
+): string {
   if (check.runs.length === 0) {
-    return `<h4>Planted defects</h4>
-<p class="empty">None yet. Until a defect is planted and caught, this check has not been seen to fail.</p>`;
+    return `<h4>${words.runsHeading}</h4>
+<p class="empty">${words.noRunsYet}</p>`;
   }
-  return `<h4>Planted defects, newest first</h4>
+  return `<h4>${words.runsHeadingNewestFirst}</h4>
 <ol class="runs">
-${check.runs.map((run) => runItem(ledger, run)).join('\n')}
+${check.runs.map((run) => runItem(words, ledger, run)).join('\n')}
 </ol>`;
 }
 
 function observationItem(
+  words: PageWords,
   ledger: PublishedLedger,
   observation: PublishedObservation,
 ): string {
   const note =
     observation.note === null
       ? ''
-      : `<p class="note">${escapeHtml(observation.note)}</p>`;
-  return `<li><span class="run-day">${escapeHtml(readableDay(observation.observedOn))}</span> Seen switched ${observation.armed ? 'on' : 'off'}. <span class="muted">Recorded in ${commitCell(ledger, observation.recordedIn)}.</span>${note}</li>`;
+      : `<p class="note"${writtenLang(words)}>${escapeHtml(observation.note)}</p>`;
+  return `<li><span class="run-day">${dayOn(words, observation.observedOn)}</span> ${words.seenSwitched(observation.armed)}. <span class="muted">${words.recordedIn(commitCell(words, ledger, observation.recordedIn))}</span>${note}</li>`;
 }
 
 /**
@@ -470,24 +431,25 @@ function observationItem(
  * so beside "off" it named a day the check was on, and for a check only ever
  * seen switched off it is empty though somebody did look (#215).
  */
-function lastSeen(check: PublishedCheck): string {
+function lastSeen(words: PageWords, check: PublishedCheck): string {
   const [latest] = check.observations;
   if (latest === undefined) {
-    return '<span class="muted">Not yet observed.</span>';
+    return `<span class="muted">${words.notYetObserved}</span>`;
   }
-  return `Seen switched ${latest.armed ? 'on' : 'off'}, ${escapeHtml(readableDay(latest.observedOn))}.`;
+  return words.seenSwitchedOn(latest.armed, dayOn(words, latest.observedOn));
 }
 
 function observationsList(
+  words: PageWords,
   ledger: PublishedLedger,
   check: PublishedCheck,
 ): string {
   if (check.observations.length === 0) {
     return '';
   }
-  return `<h4>Seen switched on or off, newest first</h4>
+  return `<h4>${words.observationsHeading}</h4>
 <ul class="observations">
-${check.observations.map((observation) => observationItem(ledger, observation)).join('\n')}
+${check.observations.map((observation) => observationItem(words, ledger, observation)).join('\n')}
 </ul>`;
 }
 
@@ -499,7 +461,7 @@ ${check.observations.map((observation) => observationItem(ledger, observation)).
  * since then were not evidence. The status is not wrong; it is just older than
  * the newest run makes it look, and this says how much older.
  */
-function unsettledNotice(check: PublishedCheck): string {
+function unsettledNotice(words: PageWords, check: PublishedCheck): string {
   const [latest] = check.runs;
   if (latest === undefined || outcomeSettlesSomething[latest.outcome]) {
     return '';
@@ -515,9 +477,13 @@ function unsettledNotice(check: PublishedCheck): string {
   }
   const since =
     check.lastSettledOn === null
-      ? 'Nothing has ever settled anything for this check.'
-      : `Its status is read from ${escapeHtml(readableDay(check.lastSettledOn))}, the last run that settled anything.`;
-  return `<p class="unsettled">The latest run settled nothing: ${escapeHtml(latest.inconclusiveReason)} ${since}</p>`;
+      ? words.nothingEverSettled
+      : words.statusReadFrom(dayOn(words, check.lastSettledOn));
+  // The reason is shown as it was written, so it may end without a full stop.
+  // One is added outside the quoted text, so it does not run into the next sentence.
+  const reason = latest.inconclusiveReason.trimEnd();
+  const stop = /[.!?…]$/u.test(reason) ? '' : '.';
+  return `<p class="unsettled">${words.latestSettledNothing(`${asWritten(words, escapeHtml(reason))}${stop}`, since)}</p>`;
 }
 
 /**
@@ -527,29 +493,33 @@ function unsettledNotice(check: PublishedCheck): string {
  * misses are there to be read off: caught and the total are both shown, so a
  * reader can see nothing is being held back.
  */
-function checkFact(check: PublishedCheck): string {
+function checkFact(words: PageWords, check: PublishedCheck): string {
   if (check.runCount === 0) {
-    return 'Never planted';
+    return words.neverPlanted;
   }
-  const settledNothing =
-    check.inconclusiveCount === 0
-      ? ''
-      : `, ${String(check.inconclusiveCount)} settled nothing`;
-  return `Caught ${String(check.caughtCount)} of ${String(check.runCount)}${settledNothing}`;
+  return words.caughtOf(
+    check.caughtCount,
+    check.runCount,
+    check.inconclusiveCount,
+  );
 }
 
-function checkSection(ledger: PublishedLedger, check: PublishedCheck): string {
+function checkSection(
+  words: PageWords,
+  ledger: PublishedLedger,
+  check: PublishedCheck,
+): string {
   return `<details class="check" id="${escapeHtml(check.id)}">
-<summary><span class="check-name"><span class="chevron" aria-hidden="true">›</span>${escapeHtml(check.name)}</span><span class="check-state">${statusPill(check.status)}<span class="fact">${escapeHtml(checkFact(check))}</span></span></summary>
+<summary><span class="check-name"><span class="chevron" aria-hidden="true">›</span>${asWritten(words, escapeHtml(check.name))}</span><span class="check-state">${statusPill(words, check.status)}<span class="fact">${escapeHtml(checkFact(words, check))}</span></span></summary>
 <div class="check-body">
-${unsettledNotice(check)}
+${unsettledNotice(words, check)}
 <dl class="facts">
-<div><dt>Protects against</dt><dd>${written(check.protects)}</dd></div>
-<div><dt>How you can tell it is switched on</dt><dd>${written(check.howToTellArmed)}</dd></div>
-<div><dt>Last seen</dt><dd>${lastSeen(check)}</dd></div>
+<div><dt>${words.protectsAgainst}</dt><dd>${written(words, check.protects)}</dd></div>
+<div><dt>${words.howToTellArmed}</dt><dd>${written(words, check.howToTellArmed)}</dd></div>
+<div><dt>${words.lastSeen}</dt><dd>${lastSeen(words, check)}</dd></div>
 </dl>
-${runsList(ledger, check)}
-${observationsList(ledger, check)}
+${runsList(words, ledger, check)}
+${observationsList(words, ledger, check)}
 </div>
 </details>`;
 }
@@ -590,12 +560,16 @@ function areas(ledger: PublishedLedger): readonly Area[] {
     );
 }
 
-function areaSection(ledger: PublishedLedger, area: Area): string {
+function areaSection(
+  words: PageWords,
+  ledger: PublishedLedger,
+  area: Area,
+): string {
   const total = area.checks.length;
   return `<details class="area">
-<summary><span class="area-name"><span class="chevron" aria-hidden="true">›</span><span><span class="area-title">${escapeHtml(area.name)}</span><span class="area-count">${String(area.proven)} of ${String(total)} proven</span></span></span><span class="cells" role="img" aria-label="${escapeHtml(cellsLabel(area.checks))}">${cells(area.checks, 'small')}</span></summary>
+<summary><span class="area-name"><span class="chevron" aria-hidden="true">›</span><span><span class="area-title"${writtenLang(words)}>${escapeHtml(area.name)}</span><span class="area-count">${escapeHtml(words.areaCount(area.proven, total))}</span></span></span><span class="cells" role="img" aria-label="${escapeHtml(cellsLabel(words, area.checks))}">${cells(area.checks, 'small')}</span></summary>
 <div class="area-body">
-${area.checks.map((check) => checkSection(ledger, check)).join('\n')}
+${area.checks.map((check) => checkSection(words, ledger, check)).join('\n')}
 </div>
 </details>`;
 }
@@ -668,6 +642,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .muted { color: var(--muted); }
 .top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
 .top .name { font-weight: 600; font-size: 1rem; }
+.top-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; }
 .hero { display: flex; flex-direction: column; gap: 1.5rem; padding: 3.5rem 0 3rem; }
 .eyebrow { margin: 0; color: var(--muted); font-size: 0.875rem; }
 .about { max-width: 60ch; }
@@ -703,6 +678,7 @@ h1 .result { color: var(--success-ink); }
 }
 h2 { margin: 0; font-size: 1.25rem; }
 .list-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 1rem; }
+.lang-note { max-width: 60ch; margin: -0.25rem 0 1rem; }
 .areas { display: flex; flex-direction: column; gap: 0.75rem; }
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
@@ -718,10 +694,9 @@ details[open] > summary .chevron { transform: rotate(90deg); }
 .check { border-top: 1px solid var(--border); }
 .check > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; padding: 0.375rem 0.5rem 0.375rem 2rem; min-height: 3.5rem; }
 .check-name { flex: 1 1 15rem; display: flex; align-items: center; gap: 0.625rem; font-weight: 600; line-height: 1.4; }
-.check-state { display: flex; align-items: center; gap: 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; }
-.fact { white-space: nowrap; }
+.check-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; padding-left: 1.25rem; font-size: 0.875rem; }
 .check-body { margin: 0 0 1rem 2rem; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); display: flex; flex-direction: column; gap: 1rem; }
-.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 2rem; margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 1rem 2rem; margin: 0; }
 .facts dt, h4 { color: var(--muted); font-size: 0.875rem; }
 .facts dd { margin: 0.125rem 0 0; }
 h4 { margin: 0; font-weight: 600; }
@@ -750,49 +725,134 @@ footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--bord
 .studio svg { display: block; height: 3rem; width: auto; color: var(--studio); }`;
 
 /**
- * The whole page, as one string.
+ * The file each language's page is written to, at the root of the site (#284).
+ * The English page is the site's index and the Welsh page sits beside it, so
+ * each has an address of its own to be linked, shared and indexed at.
+ */
+export const languagePageFilenames = {
+  en: 'index.html',
+  cy: 'index.cy.html',
+} as const satisfies Record<PageLanguage, string>;
+
+/**
+ * Where a page is served. The site's index is its root address, the way the
+ * page names itself in its canonical link, and any other page is its filename
+ * under the root.
+ */
+export function pageAddress(filename: string): string {
+  return filename === 'index.html'
+    ? publishedUrl
+    : new URL(filename, publishedUrl).href;
+}
+
+function addressOf(language: PageLanguage): string {
+  return pageAddress(languagePageFilenames[language]);
+}
+
+/**
+ * The links that pair the pages for a crawler: one per language, and a default
+ * for a reader whose language is neither, which is the English page. Every
+ * page carries all of them, its own included, which is what hreflang asks.
+ */
+function alternateLinks(): string {
+  return [
+    ...pageLanguages.map(
+      (language) =>
+        `<link rel="alternate" hreflang="${pageWords[language].tag}" href="${escapeHtml(addressOf(language))}">`,
+    ),
+    `<link rel="alternate" hreflang="x-default" href="${escapeHtml(addressOf('en'))}">`,
+  ].join('\n');
+}
+
+function otherLanguages(words: PageWords): readonly PageLanguage[] {
+  return pageLanguages.filter((language) => language !== words.language);
+}
+
+/** The page's own locale for a link preview, and the others it is published in. */
+function localeTags(words: PageWords): string {
+  return [
+    `<meta property="og:locale" content="${words.locale}">`,
+    ...otherLanguages(words).map(
+      (language) =>
+        `<meta property="og:locale:alternate" content="${pageWords[language].locale}">`,
+    ),
+  ].join('\n');
+}
+
+/**
+ * The way to each other page, in the header, named in its own language, so a
+ * reader who cannot read this page can still find theirs. The English page is
+ * linked as `./`, the root address it gives itself as canonical, rather than
+ * by its filename.
+ */
+function languageSwitch(words: PageWords): string {
+  return otherLanguages(words)
+    .map((language) => {
+      const theirs = pageWords[language];
+      const href = language === 'en' ? './' : languagePageFilenames[language];
+      return `<a href="${href}" hreflang="${theirs.tag}" lang="${theirs.tag}">${theirs.ownName}</a>`;
+    })
+    .join('');
+}
+
+/**
+ * One page, in one language, as one string.
  *
  * Returned rather than written, so the build can hold it beside the export,
  * check the two agree, and only then put either of them on disk. A page written
  * first and checked afterwards is a page that has already been published when
  * the check fails.
+ *
+ * Every language's page is this one template with that language's words, so
+ * the pages have the same parts in the same order and carry the same record.
  */
-export function renderPage(ledger: PublishedLedger): string {
+export function renderPage(
+  ledger: PublishedLedger,
+  language: PageLanguage,
+): string {
+  const words = pageWords[language];
+  const address = escapeHtml(addressOf(language));
+  const description = escapeHtml(words.description);
+  const imageAlt = escapeHtml(words.previewImageAlt);
   const checkCount = ledger.checks.length;
   const proven = ledger.statusCounts.Proven;
   const ordered = [...ledger.checks].sort(byReadingOrder);
   const repository = repositoryHref(ledger);
   const grouped = areas(ledger);
   const areaNames = grouped.map((area) => area.name);
-  const built = `Built from commit <a href="${escapeHtml(commitHref(ledger, ledger.builtFrom))}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, read as of ${escapeHtml(readableDay(ledger.builtOn))}.`;
+  const built = `${words.builtFromCommit} <a href="${escapeHtml(commitHref(ledger, ledger.builtFrom))}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, ${words.readAsOf(dayOn(words, ledger.builtOn))}.`;
   const headline =
-    checkCount === 0
-      ? 'Nothing has been recorded yet'
-      : `<span class="result">${String(proven)} of ${String(checkCount)}</span> ${checkCount === 1 ? 'check has' : 'checks have'} been seen to catch a planted defect`;
+    checkCount === 0 ? words.headlineEmpty : words.headline(proven, checkCount);
+  const recordsNote =
+    words.recordsLanguageNote === null
+      ? ''
+      : `\n<p class="hint lang-note">${words.recordsLanguageNote}</p>`;
 
   return `<!doctype html>
-<html lang="en-GB">
+<html lang="${words.tag}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Seen to Fail: the record of this repository's own checks</title>
-<meta name="description" content="${escapeHtml(pageDescription)}">
-<link rel="canonical" href="${escapeHtml(publishedUrl)}">
+<title>${words.title}</title>
+<meta name="description" content="${description}">
+<link rel="canonical" href="${address}">
+${alternateLinks()}
 ${iconLinks}
 <meta property="og:type" content="website">
 <meta property="og:title" content="Seen to Fail">
-<meta property="og:description" content="${escapeHtml(pageDescription)}">
-<meta property="og:url" content="${escapeHtml(publishedUrl)}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="${address}">
+${localeTags(words)}
 <meta property="og:image" content="${escapeHtml(previewImageUrl)}">
 <meta property="og:image:width" content="${String(previewImageWidth)}">
 <meta property="og:image:height" content="${String(previewImageHeight)}">
-<meta property="og:image:alt" content="${escapeHtml(previewImageAlt)}">
+<meta property="og:image:alt" content="${imageAlt}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Seen to Fail">
-<meta name="twitter:description" content="${escapeHtml(pageDescription)}">
+<meta name="twitter:description" content="${description}">
 <meta name="twitter:image" content="${escapeHtml(previewImageUrl)}">
-<meta name="twitter:image:alt" content="${escapeHtml(previewImageAlt)}">
+<meta name="twitter:image:alt" content="${imageAlt}">
 <style>
 ${style}
 </style>
@@ -801,50 +861,132 @@ ${style}
 <div class="page">
 <header class="top">
 <span class="name">Seen to Fail</span>
-<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a>
+<span class="top-links">${languageSwitch(words)}<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a></span>
 </header>
 <section class="hero">
-<p class="eyebrow about">Seen to Fail is ${escapeHtml(whatItIs)}, kept in <a href="${escapeHtml(repository)}">its repository on GitHub</a>.</p>
+<p class="eyebrow about">${words.about(escapeHtml(repository))}</p>
 <h1>${headline}</h1>
-${scopeLine(ledger, areaNames)}
-<div class="strip" role="img" aria-label="${escapeHtml(cellsLabel(ordered))}">${cells(ordered, 'large')}</div>
+${scopeLine(words, ledger, areaNames)}
+<div class="strip" role="img" aria-label="${escapeHtml(cellsLabel(words, ordered))}">${cells(ordered, 'large')}</div>
 <div class="pills">
-${publishedStatusOrder.map((status) => statusPill(status, ledger.statusCounts[status])).join('\n')}
-<span class="hint">Select a status to see what it means.</span>
+${publishedStatusOrder.map((status) => statusPill(words, status, ledger.statusCounts[status])).join('\n')}
+<span class="hint">${words.statusHint}</span>
 </div>
-${meanings(ledger)}
-<p class="idea">A check earns trust only after someone plants the defect it exists to catch, runs it, and watches it go red.</p>
+${meanings(words, ledger)}
+<p class="idea">${words.idea}</p>
 <div class="go">
-<a class="button" href="${escapeHtml(repository)}">View the repository on GitHub ↗</a>
+<a class="button" href="${escapeHtml(repository)}">${words.viewRepository}</a>
 <span class="fresh">${built}</span>
 </div>
 </section>
 <section aria-labelledby="checks">
 <div class="list-head">
-<h2 id="checks">The ${String(checkCount)} ${checkCount === 1 ? 'check' : 'checks'}, by area</h2>
-<span class="hint">Open an area, then a check, to see its proof.</span>
-</div>
+<h2 id="checks">${words.checksHeading(checkCount)}</h2>
+<span class="hint">${words.checksHint}</span>
+</div>${recordsNote}
 <div class="areas">
-${grouped.map((area) => areaSection(ledger, area)).join('\n')}
+${grouped.map((area) => areaSection(words, ledger, area)).join('\n')}
 </div>
 </section>
 <details class="how">
-<summary><span class="chevron" aria-hidden="true">›</span>How this page works</summary>
+<summary><span class="chevron" aria-hidden="true">›</span>${words.howThisPageWorks}</summary>
 <div class="how-body">
-<p>The checks on this page are recorded in a ledger kept in this repository, and the page is built from it at the commit named below.</p>
-<p>To prove a check, a defect it should catch is planted on purpose, the check is run, and the result is recorded as one of three outcomes.</p>
-<dl class="pair"><dt>Caught</dt><dd>The check went red.</dd><dt>Missed</dt><dd>The check stayed green.</dd><dt>Settled nothing</dt><dd>The run told us nothing about the check, and the reason is shown as it was written. No status is read from it.</dd></dl>
-<p>A run by hand is one somebody planted, watched, and recorded. A replay was planted and scored by a job against newer code, so a check declared for replay keeps being tested after its first proof. A check that is not declared is tested only when somebody plants a defect by hand. A proof older than ${String(ledger.staleAfterDays)} days turns Stale.</p>
-<p>Every run is a file in the repository, added by a commit like any other change, so a record that is wrong has an author, a diff, and a revert.</p>
-<p>This page is read-only: it has no filter bar and no server behind it. The filter works when you run the app locally. The same ledger is published beside this page as <a href="ledger.json"><code>ledger.json</code></a>.</p>
+${words.howItWorks(ledger.staleAfterDays)}
 </div>
 </details>
 <footer>
 <div class="foot-line">
 <span>${built}</span>
-<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} on GitHub ↗</a>
+<a href="${escapeHtml(repository)}">${words.onGitHub(escapeHtml(ledger.repository))}</a>
 </div>
-<a class="studio" href="https://async-digital.com"><span>Made by</span>${studioMark}</a>
+<a class="studio" href="https://async-digital.com"><span>${words.madeBy}</span>${studioMark}</a>
+</footer>
+</div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Every language's page, from the one snapshot. Written out as one entry per
+ * language rather than mapped, so a language added to `pageLanguages` and not
+ * here fails to compile instead of being left unbuilt.
+ */
+export function renderPages(
+  ledger: PublishedLedger,
+): Readonly<Record<PageLanguage, string>> {
+  return {
+    en: renderPage(ledger, 'en'),
+    cy: renderPage(ledger, 'cy'),
+  };
+}
+
+/**
+ * The page GitHub Pages serves for every address with nothing behind it
+ * (#283), written beside the page by the build. Without it a mistyped link
+ * shows GitHub's own page: English only, and with no way back here.
+ */
+export const notFoundFilename = '404.html';
+
+/**
+ * The not-found page, as one string.
+ *
+ * It is served at whatever address was missed, so every address on it starts
+ * at the root. It is in English and then in Welsh, because a reader can arrive
+ * from a page in either language and the address alone says nothing about
+ * which. The two halves have the same parts, a label, a headline, a line under
+ * it and the way home, held by the same rules in the page's own stylesheet, so
+ * neither language is the lesser one. The ledger is published in both (#284),
+ * so each half's way home goes to the page in its own language.
+ *
+ * The site shows no email address, so the way to report a broken link is the
+ * repository the page already links. It asks search engines to leave it out,
+ * which is what keeps it off the sitemap: the sitemap is drawn from
+ * `pageFilenames`, and the published-output check skips a `noindex` page.
+ */
+export function renderNotFoundPage(ledger: PublishedLedger): string {
+  const repository = repositoryHref(ledger);
+  const issues = `${repository}/issues`;
+
+  return `<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Page not found · Methu dod o hyd i’r dudalen · Seen to Fail</title>
+${iconLinksUnder('/')}
+<style>
+${style}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="top">
+<a class="name" href="/">Seen to Fail</a>
+<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a>
+</header>
+<main>
+<section class="hero">
+<p class="eyebrow">Error 404</p>
+<h1>Page not found</h1>
+<p class="idea">The link may be broken, or the page may have moved.</p>
+<p><a href="/">Go to the home page</a>, or if a link on our site brought you here, tell us on <a href="${escapeHtml(issues)}">GitHub</a>.</p>
+</section>
+<section class="hero" lang="cy">
+<p class="eyebrow">Gwall 404</p>
+<h1>Methu dod o hyd i’r dudalen</h1>
+<p class="idea">Efallai fod y ddolen wedi torri, neu fod y dudalen wedi symud.</p>
+<p><a href="/${languagePageFilenames.cy}">Ewch i’r hafan</a>, neu os daethoch chi yma o ddolen ar ein gwefan, rhowch wybod i ni ar <a href="${escapeHtml(issues)}">GitHub</a>.</p>
+</section>
+</main>
+<footer>
+<div class="foot-line">
+<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} on GitHub ↗</a>
+<a href="${escapeHtml(repository)}" lang="cy">${escapeHtml(ledger.repository)} ar GitHub ↗</a>
+</div>
+<a class="studio" href="https://async-digital.com"><span>Made by · <span lang="cy">Gwnaed gan</span></span>${studioMark}</a>
 </footer>
 </div>
 </body>

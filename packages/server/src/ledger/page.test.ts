@@ -22,6 +22,7 @@ import {
   publicLedgerAnchor,
   publishedStatusOrder,
   readableDay,
+  renderNotFoundPage,
   renderPage,
 } from './page.ts';
 import { repositoryRoot } from './location.ts';
@@ -63,7 +64,7 @@ function headValues(page: string, attribute: string, key: string): string[] {
  * no longer asks search engines to leave it out.
  */
 it('lets search engines index it', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   expect(page).not.toMatch(/noindex/i);
   expect(headValues(page, 'name', 'robots')).toEqual([]);
 });
@@ -75,7 +76,7 @@ it('lets search engines index it', () => {
  * to resolve a relative one against.
  */
 it('carries the link-preview tags, once each, with absolute addresses', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   const description =
     "A record of whether each of this project's own checks has been seen to catch a defect planted on purpose.";
   const escaped = description.replace("'", '&#39;');
@@ -103,7 +104,7 @@ it('carries the link-preview tags, once each, with absolute addresses', () => {
  * where the code behind it lives (#237).
  */
 it('says what it is above the headline, and links the repository', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   const line =
     '<p class="eyebrow about">Seen to Fail is a record of whether each of this project&#39;s own checks has been seen to catch a defect planted on purpose, kept in <a href="https://github.com/async-digital-ltd/seen-to-fail">its repository on GitHub</a>.</p>';
   expect(page).toContain(line);
@@ -119,7 +120,7 @@ it('says what it is above the headline, and links the repository', () => {
  * none.
  */
 it('says under the headline what the count covers, and why security checks are left off', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   const line =
     '<p class="eyebrow scope">These are the project&#39;s checks in two areas: CI and Review. Checks about security, such as secret scanning, are left off a public ledger on purpose; <a href="https://github.com/async-digital-ltd/seen-to-fail#what-belongs-on-a-public-ledger">why</a>.</p>';
   expect(page).toContain(`</h1>\n${line}\n<div class="strip"`);
@@ -136,30 +137,36 @@ it('names the areas in the line from the checks themselves', () => {
   if (first === undefined || second === undefined) {
     throw new Error('The fixture holds two checks.');
   }
-  const one = renderPage({
-    ...snapshot,
-    checks: [
-      { ...first, area: 'Code' },
-      { ...second, area: 'Code' },
-    ],
-  });
+  const one = renderPage(
+    {
+      ...snapshot,
+      checks: [
+        { ...first, area: 'Code' },
+        { ...second, area: 'Code' },
+      ],
+    },
+    'en',
+  );
   expect(one).toContain('checks in one area: Code. Checks about security');
 
-  const three = renderPage({
-    ...snapshot,
-    checks: [
-      { ...first, area: 'Build' },
-      { ...second, area: 'Published record' },
-      { ...second, id: 'third', area: 'Code' },
-    ],
-  });
+  const three = renderPage(
+    {
+      ...snapshot,
+      checks: [
+        { ...first, area: 'Build' },
+        { ...second, area: 'Published record' },
+        { ...second, id: 'third', area: 'Code' },
+      ],
+    },
+    'en',
+  );
   const named =
     /checks in three areas: ([A-Za-z ]+), ([A-Za-z ]+) and ([A-Za-z ]+)\./.exec(
       three,
     );
   expect(named?.slice(1).sort()).toEqual(['Build', 'Code', 'Published record']);
 
-  const none = renderPage({ ...snapshot, checks: [] });
+  const none = renderPage({ ...snapshot, checks: [] }, 'en');
   expect(none).toContain(
     '<p class="eyebrow scope">Checks about security, such as secret scanning',
   );
@@ -189,7 +196,7 @@ it('holds the same statuses the filter knows in its reading order, and no others
 });
 
 it('names every check, and counts each status beside its word', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   expect(page).toContain('A check with a catch behind it');
   expect(page).toContain('A check nobody has planted anything for');
   expect(page).toContain('✓ Proven 1');
@@ -206,29 +213,29 @@ it('names every check, and counts each status beside its word', () => {
  */
 it('leads with how many checks have been seen to catch a planted defect', () => {
   const snapshot = fixtureSnapshot();
-  expect(renderPage(snapshot)).toContain(
+  expect(renderPage(snapshot, 'en')).toContain(
     '<span class="result">1 of 2</span> checks have been seen to catch a planted defect',
   );
   const fewer = {
     ...snapshot,
     statusCounts: { ...snapshot.statusCounts, Proven: 0, Unproven: 2 },
   };
-  expect(renderPage(fewer)).toContain(
+  expect(renderPage(fewer, 'en')).toContain(
     '<span class="result">0 of 2</span> checks have been seen to catch a planted defect',
   );
 });
 
 it('shows a run with what was planted and what was expected', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   expect(page).toContain('A type error.');
   expect(page).toContain('The type check fails.');
   expect(page).toContain('10 Sep 2026');
 });
 
 it('prints a day as a reader says it, without a time zone moving it', () => {
-  expect(readableDay('2026-09-01')).toBe('1 Sep 2026');
-  expect(readableDay('2026-12-31')).toBe('31 Dec 2026');
-  expect(() => readableDay('not a day')).toThrow();
+  expect(readableDay('2026-09-01', 'en')).toBe('1 Sep 2026');
+  expect(readableDay('2026-12-31', 'en')).toBe('31 Dec 2026');
+  expect(() => readableDay('not a day', 'en')).toThrow();
 });
 
 /**
@@ -238,7 +245,7 @@ it('prints a day as a reader says it, without a time zone moving it', () => {
  * threshold the build used, not a number written into the page.
  */
 it('explains every status from the pill that shows it', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   for (const status of publishedStatusOrder) {
     expect(page).toContain(`<div popover id="means-${status}"`);
     expect(page).toContain(`popovertarget="means-${status}"`);
@@ -278,13 +285,16 @@ it('groups checks by area, the best proven area first', () => {
   if (proven === undefined || unproven === undefined) {
     throw new Error('The fixture holds two checks.');
   }
-  const page = renderPage({
-    ...snapshot,
-    checks: [
-      { ...unproven, area: 'A first by name' },
-      { ...proven, area: 'Z last by name' },
-    ],
-  });
+  const page = renderPage(
+    {
+      ...snapshot,
+      checks: [
+        { ...unproven, area: 'A first by name' },
+        { ...proven, area: 'Z last by name' },
+      ],
+    },
+    'en',
+  );
   expect(page.indexOf('Z last by name')).toBeGreaterThan(-1);
   expect(page.indexOf('Z last by name')).toBeLessThan(
     page.indexOf('A first by name'),
@@ -298,13 +308,15 @@ it('groups checks by area, the best proven area first', () => {
  * who doubts it can read the diff that recorded it.
  */
 it('links each run to the commit that recorded it', () => {
-  expect(renderPage(fixtureSnapshot())).toContain(
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain(
     'https://github.com/async-digital-ltd/seen-to-fail/commit/1234567890abcdef1234567890abcdef12345678',
   );
 });
 
 it('names the commit it was built from', () => {
-  expect(renderPage(fixtureSnapshot())).toContain(fixtureCommit.slice(0, 7));
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain(
+    fixtureCommit.slice(0, 7),
+  );
 });
 
 /**
@@ -313,13 +325,13 @@ it('names the commit it was built from', () => {
  * reads as "fine".
  */
 it('says so where nobody has written something down', () => {
-  expect(renderPage(fixtureSnapshot())).toContain(
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain(
     'Nobody has written this down',
   );
 });
 
 it('says that the filter language is not on the page and where it is', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   expect(page).toContain('no filter bar');
   expect(page).toContain('locally');
 });
@@ -330,7 +342,7 @@ it('says that the filter language is not on the page and where it is', () => {
  * reader's browser, after the build, with nothing naming a commit for it.
  */
 it('carries no script at all', () => {
-  expect(renderPage(fixtureSnapshot())).not.toMatch(/<script/i);
+  expect(renderPage(fixtureSnapshot(), 'en')).not.toMatch(/<script/i);
 });
 
 /**
@@ -338,7 +350,7 @@ it('carries no script at all', () => {
  * address as canonical, and the icons.
  */
 it('gives its language, its canonical address and its icons', () => {
-  const page = renderPage(fixtureSnapshot());
+  const page = renderPage(fixtureSnapshot(), 'en');
   const head = page.slice(0, page.indexOf('</head>'));
 
   expect(page).toContain('<html lang="en-GB">');
@@ -382,7 +394,7 @@ it('names icons that are committed beside the renderer', () => {
  * run link pass.
  */
 it('links only to a commit, a run a record named, the export, the repository, its public-ledger section or the studio', () => {
-  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
+  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()), 'en');
   const urls = [...page.matchAll(/https?:\/\/[^"'\s]+/g)].map(
     (match) => match[0],
   );
@@ -399,8 +411,16 @@ it('links only to a commit, a run a record named, the export, the repository, it
   const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   const exported = 'ledger.json';
   expect(hrefs).toContain(exported);
+  // The page in Welsh (#284), by its address for a crawler and by its
+  // filename for a reader.
+  const welshPage = `${livePage}index.cy.html`;
+  const welshLink = 'index.cy.html';
+  expect(urls).toContain(welshPage);
+  expect(hrefs).toContain(welshLink);
   for (const url of [...urls, ...hrefs]) {
     if (
+      url === welshPage ||
+      url === welshLink ||
       url === fixtureReplayRunUrl ||
       url === repository ||
       url === why ||
@@ -427,9 +447,12 @@ it('links only to a commit, a run a record named, the export, the repository, it
  * it, and by hand is the answer that says the proof does not keep itself.
  */
 it('says where every run came from', () => {
-  expect(renderPage(fixtureSnapshot())).toContain('By hand');
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain('By hand');
 
-  const replayed = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
+  const replayed = renderPage(
+    fixtureSnapshot(fixtureContentsFromAReplay()),
+    'en',
+  );
   expect(replayed).toContain('By replay');
   expect(replayed).not.toContain('By hand');
 });
@@ -440,7 +463,7 @@ it('says where every run came from', () => {
  * page names both, so neither is told from the other by position alone.
  */
 it('names the commit a replay ran against apart from the one that recorded it', () => {
-  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()));
+  const page = renderPage(fixtureSnapshot(fixtureContentsFromAReplay()), 'en');
 
   expect(page).toContain(`/commit/${fixtureReplayCommit}`);
   expect(page).toContain('/commit/1234567890abcdef1234567890abcdef12345678');
@@ -463,6 +486,7 @@ it('shows a run that settled nothing, its reason, and the day the status is read
       fixtureContentsWithAnUnsettledRun(),
       fixtureSummariesWithAnUnsettledRun(),
     ),
+    'en',
   );
 
   expect(page).toContain('settled nothing');
@@ -477,6 +501,40 @@ it('shows a run that settled nothing, its reason, and the day the status is read
 });
 
 /**
+ * A reason is shown as it was written, and a writer may leave off its full
+ * stop. The notice then adds one, so the reason does not run on into the
+ * sentence after it, and a reason that already ends in one gets no second.
+ */
+it('ends a reason written without a full stop before the next sentence starts', () => {
+  const snapshot = fixtureSnapshot(
+    fixtureContentsWithAnUnsettledRun(),
+    fixtureSummariesWithAnUnsettledRun(),
+  );
+  const unstopped = fixtureUnsettledReason.replace(/\.$/u, '');
+  const withoutStop = {
+    ...snapshot,
+    checks: snapshot.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((run) =>
+        run.inconclusiveReason === null
+          ? run
+          : { ...run, inconclusiveReason: unstopped },
+      ),
+    })),
+  };
+
+  expect(renderPage(withoutStop, 'en')).toContain(
+    `${escapeHtml(unstopped)}. Its status is read from`,
+  );
+  expect(renderPage(withoutStop, 'cy')).toContain(
+    `${escapeHtml(unstopped)}</span>. Mae ei statws`,
+  );
+  expect(renderPage(snapshot, 'en')).toContain(
+    `${escapeHtml(fixtureUnsettledReason)} Its status is read from`,
+  );
+});
+
+/**
  * The fact beside a check's name says what it leaves out.
  *
  * On a check where nothing settled nothing the figure is absent, and that is
@@ -485,11 +543,13 @@ it('shows a run that settled nothing, its reason, and the day the status is read
  * decision rather than a figure that got lost.
  */
 it('names the runs that settled nothing only when there are some', () => {
-  expect(renderPage(fixtureSnapshot())).toContain('Caught 1 of 1');
-  expect(renderPage(fixtureSnapshot())).toContain('Never planted');
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain('Caught 1 of 1');
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain('Never planted');
   // The footer explains the outcome whatever is recorded, so what is absent
   // from a page with none of them is the figure rather than the words.
-  expect(renderPage(fixtureSnapshot())).not.toContain('0 settled nothing');
+  expect(renderPage(fixtureSnapshot(), 'en')).not.toContain(
+    '0 settled nothing',
+  );
 
   expect(
     renderPage(
@@ -497,6 +557,7 @@ it('names the runs that settled nothing only when there are some', () => {
         fixtureContentsWithAnUnsettledRun(),
         fixtureSummariesWithAnUnsettledRun(),
       ),
+      'en',
     ),
   ).toContain('Caught 1 of 2, 1 settled nothing');
 });
@@ -559,11 +620,14 @@ it('tells a check with a run and no observation apart from one with neither', ()
     lastArmed: null,
     observations: [],
   };
-  const page = renderPage({
-    ...snapshot,
-    checks: [...snapshot.checks, unsettled, neither],
-    statusCounts: { ...snapshot.statusCounts, Unarmed: 2 },
-  });
+  const page = renderPage(
+    {
+      ...snapshot,
+      checks: [...snapshot.checks, unsettled, neither],
+      statusCounts: { ...snapshot.statusCounts, Unarmed: 2 },
+    },
+    'en',
+  );
   const section = (id: string): string => {
     const match = new RegExp(
       `<details class="check" id="${id}">[\\s\\S]*?</details>`,
@@ -648,11 +712,14 @@ it('names the day of the latest observation on the last seen line, on or off', (
       },
     ],
   };
-  const page = renderPage({
-    ...snapshot,
-    checks: [...snapshot.checks, onThenOff, onlyOff],
-    statusCounts: { ...snapshot.statusCounts, Unproven: 3 },
-  });
+  const page = renderPage(
+    {
+      ...snapshot,
+      checks: [...snapshot.checks, onThenOff, onlyOff],
+      statusCounts: { ...snapshot.statusCounts, Unproven: 3 },
+    },
+    'en',
+  );
   const lastSeenLine = (id: string): string => {
     const match = new RegExp(
       `<details class="check" id="${id}">[\\s\\S]*?<dt>Last seen</dt><dd>([\\s\\S]*?)</dd>`,
@@ -665,13 +732,13 @@ it('names the day of the latest observation on the last seen line, on or off', (
 
   expect
     .soft(lastSeenLine('second-check'))
-    .toBe(`Seen switched on, ${readableDay('2026-09-01')}.`);
+    .toBe(`Seen switched on, ${readableDay('2026-09-01', 'en')}.`);
   expect
     .soft(lastSeenLine('on-then-off-check'))
-    .toBe(`Seen switched off, ${readableDay('2026-09-20')}.`);
+    .toBe(`Seen switched off, ${readableDay('2026-09-20', 'en')}.`);
   expect
     .soft(lastSeenLine('only-off-check'))
-    .toBe(`Seen switched off, ${readableDay('2026-09-05')}.`);
+    .toBe(`Seen switched off, ${readableDay('2026-09-05', 'en')}.`);
   expect
     .soft(lastSeenLine('first-check'))
     .toBe('<span class="muted">Not yet observed.</span>');
@@ -704,6 +771,7 @@ it('escapes what a record holds rather than letting it close a tag', () => {
       staleAfterDays: 30,
       recordingCommits: new Map(),
     }),
+    'en',
   );
 
   expect(page).not.toMatch(/<script/i);
@@ -765,6 +833,7 @@ it('renders a replay reason as a text node, never inside a tag', () => {
       },
       fixtureSummariesWithAnUnsettledRun(),
     ),
+    'en',
   );
 
   // The reason is on the page twice: once in the run's row, once in the note
@@ -777,5 +846,76 @@ it('renders a replay reason as a text node, never inside a tag', () => {
 
   expect(page).toContain(escapeHtml(hostileReason));
   expect(page).not.toMatch(/<b>/i);
+  expect(page).not.toMatch(/<script/i);
+});
+
+/**
+ * The not-found page (#283). GitHub Pages serves it for every address with
+ * nothing behind it, and a reader can arrive there from a page in either
+ * language, so it says the same things in English and then in Welsh. The Welsh
+ * half was once the lesser one on the studio's own site, plain text under an
+ * English headline, so each half is held here to the same parts in the same
+ * order: a label, a headline, the line under it, and the way home.
+ */
+it('says it in English and then in Welsh, with the same parts in each half', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  const welshAt = page.indexOf('<section class="hero" lang="cy">');
+  expect(welshAt).toBeGreaterThan(0);
+  const englishAt = page.indexOf('<section class="hero">');
+  expect(englishAt).toBeGreaterThan(0);
+  expect(englishAt).toBeLessThan(welshAt);
+
+  const halves = [
+    page.slice(englishAt, welshAt),
+    page.slice(welshAt, page.indexOf('</main>')),
+  ];
+  const parts = halves.map((half) =>
+    [...half.matchAll(/<(p|h1)(?: class="([a-z]+)")?>/g)].map(
+      (match) => `${match[1] ?? ''}.${match[2] ?? ''}`,
+    ),
+  );
+  expect(parts[0]).toEqual(['p.eyebrow', 'h1.', 'p.idea', 'p.']);
+  expect(parts[1]).toEqual(parts[0]);
+
+  expect(halves[0]).toContain('<h1>Page not found</h1>');
+  expect(halves[1]).toContain('<h1>Methu dod o hyd i’r dudalen</h1>');
+  expect(halves[1]).toContain('Gwall 404');
+
+  // Each half's way home is the page in its own language (#284). The Welsh one
+  // used to go to the English page and say it was in English only.
+  expect(halves[0]).toContain('<a href="/">Go to the home page</a>');
+  expect(halves[1]).toContain('<a href="/index.cy.html">Ewch i’r hafan</a>');
+  expect(halves[1]).not.toContain('Saesneg');
+});
+
+/**
+ * It is served at whatever address was missed, so a relative address on it
+ * would resolve under that address. Every address starts at the root or is
+ * absolute.
+ */
+it('starts every address on the not-found page at the root', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  const addresses = [...page.matchAll(/\b(?:href|src)="([^"]*)"/g)].map(
+    (match) => match[1] ?? '',
+  );
+  expect(addresses.length).toBeGreaterThan(0);
+  for (const address of addresses) {
+    expect(address).toMatch(/^(?:\/(?!\/)|https:\/\/)/);
+  }
+  const icons = [
+    ...page.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]*)"/g),
+  ].map((match) => match[1]);
+  expect(icons.sort()).toEqual(iconFilenames.map((icon) => `/${icon}`).sort());
+});
+
+/**
+ * It asks search engines to leave it out, which is what keeps it off the
+ * sitemap and out of the published-output check's list of pages served, and it
+ * stays a document like the page.
+ */
+it('keeps the not-found page out of search, with no script', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  expect(page).toContain('<meta name="robots" content="noindex">');
+  expect(page).toContain('<html lang="en-GB">');
   expect(page).not.toMatch(/<script/i);
 });

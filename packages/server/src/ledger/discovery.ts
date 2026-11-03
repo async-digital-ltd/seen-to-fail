@@ -1,5 +1,5 @@
 import type { IsoDate } from '../database/rows.ts';
-import { escapeHtml, publishedUrl } from './page.ts';
+import { escapeHtml, pageAddress, publishedUrl } from './page.ts';
 
 /**
  * The two files a crawler reads before the page (#254): `robots.txt`, which
@@ -17,15 +17,10 @@ export const robotsFilename = 'robots.txt';
 export const sitemapFilename = 'sitemap.xml';
 
 /**
- * Where a page is served. The site's index is its root address, the way the
- * page names itself in its canonical link, and any other page is its filename
- * under the root.
+ * Where a page is served, which page.ts works out because the page names
+ * itself and its other languages by the same rule (#284).
  */
-export function pageAddress(filename: string): string {
-  return filename === 'index.html'
-    ? publishedUrl
-    : new URL(filename, publishedUrl).href;
-}
+export { pageAddress };
 
 /** Every crawler let in, and pointed at the sitemap by its absolute address. */
 export function renderRobots(): string {

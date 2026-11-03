@@ -54,6 +54,20 @@ such as secret scanning, are left off on purpose, with a link to
 [What belongs on a public ledger](../README.md#what-belongs-on-a-public-ledger)
 ([#240](https://github.com/async-digital-ltd/seen-to-fail/issues/240)).
 
+The page is published in English and in Welsh
+([#284](https://github.com/async-digital-ltd/seen-to-fail/issues/284)). The
+build writes the Welsh page, index.cy.html, beside the English one from the
+same snapshot in the same run, so the two cannot describe different records:
+only the words differ. Both sets of words are held to one interface in
+`packages/server/src/ledger/words.ts`, so a label worded in one language and
+not the other fails to compile. Every month on the Welsh page is named from a
+fixed Welsh list rather than by the platform's date formatting, which can name
+a Welsh month in English without saying so. Each page gives its own address as
+canonical, names both pages with hreflang and the English one as the default,
+and links the other in that page's language, and the sitemap lists both. The
+records' own text, such as a check's name and what was planted, is shown as it
+was written, in English, tagged as English, and the Welsh page says so.
+
 Pull requests and pushes to a `ci-control/` branch build and check the same page
 and keep it as a build artefact for seven days, but never serve it. A proposed
 change or a planted defect cannot alter what a reader sees until it is on

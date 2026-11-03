@@ -124,4 +124,8 @@ the headline that scopes its count and links a heading the README has. Since
 [#254](https://github.com/async-digital-ltd/seen-to-fail/issues/254) it also
 holds what a crawler reads: `lang="en-GB"`, a canonical link to the live
 address, icons that are files beside the page, a `robots.txt` naming the
-sitemap, and a `sitemap.xml` listing every page served and nothing else.
+sitemap, and a `sitemap.xml` listing every page served and nothing else. Since
+[#284](https://github.com/async-digital-ltd/seen-to-fail/issues/284) it holds
+the page in Welsh beside it: there, `lang="cy"`, built from the same commit,
+canonical at its own address, and paired with the English page by hreflang and
+by a link each way.
