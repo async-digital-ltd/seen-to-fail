@@ -87,11 +87,21 @@ export const iconFilenames = [
   'apple-touch-icon.png',
 ] as const;
 
-const iconLinks = [
-  '<link rel="icon" href="favicon.ico" sizes="32x32">',
-  '<link rel="icon" href="favicon.svg" type="image/svg+xml">',
-  '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
-].join('\n');
+/**
+ * The icon links, with each address under `base`. The page passes nothing,
+ * because it is the root. The not-found page passes `/`, because GitHub Pages
+ * serves it at whatever address was missed, where a relative address would
+ * resolve under that address instead of the root.
+ */
+function iconLinksUnder(base: '' | '/'): string {
+  return [
+    `<link rel="icon" href="${base}favicon.ico" sizes="32x32">`,
+    `<link rel="icon" href="${base}favicon.svg" type="image/svg+xml">`,
+    `<link rel="apple-touch-icon" href="${base}apple-touch-icon.png">`,
+  ].join('\n');
+}
+
+const iconLinks = iconLinksUnder('');
 
 /**
  * The README section that says why checks about security are not on a public
@@ -845,6 +855,79 @@ ${grouped.map((area) => areaSection(ledger, area)).join('\n')}
 <a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} on GitHub ↗</a>
 </div>
 <a class="studio" href="https://async-digital.com"><span>Made by</span>${studioMark}</a>
+</footer>
+</div>
+</body>
+</html>
+`;
+}
+
+/**
+ * The page GitHub Pages serves for every address with nothing behind it
+ * (#283), written beside the page by the build. Without it a mistyped link
+ * shows GitHub's own page: English only, and with no way back here.
+ */
+export const notFoundFilename = '404.html';
+
+/**
+ * The not-found page, as one string.
+ *
+ * It is served at whatever address was missed, so every address on it starts
+ * at the root. It is in English and then in Welsh, because a reader can arrive
+ * from a page in either language and the address alone says nothing about
+ * which. The two halves have the same parts, a label, a headline, a line under
+ * it and the way home, held by the same rules in the page's own stylesheet, so
+ * neither language is the lesser one. The ledger itself is in English only, so
+ * the Welsh way home says so.
+ *
+ * The site shows no email address, so the way to report a broken link is the
+ * repository the page already links. It asks search engines to leave it out,
+ * which is what keeps it off the sitemap: the sitemap is drawn from
+ * `pageFilenames`, and the published-output check skips a `noindex` page.
+ */
+export function renderNotFoundPage(ledger: PublishedLedger): string {
+  const repository = repositoryHref(ledger);
+  const issues = `${repository}/issues`;
+
+  return `<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Page not found · Methu dod o hyd i’r dudalen · Seen to Fail</title>
+${iconLinksUnder('/')}
+<style>
+${style}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="top">
+<a class="name" href="/">Seen to Fail</a>
+<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a>
+</header>
+<main>
+<section class="hero">
+<p class="eyebrow">Error 404</p>
+<h1>Page not found</h1>
+<p class="idea">The link may be broken, or the page may have moved.</p>
+<p><a href="/">Go to the home page</a>, or if a link on our site brought you here, tell us on <a href="${escapeHtml(issues)}">GitHub</a>.</p>
+</section>
+<section class="hero" lang="cy">
+<p class="eyebrow">Gwall 404</p>
+<h1>Methu dod o hyd i’r dudalen</h1>
+<p class="idea">Efallai fod y ddolen wedi torri, neu fod y dudalen wedi symud.</p>
+<p><a href="/" hreflang="en-GB">Ewch i’r hafan</a> (Saesneg yn unig), neu os daethoch chi yma o ddolen ar ein gwefan, rhowch wybod i ni ar <a href="${escapeHtml(issues)}">GitHub</a>.</p>
+</section>
+</main>
+<footer>
+<div class="foot-line">
+<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} on GitHub ↗</a>
+<a href="${escapeHtml(repository)}" lang="cy">${escapeHtml(ledger.repository)} ar GitHub ↗</a>
+</div>
+<a class="studio" href="https://async-digital.com"><span>Made by · <span lang="cy">Gwnaed gan</span></span>${studioMark}</a>
 </footer>
 </div>
 </body>

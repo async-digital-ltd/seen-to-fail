@@ -20,8 +20,10 @@ import {
 } from './discovery.ts';
 import {
   iconFilenames,
+  notFoundFilename,
   previewImageFilename,
   renderExport,
+  renderNotFoundPage,
   renderPage,
 } from './page.ts';
 import { publishingRefusals } from './publishable.ts';
@@ -51,11 +53,19 @@ import type { DatabaseTotals } from './verify.ts';
 /** The files the build writes, under the output directory. */
 export const pageFilename = 'index.html';
 export const exportFilename = 'ledger.json';
-export { iconFilenames, previewImageFilename, robotsFilename, sitemapFilename };
+export {
+  iconFilenames,
+  notFoundFilename,
+  previewImageFilename,
+  robotsFilename,
+  sitemapFilename,
+};
 
 /**
  * The pages the build writes, which is the list the sitemap is drawn from. One
- * today; a second page goes here and is listed by the same change.
+ * today; a second page goes here and is listed by the same change. The
+ * not-found page (#283) is written too, and is not one of these: it asks search
+ * engines to leave it out, so a sitemap that listed it would contradict it.
  */
 export const pageFilenames = [pageFilename] as const;
 
@@ -289,6 +299,8 @@ export async function buildLedger(
   const exportPath = join(options.outputDirectory, exportFilename);
   await writeFile(pagePath, page, 'utf8');
   await writeFile(exportPath, renderExport(snapshot), 'utf8');
+  const notFoundPath = join(options.outputDirectory, notFoundFilename);
+  await writeFile(notFoundPath, renderNotFoundPage(snapshot), 'utf8');
   const robotsPath = join(options.outputDirectory, robotsFilename);
   await writeFile(robotsPath, renderRobots(), 'utf8');
   const sitemapPath = join(options.outputDirectory, sitemapFilename);
@@ -310,6 +322,13 @@ export async function buildLedger(
   return {
     ledger: snapshot,
     page,
-    written: [pagePath, exportPath, robotsPath, sitemapPath, ...copiedPaths],
+    written: [
+      pagePath,
+      exportPath,
+      notFoundPath,
+      robotsPath,
+      sitemapPath,
+      ...copiedPaths,
+    ],
   };
 }
