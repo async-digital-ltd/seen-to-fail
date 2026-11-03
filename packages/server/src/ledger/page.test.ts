@@ -22,6 +22,7 @@ import {
   publicLedgerAnchor,
   publishedStatusOrder,
   readableDay,
+  renderNotFoundPage,
   renderPage,
 } from './page.ts';
 import { repositoryRoot } from './location.ts';
@@ -777,5 +778,71 @@ it('renders a replay reason as a text node, never inside a tag', () => {
 
   expect(page).toContain(escapeHtml(hostileReason));
   expect(page).not.toMatch(/<b>/i);
+  expect(page).not.toMatch(/<script/i);
+});
+
+/**
+ * The not-found page (#283). GitHub Pages serves it for every address with
+ * nothing behind it, and a reader can arrive there from a page in either
+ * language, so it says the same things in English and then in Welsh. The Welsh
+ * half was once the lesser one on the studio's own site, plain text under an
+ * English headline, so each half is held here to the same parts in the same
+ * order: a label, a headline, the line under it, and the way home.
+ */
+it('says it in English and then in Welsh, with the same parts in each half', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  const welshAt = page.indexOf('<section class="hero" lang="cy">');
+  expect(welshAt).toBeGreaterThan(0);
+  const englishAt = page.indexOf('<section class="hero">');
+  expect(englishAt).toBeGreaterThan(0);
+  expect(englishAt).toBeLessThan(welshAt);
+
+  const halves = [
+    page.slice(englishAt, welshAt),
+    page.slice(welshAt, page.indexOf('</main>')),
+  ];
+  const parts = halves.map((half) =>
+    [...half.matchAll(/<(p|h1)(?: class="([a-z]+)")?>/g)].map(
+      (match) => `${match[1] ?? ''}.${match[2] ?? ''}`,
+    ),
+  );
+  expect(parts[0]).toEqual(['p.eyebrow', 'h1.', 'p.idea', 'p.']);
+  expect(parts[1]).toEqual(parts[0]);
+
+  expect(halves[0]).toContain('<h1>Page not found</h1>');
+  expect(halves[1]).toContain('<h1>Methu dod o hyd i’r dudalen</h1>');
+  expect(halves[1]).toContain('Gwall 404');
+  expect(halves[1]).toContain('(Saesneg yn unig)');
+});
+
+/**
+ * It is served at whatever address was missed, so a relative address on it
+ * would resolve under that address. Every address starts at the root or is
+ * absolute.
+ */
+it('starts every address on the not-found page at the root', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  const addresses = [...page.matchAll(/\b(?:href|src)="([^"]*)"/g)].map(
+    (match) => match[1] ?? '',
+  );
+  expect(addresses.length).toBeGreaterThan(0);
+  for (const address of addresses) {
+    expect(address).toMatch(/^(?:\/(?!\/)|https:\/\/)/);
+  }
+  const icons = [
+    ...page.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]*)"/g),
+  ].map((match) => match[1]);
+  expect(icons.sort()).toEqual(iconFilenames.map((icon) => `/${icon}`).sort());
+});
+
+/**
+ * It asks search engines to leave it out, which is what keeps it off the
+ * sitemap and out of the published-output check's list of pages served, and it
+ * stays a document like the page.
+ */
+it('keeps the not-found page out of search, with no script', () => {
+  const page = renderNotFoundPage(fixtureSnapshot());
+  expect(page).toContain('<meta name="robots" content="noindex">');
+  expect(page).toContain('<html lang="en-GB">');
   expect(page).not.toMatch(/<script/i);
 });

@@ -16,6 +16,7 @@ import {
   exportFilename,
   iconFilenames,
   LedgerRefusedError,
+  notFoundFilename,
   pageFilename,
   previewImageFilename,
   robotsFilename,
@@ -621,9 +622,10 @@ it('publishes the statuses the check_summaries function derives', async () => {
  * accounted for. Beside the page and the export are the link-preview image the
  * page's `og:image` names (#237), held here because a page naming an image the
  * build did not write previews as a broken picture, and since #254 the icons
- * the page names, the robots.txt and the sitemap.
+ * the page names, the robots.txt and the sitemap. Since #283 the not-found
+ * page GitHub Pages serves for a missed address is there too.
  */
-it('writes a page, an export, the preview image, the icons, robots.txt and the sitemap, and nothing else', async () => {
+it('writes a page, an export, the not-found page, the preview image, the icons, robots.txt and the sitemap, and nothing else', async () => {
   const directory = await writeTemporaryLedger({
     'checks/ci-lint.json': check,
   });
@@ -631,6 +633,7 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
   const { outputDirectory, written } = await build(directory);
   const expected = [
     exportFilename,
+    notFoundFilename,
     pageFilename,
     previewImageFilename,
     robotsFilename,
@@ -654,6 +657,14 @@ it('writes a page, an export, the preview image, the icons, robots.txt and the s
   const page = await readFile(join(outputDirectory, pageFilename), 'utf8');
   expect(page).not.toMatch(/<script/i);
   expect(page).not.toMatch(/fetch\(/);
+
+  const notFound = await readFile(
+    join(outputDirectory, notFoundFilename),
+    'utf8',
+  );
+  expect(notFound).toContain('<meta name="robots" content="noindex">');
+  expect(notFound).not.toMatch(/<script/i);
+  expect(sitemap).not.toContain(notFoundFilename);
 });
 
 it('writes an export the page was rendered from', async () => {
