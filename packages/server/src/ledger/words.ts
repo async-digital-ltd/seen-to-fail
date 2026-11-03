@@ -387,7 +387,7 @@ export const welsh: PageWords = {
     const meanings = {
       Proven: 'Daliodd nam a blannwyd.',
       Broken: 'Ni ddaliodd ei rediad diweddaraf y nam.',
-      Stale: `Mae ei brawf olaf dros ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} oed.`,
+      Stale: `Mae ei brawf olaf yn hŷn na ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')}.`,
       Unproven: 'Heb ei weld yn methu erioed.',
       Unarmed: 'Dim tystiolaeth ei fod wedi’i droi ymlaen.',
     } as const satisfies Record<Status, string>;
@@ -448,7 +448,7 @@ export const welsh: PageWords = {
   nothingEverSettled:
     'Nid oes yr un rhediad erioed wedi penderfynu dim ynghylch y gwiriad hwn.',
   statusReadFrom: (day) =>
-    `Mae ei statws yn cael ei ddarllen o’r rhediad ar ${day}, y rhediad olaf a benderfynodd rywbeth.`,
+    `Mae ei statws yn cael ei ddarllen o’r rhediad ar ${day}, yr olaf a benderfynodd rywbeth.`,
 
   howThisPageWorks: 'Sut mae’r dudalen hon yn gweithio',
   howItWorks: (
