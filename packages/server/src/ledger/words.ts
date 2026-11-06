@@ -13,10 +13,11 @@ import type { TestRunOutcome } from '../database/rows.ts';
  * status or an outcome either set leaves unworded.
  *
  * What is written here is the page's own wording. The records' text, such as a
- * check's name, its area, what was planted and every note, is shown as it was
- * written, which is in English, and the renderer tags it so on the Welsh page.
- * Translating it here would make this file a second record of what the ledger
- * says.
+ * check's name, its area, what was planted and every note, is the records'
+ * own, written in English. The Welsh page prints its Welsh from the table in
+ * record-welsh.ts, which is keyed on each text exactly as the record holds it,
+ * so the table cannot quietly come to say something its record does not: an
+ * edited record has no entry, and the build refuses to publish until it has.
  *
  * Every month is named from a fixed list rather than by the platform's date
  * formatting, which names Welsh months in English on runtimes that carry no
@@ -93,8 +94,6 @@ export interface PageWords {
 
   readonly checksHeading: (count: number) => string;
   readonly checksHint: string;
-  /** What the page says about the records' own language, if anything. */
-  readonly recordsLanguageNote: string | null;
   readonly areaCount: (proven: number, total: number) => string;
 
   readonly neverPlanted: string;
@@ -255,7 +254,6 @@ export const english: PageWords = {
   checksHeading: (count) =>
     `The ${String(count)} ${count === 1 ? 'check' : 'checks'}, by area`,
   checksHint: 'Open an area, then a check, to see its proof.',
-  recordsLanguageNote: null,
   areaCount: (proven, total) => `${String(proven)} of ${String(total)} proven`,
 
   neverPlanted: 'Never planted',
@@ -318,12 +316,26 @@ function cyNumbered(count: number, noun: string, afterTwo: string): string {
 }
 
 /**
- * Names joined as a Welsh list: "A", "A a B", "A, B a C", with "ac" before a
- * vowel. The names are the records' own, in English, so the word after "a"
- * takes no mutation.
+ * Names joined as a Welsh list: "A", "A a B", "A, B a C" (#284).
+ *
+ * The names are the records' own, in Welsh from record-welsh.ts, so the one
+ * after "a" takes the aspirate mutation: an opening c, p or t becomes ch, ph
+ * or th, as in "Cod, Adeiladu a Chofnod cyhoeddedig". Before a vowel "a" is
+ * "ac" and nothing mutates. A name that opens with code is printed as it is,
+ * so it takes "a" and no mutation.
  */
-function cyAnd(last: string): string {
-  return /^(?:<[^>]*>)*[aeiou]/iu.test(last) ? 'ac' : 'a';
+function cyListed(names: readonly Html[]): Html {
+  const last = names.at(-1);
+  if (last === undefined) {
+    return '';
+  }
+  if (names.length === 1) {
+    return last;
+  }
+  const joined = /^[aeiouyâêîôûŵŷ]/iu.test(last)
+    ? `ac ${last}`
+    : `a ${last.replace(/^([CcPpTt])(?![Hh])/u, '$1h')}`;
+  return `${names.slice(0, -1).join(', ')} ${joined}`;
 }
 
 const cyStatuses = {
@@ -374,11 +386,10 @@ export const welsh: PageWords = {
   headline: (proven, total) =>
     `Gwiriadau a welwyd yn dal nam a blannwyd: <span class="result">${String(proven)} o ${String(total)}</span>`,
   scope: (areaNames, whyHref) => {
-    const named = areaNames.map((name) => `<span lang="en">${name}</span>`);
     const areasSentence =
       areaNames.length === 0
         ? ''
-        : `Dyma wiriadau’r prosiect ${areaNames.length === 1 ? 'yn y maes hwn' : 'yn y meysydd hyn'}: ${listed(named, cyAnd)}. `;
+        : `Dyma wiriadau’r prosiect ${areaNames.length === 1 ? 'yn y maes hwn' : 'yn y meysydd hyn'}: ${cyListed(areaNames)}. `;
     return `${areasSentence}Mae gwiriadau sy’n ymwneud â diogelwch, fel sganio am gyfrinachau, yn cael eu hepgor o gyfriflyfr cyhoeddus yn fwriadol; <a href="${whyHref}">pam</a> (yn Saesneg).`;
   },
 
@@ -407,8 +418,6 @@ export const welsh: PageWords = {
   checksHeading: (count) =>
     `${cyNumbered(count, 'gwiriad', 'wiriad')}, fesul maes`,
   checksHint: 'Agorwch faes, yna wiriad, i weld ei brawf.',
-  recordsLanguageNote:
-    'Mae testun y cofnodion, fel enw pob gwiriad a’r hyn a blannwyd, yn Saesneg, fel y cafodd ei ysgrifennu.',
   areaCount: (proven, total) =>
     `${String(proven)} o ${String(total)} ${proven === 1 ? 'wedi’i brofi' : 'wedi’u profi'}`,
 
@@ -455,7 +464,7 @@ export const welsh: PageWords = {
     staleAfterDays,
   ) => `<p>Mae’r gwiriadau ar y dudalen hon wedi’u cofnodi mewn cyfriflyfr a gedwir yn yr ystorfa hon, ac mae’r dudalen yn cael ei hadeiladu ohono ar yr ymrwymiad a enwir isod.</p>
 <p>I brofi gwiriad, mae nam y dylai’r gwiriad ei ddal yn cael ei blannu’n fwriadol, mae’r gwiriad yn cael ei redeg, ac mae’r canlyniad yn cael ei gofnodi fel un o dri chanlyniad.</p>
-<dl class="pair"><dt>${cyOutcomeNames.caught}</dt><dd>Trodd y gwiriad yn goch.</dd><dt>${cyOutcomeNames.missed}</dt><dd>Arhosodd y gwiriad yn wyrdd.</dd><dt>${cyOutcomeNames.inconclusive}</dt><dd>Ni ddywedodd y rhediad ddim wrthym am y gwiriad, ac mae’r rheswm yn cael ei ddangos fel y cafodd ei ysgrifennu, yn Saesneg. Nid oes statws yn cael ei ddarllen ohono.</dd></dl>
+<dl class="pair"><dt>${cyOutcomeNames.caught}</dt><dd>Trodd y gwiriad yn goch.</dd><dt>${cyOutcomeNames.missed}</dt><dd>Arhosodd y gwiriad yn wyrdd.</dd><dt>${cyOutcomeNames.inconclusive}</dt><dd>Ni ddywedodd y rhediad ddim wrthym am y gwiriad, ac mae’r rheswm a gofnodwyd yn cael ei ddangos. Nid oes statws yn cael ei ddarllen ohono.</dd></dl>
 <p>Rhediad â llaw yw un y mae rhywun wedi’i blannu, ei wylio a’i gofnodi. Mae ailchwarae yn cael ei blannu a’i sgorio gan swydd yn erbyn cod newyddach, felly mae gwiriad a ddatganwyd ar gyfer ailchwarae yn dal i gael ei brofi ar ôl ei brawf cyntaf. Dim ond pan fydd rhywun yn plannu nam â llaw y caiff gwiriad nad yw wedi’i ddatgan ei brofi. Mae prawf sy’n hŷn na ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} yn cael y statws ${cyStatuses.Stale}.</p>
 <p>Mae pob rhediad yn ffeil yn yr ystorfa, wedi’i hychwanegu gan ymrwymiad fel unrhyw newid arall, felly mae gan gofnod anghywir awdur, gwahaniaeth i’w ddarllen, a ffordd o’i ddadwneud.</p>
 <p>Darllen yn unig yw’r dudalen hon: nid oes ganddi far hidlo na gweinydd y tu ôl iddi. Mae’r hidlydd yn gweithio pan fyddwch yn rhedeg yr ap yn lleol. Cyhoeddir yr un cyfriflyfr wrth ymyl y dudalen hon fel <a href="ledger.json"><code>ledger.json</code></a>.</p>`,

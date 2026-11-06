@@ -122,7 +122,9 @@ The job does seven things:
    command will not run until that is set, so the merged commit's subject
    names the issue the replay evidences
    ([#116](https://github.com/async-digital-ltd/seen-to-fail/issues/116)). A green run here means recorded and waiting for a person; it does
-   not mean done.
+   not mean done. A reason for settling nothing that no earlier replay gave
+   needs its Welsh before the branch can land
+   ([What the build refuses to publish](publishing.md)).
 
 **What makes a check due.** A check is replayed when either of two things
 holds: a path matching its `dependsOn` list has changed since that check was

@@ -2,6 +2,8 @@ import type { Status } from '@seen-to-fail/filter';
 
 import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
+import { recordPieces } from './record-text.ts';
+import type { RecordWelsh } from './record-text.ts';
 import type {
   PublishedCheck,
   PublishedLedger,
@@ -118,12 +120,12 @@ export const publicLedgerAnchor = 'what-belongs-on-a-public-ledger';
  * one it does.
  */
 function scopeLine(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   areaNames: readonly string[],
 ): string {
   const why = `${repositoryHref(ledger)}#${publicLedgerAnchor}`;
-  return `<p class="eyebrow scope">${words.scope(areaNames.map(escapeHtml), escapeHtml(why))}</p>`;
+  return `<p class="eyebrow scope">${words.scope(areaNames.map(words.record), escapeHtml(why))}</p>`;
 }
 
 /**
@@ -225,24 +227,47 @@ function commitCell(
 }
 
 /**
- * Text from a record, which is in English as somebody wrote it (#284). On a
- * page in another language it is tagged as English, so a screen reader reads
- * it in English and nothing claims it is Welsh. The English page needs no tag.
+ * A record's text as the page in this language prints it, escaped (#284).
+ *
+ * The English page prints the record as written, and the Welsh page prints its
+ * Welsh from the table in record-welsh.ts, so the Welsh page is Welsh
+ * throughout and carries no English standing in for it. On both, each
+ * identifier and piece of quoted tool output the entry marks is printed as it
+ * is, as code tagged English, so a screen reader reads it in English inside a
+ * Welsh sentence and a reader can look it up exactly as printed.
+ *
+ * Escaping is per piece, and the only markup added is the code element, so a
+ * record still cannot put markup of its own on the page.
  */
-function asWritten(words: PageWords, html: string): string {
-  return words.language === 'en' ? html : `<span lang="en">${html}</span>`;
+export function recordHtml(
+  text: string,
+  language: PageLanguage,
+  recordWelsh: RecordWelsh,
+): string {
+  return recordPieces(text, language, recordWelsh)
+    .map((piece) =>
+      piece.code
+        ? `<code lang="en">${escapeHtml(piece.text)}</code>`
+        : escapeHtml(piece.text),
+    )
+    .join('');
 }
 
-/** The same tag, for an element that holds nothing but a record's text. */
-function writtenLang(words: PageWords): string {
-  return words.language === 'en' ? '' : ' lang="en"';
+/**
+ * One page's words, with the way that page prints a record's text. Every part
+ * of the page that shows a record takes these rather than the bare words, so
+ * none of them can print a record's text any other way.
+ */
+interface Words extends PageWords {
+  /** A record's text on this page, escaped, with its code marked. HTML. */
+  readonly record: (text: string) => string;
 }
 
 /** Text a person may not have written down, said either way. */
-function written(words: PageWords, text: string): string {
+function written(words: Words, text: string): string {
   return text === ''
     ? `<span class="muted">${words.notWrittenDown}</span>`
-    : asWritten(words, escapeHtml(text));
+    : words.record(text);
 }
 
 /** A day on the page, in the page's language, escaped. */
@@ -370,32 +395,31 @@ function provenance(
  * sorted into a category. Only one of the situations that settle nothing means
  * the plant needs rewriting, they are told apart by a scoring tool inside an
  * English sentence, and a category recovered by matching that prose would send
- * a reader to rewrite a plant that is fine.
+ * a reader to rewrite a plant that is fine. The Welsh page shows the same
+ * sentence in Welsh, translated from its exact words, and not a category
+ * either.
  */
 function runItem(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   run: PublishedRun,
 ): string {
   const { method, proof, detail } = provenance(words, ledger, run);
-  const asIs = writtenLang(words);
   const reason =
     run.inconclusiveReason === null
       ? ''
-      : `<p class="note"${asIs}>${escapeHtml(run.inconclusiveReason)}</p>`;
+      : `<p class="note">${words.record(run.inconclusiveReason)}</p>`;
   const note =
-    run.note === null
-      ? ''
-      : `<p class="note"${asIs}>${escapeHtml(run.note)}</p>`;
+    run.note === null ? '' : `<p class="note">${words.record(run.note)}</p>`;
   return `<li class="run">
 <p class="run-head"><span class="run-day">${dayOn(words, run.runOn)}</span><span class="outcome outcome-${run.outcome}">${words.outcomes[run.outcome]}</span><span class="muted">${method}</span>${proof}</p>
-${reason}<dl class="pair"><dt>${words.planted}</dt><dd${asIs}>${escapeHtml(run.planted)}</dd><dt>${words.expected}</dt><dd${asIs}>${escapeHtml(run.expected)}</dd></dl>
+${reason}<dl class="pair"><dt>${words.planted}</dt><dd>${words.record(run.planted)}</dd><dt>${words.expected}</dt><dd>${words.record(run.expected)}</dd></dl>
 ${note}<p class="note">${detail}</p>
 </li>`;
 }
 
 function runsList(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   check: PublishedCheck,
 ): string {
@@ -410,14 +434,14 @@ ${check.runs.map((run) => runItem(words, ledger, run)).join('\n')}
 }
 
 function observationItem(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   observation: PublishedObservation,
 ): string {
   const note =
     observation.note === null
       ? ''
-      : `<p class="note"${writtenLang(words)}>${escapeHtml(observation.note)}</p>`;
+      : `<p class="note">${words.record(observation.note)}</p>`;
   return `<li><span class="run-day">${dayOn(words, observation.observedOn)}</span> ${words.seenSwitched(observation.armed)}. <span class="muted">${words.recordedIn(commitCell(words, ledger, observation.recordedIn))}</span>${note}</li>`;
 }
 
@@ -440,7 +464,7 @@ function lastSeen(words: PageWords, check: PublishedCheck): string {
 }
 
 function observationsList(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   check: PublishedCheck,
 ): string {
@@ -461,7 +485,7 @@ ${check.observations.map((observation) => observationItem(words, ledger, observa
  * since then were not evidence. The status is not wrong; it is just older than
  * the newest run makes it look, and this says how much older.
  */
-function unsettledNotice(words: PageWords, check: PublishedCheck): string {
+function unsettledNotice(words: Words, check: PublishedCheck): string {
   const [latest] = check.runs;
   if (latest === undefined || outcomeSettlesSomething[latest.outcome]) {
     return '';
@@ -479,11 +503,12 @@ function unsettledNotice(words: PageWords, check: PublishedCheck): string {
     check.lastSettledOn === null
       ? words.nothingEverSettled
       : words.statusReadFrom(dayOn(words, check.lastSettledOn));
-  // The reason is shown as it was written, so it may end without a full stop.
-  // One is added outside the quoted text, so it does not run into the next sentence.
-  const reason = latest.inconclusiveReason.trimEnd();
-  const stop = /[.!?…]$/u.test(reason) ? '' : '.';
-  return `<p class="unsettled">${words.latestSettledNothing(`${asWritten(words, escapeHtml(reason))}${stop}`, since)}</p>`;
+  // The reason is shown as it was written, or as its Welsh entry renders it,
+  // so it may end without a full stop. One is added after it, outside any code
+  // it ends with, so it does not run into the next sentence.
+  const reason = words.record(latest.inconclusiveReason).trimEnd();
+  const stop = /[.!?…](?:<\/code>)?$/u.test(reason) ? '' : '.';
+  return `<p class="unsettled">${words.latestSettledNothing(`${reason}${stop}`, since)}</p>`;
 }
 
 /**
@@ -505,12 +530,12 @@ function checkFact(words: PageWords, check: PublishedCheck): string {
 }
 
 function checkSection(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   check: PublishedCheck,
 ): string {
   return `<details class="check" id="${escapeHtml(check.id)}">
-<summary><span class="check-name"><span class="chevron" aria-hidden="true">›</span>${asWritten(words, escapeHtml(check.name))}</span><span class="check-state">${statusPill(words, check.status)}<span class="fact">${escapeHtml(checkFact(words, check))}</span></span></summary>
+<summary><span class="check-name"><span class="chevron" aria-hidden="true">›</span>${words.record(check.name)}</span><span class="check-state">${statusPill(words, check.status)}<span class="fact">${escapeHtml(checkFact(words, check))}</span></span></summary>
 <div class="check-body">
 ${unsettledNotice(words, check)}
 <dl class="facts">
@@ -561,13 +586,13 @@ function areas(ledger: PublishedLedger): readonly Area[] {
 }
 
 function areaSection(
-  words: PageWords,
+  words: Words,
   ledger: PublishedLedger,
   area: Area,
 ): string {
   const total = area.checks.length;
   return `<details class="area">
-<summary><span class="area-name"><span class="chevron" aria-hidden="true">›</span><span><span class="area-title"${writtenLang(words)}>${escapeHtml(area.name)}</span><span class="area-count">${escapeHtml(words.areaCount(area.proven, total))}</span></span></span><span class="cells" role="img" aria-label="${escapeHtml(cellsLabel(words, area.checks))}">${cells(area.checks, 'small')}</span></summary>
+<summary><span class="area-name"><span class="chevron" aria-hidden="true">›</span><span><span class="area-title">${words.record(area.name)}</span><span class="area-count">${escapeHtml(words.areaCount(area.proven, total))}</span></span></span><span class="cells" role="img" aria-label="${escapeHtml(cellsLabel(words, area.checks))}">${cells(area.checks, 'small')}</span></summary>
 <div class="area-body">
 ${area.checks.map((check) => checkSection(words, ledger, check)).join('\n')}
 </div>
@@ -678,7 +703,6 @@ h1 .result { color: var(--success-ink); }
 }
 h2 { margin: 0; font-size: 1.25rem; }
 .list-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem 1rem; margin-bottom: 1rem; }
-.lang-note { max-width: 60ch; margin: -0.25rem 0 1rem; }
 .areas { display: flex; flex-direction: column; gap: 0.75rem; }
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
@@ -805,12 +829,22 @@ function languageSwitch(words: PageWords): string {
  *
  * Every language's page is this one template with that language's words, so
  * the pages have the same parts in the same order and carry the same record.
+ *
+ * The record's own text comes from `recordWelsh` on the Welsh page. Given no
+ * table, the English page prints every record as it is written, and the Welsh
+ * page cannot be drawn at all: it throws on the first record text it meets.
+ * The build never gets that far without a table that covers every text, because
+ * it refuses first (see `welshRefusals` in record-text.ts).
  */
 export function renderPage(
   ledger: PublishedLedger,
   language: PageLanguage,
+  recordWelsh: RecordWelsh = new Map(),
 ): string {
-  const words = pageWords[language];
+  const words: Words = {
+    ...pageWords[language],
+    record: (text) => recordHtml(text, language, recordWelsh),
+  };
   const address = escapeHtml(addressOf(language));
   const description = escapeHtml(words.description);
   const imageAlt = escapeHtml(words.previewImageAlt);
@@ -823,10 +857,6 @@ export function renderPage(
   const built = `${words.builtFromCommit} <a href="${escapeHtml(commitHref(ledger, ledger.builtFrom))}"><code>${escapeHtml(shortCommit(ledger.builtFrom))}</code></a>, ${words.readAsOf(dayOn(words, ledger.builtOn))}.`;
   const headline =
     checkCount === 0 ? words.headlineEmpty : words.headline(proven, checkCount);
-  const recordsNote =
-    words.recordsLanguageNote === null
-      ? ''
-      : `\n<p class="hint lang-note">${words.recordsLanguageNote}</p>`;
 
   return `<!doctype html>
 <html lang="${words.tag}">
@@ -883,7 +913,7 @@ ${meanings(words, ledger)}
 <div class="list-head">
 <h2 id="checks">${words.checksHeading(checkCount)}</h2>
 <span class="hint">${words.checksHint}</span>
-</div>${recordsNote}
+</div>
 <div class="areas">
 ${grouped.map((area) => areaSection(words, ledger, area)).join('\n')}
 </div>
@@ -908,16 +938,18 @@ ${words.howItWorks(ledger.staleAfterDays)}
 }
 
 /**
- * Every language's page, from the one snapshot. Written out as one entry per
- * language rather than mapped, so a language added to `pageLanguages` and not
- * here fails to compile instead of being left unbuilt.
+ * Every language's page, from the one snapshot and the one table of the
+ * records' Welsh. Written out as one entry per language rather than mapped, so
+ * a language added to `pageLanguages` and not here fails to compile instead of
+ * being left unbuilt.
  */
 export function renderPages(
   ledger: PublishedLedger,
+  recordWelsh: RecordWelsh,
 ): Readonly<Record<PageLanguage, string>> {
   return {
-    en: renderPage(ledger, 'en'),
-    cy: renderPage(ledger, 'cy'),
+    en: renderPage(ledger, 'en', recordWelsh),
+    cy: renderPage(ledger, 'cy', recordWelsh),
   };
 }
 

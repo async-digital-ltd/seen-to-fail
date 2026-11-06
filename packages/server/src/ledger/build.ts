@@ -28,6 +28,8 @@ import {
   renderPages,
 } from './page.ts';
 import { publishingRefusals } from './publishable.ts';
+import { welshRefusals } from './record-text.ts';
+import type { RecordWelsh } from './record-text.ts';
 import { buildSnapshot } from './snapshot.ts';
 import type { PublishedLedger } from './snapshot.ts';
 import { disagreements, LedgerDisagreementError } from './verify.ts';
@@ -114,6 +116,13 @@ export interface BuildOptions {
    * build a page without saying which checks it may carry (#280).
    */
   readonly publishableCheckIds: readonly string[];
+  /**
+   * The Welsh for the records' text, which in this repository is
+   * `recordWelsh` in record-welsh.ts. Required for the same reason as the
+   * list above: no caller can build the pages without saying where the Welsh
+   * page's text comes from (#284).
+   */
+  readonly recordWelsh: RecordWelsh;
   /** The threshold they are read against. Defaults to the app's own. */
   readonly staleAfterDays?: number;
 }
@@ -269,6 +278,20 @@ export async function buildLedger(
     throw new LedgerRefusedError(refusals.join('\n'));
   }
 
+  // A record whose text has no Welsh, or Welsh that cannot be printed beside
+  // it, stops the build here too, before the database is touched and before
+  // either page is drawn (#284). Neither page is written, so the site keeps
+  // both at their last good version: the English is never published alone,
+  // and never stands in on the Welsh page.
+  const untranslated = welshRefusals(
+    loaded.contents,
+    options.ledgerPath,
+    options.recordWelsh,
+  );
+  if (untranslated.length > 0) {
+    throw new LedgerRefusedError(untranslated.join('\n'));
+  }
+
   await writeLedgerToDatabase(client, options.ledgerPath, loaded.contents);
 
   const summaries = await listCheckSummaries(
@@ -286,7 +309,7 @@ export async function buildLedger(
     staleAfterDays,
     recordingCommits: options.recordingCommits,
   });
-  const pages = renderPages(snapshot);
+  const pages = renderPages(snapshot, options.recordWelsh);
   const page = pages.en;
 
   const found = disagreements({
@@ -301,6 +324,7 @@ export async function buildLedger(
       staleAfterDays,
     ),
     summaries,
+    recordWelsh: options.recordWelsh,
   });
   if (found.length > 0) {
     throw new LedgerDisagreementError(found);

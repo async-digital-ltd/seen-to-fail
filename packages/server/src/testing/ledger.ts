@@ -6,6 +6,7 @@ import type { StatusTotals } from '../database/checks.ts';
 import type { CheckSummary } from '../database/summaries.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from '../ledger/identity.ts';
 import type { LedgerContents } from '../ledger/load.ts';
+import type { RecordWelsh } from '../ledger/record-text.ts';
 import { buildSnapshot } from '../ledger/snapshot.ts';
 import type { PublishedLedger } from '../ledger/snapshot.ts';
 import type { DatabaseTotals } from '../ledger/verify.ts';
@@ -164,6 +165,37 @@ export const fixtureUnsettledRunFile =
 /** What a replay that could not apply its plant reported, word for word. */
 export const fixtureUnsettledReason =
   'The anchor matches 0 times in packages/filter/src/types.ts and must match exactly once, so nothing was broken.';
+
+/**
+ * The Welsh for every text the fixture ledgers above show, as record-welsh.ts
+ * holds it for the real ledger (#284), so the Welsh page can be drawn from
+ * them. The reason a replay settled nothing marks its file name as code, so a
+ * page drawn from the fixture shows code in both languages.
+ */
+export const fixtureRecordWelsh: RecordWelsh = new Map([
+  ['A check with a catch behind it', 'Gwiriad â daliad y tu ôl iddo'],
+  ['CI', 'CI'],
+  [
+    'A check nobody has planted anything for',
+    'Gwiriad nad oes neb wedi plannu dim ar ei gyfer',
+  ],
+  ['Review', 'Adolygu'],
+  ['A defect reaching main.', 'Nam yn cyrraedd `main`.'],
+  [
+    'The step appears in the run list.',
+    'Mae’r cam yn ymddangos yn y rhestr rediadau.',
+  ],
+  ['A type error.', 'Gwall math.'],
+  ['The type check fails.', 'Mae’r gwiriad mathau yn methu.'],
+  [
+    'A type error at the declared anchor.',
+    'Gwall math wrth yr angor a ddatganwyd.',
+  ],
+  [
+    fixtureUnsettledReason,
+    'Mae’r angor yn cyfateb 0 gwaith yn `packages/filter/src/types.ts` a rhaid iddo gyfateb unwaith yn union, felly ni thorrwyd dim.',
+  ],
+]);
 
 /**
  * The same ledger, with a newer run against the first check that settled
