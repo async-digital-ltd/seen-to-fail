@@ -6,6 +6,7 @@ import {
   fixtureContentsWithAnUnsettledRun,
   fixtureDatabaseTotals,
   fixtureLedgerPath,
+  fixtureRecordWelsh,
   fixtureSnapshot,
   fixtureStatusTotals,
   fixtureSummaries,
@@ -14,8 +15,19 @@ import {
 import { ledgerCheckUuid, ledgerFileUuid } from './identity.ts';
 import { renderPage, renderPages } from './page.ts';
 import type { PublishedLedger, PublishedRun } from './snapshot.ts';
-import { disagreements } from './verify.ts';
+import { disagreements, englishDateWordsOutsideCode } from './verify.ts';
 import type { VerificationInput } from './verify.ts';
+
+/**
+ * The fixture's Welsh (#284), with the texts the tests below plant in a run or
+ * an observation, so the Welsh page can be drawn from every variant.
+ */
+const welsh = new Map([
+  ...fixtureRecordWelsh,
+  ['Something else entirely.', 'Rhywbeth hollol wahanol.'],
+  ['Another.', 'Un arall.'],
+  ['Seen again.', 'Gwelwyd eto.'],
+]);
 
 /**
  * The guard that decides whether anything is published.
@@ -32,11 +44,12 @@ function sound(): VerificationInput {
   return {
     contents: fixtureContents(),
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
     ledgerPath: fixtureLedgerPath,
     databaseTotals: fixtureDatabaseTotals(),
     statusTotals: fixtureStatusTotals(),
     summaries: fixtureSummaries(),
+    recordWelsh: welsh,
   };
 }
 
@@ -45,7 +58,11 @@ function withSnapshot(
   change: (snapshot: PublishedLedger) => PublishedLedger,
 ): VerificationInput {
   const snapshot = change(fixtureSnapshot());
-  return { ...sound(), snapshot, pages: renderPages(snapshot) };
+  return {
+    ...sound(),
+    snapshot,
+    pages: renderPages(snapshot, welsh),
+  };
 }
 
 it('finds nothing wrong with a build that agrees with its record', () => {
@@ -211,15 +228,19 @@ it('refuses a page that does not name the commit it was built from', () => {
 it('finds a check the Welsh page left out although the English page holds it', () => {
   const input = sound();
   const [first] = input.snapshot.checks;
-  if (first === undefined) {
-    throw new Error('The fixture has no checks.');
+  const welshName = first === undefined ? undefined : welsh.get(first.name);
+  if (first === undefined || welshName === undefined) {
+    throw new Error('The fixture has no check with a Welsh name.');
   }
-  expect(input.pages.cy).toContain(first.name);
+  // The Welsh page names the check in Welsh (#284), so that is what it is
+  // held to, and the English name is not on it to be found instead.
+  expect(input.pages.cy).toContain(welshName);
+  expect(input.pages.cy).not.toContain(first.name);
   const found = disagreements({
     ...input,
     pages: {
       ...input.pages,
-      cy: input.pages.cy.replaceAll(first.name, 'something else'),
+      cy: input.pages.cy.replaceAll(welshName, 'something else'),
     },
   });
   expect(found).toStrictEqual([
@@ -285,6 +306,44 @@ it('refuses a Welsh page that states its commit only in English', () => {
 });
 
 /**
+ * An English month in a record's Welsh, as a translation copied from a note
+ * that says "4 October 2026" would leave it (#284). Planted in the entry, not
+ * in the page, so the page is drawn by the renderer as a build would draw it.
+ * The Welsh month passes. A month inside code is printed as it is and passes
+ * too, so the guard reads the page's words and not its identifiers.
+ */
+it('refuses a Welsh page naming a month in English outside code, planted in a record’s Welsh', () => {
+  const plantedIn = (entry: string): VerificationInput => {
+    const recordWelsh = new Map([...welsh, ['A type error.', entry]]);
+    const input = sound();
+    return {
+      ...input,
+      recordWelsh,
+      pages: renderPages(input.snapshot, recordWelsh),
+    };
+  };
+
+  expect(
+    disagreements(plantedIn('Gwall math ar 4 October 2026.')),
+  ).toStrictEqual([
+    'The Welsh page names a month or a day in English outside code: October.',
+  ]);
+  expect(
+    disagreements(plantedIn('Gwall math ar ddydd Sat, 4 Oct 2026.')),
+  ).toStrictEqual([
+    'The Welsh page names a month or a day in English outside code: Sat, Oct.',
+  ]);
+  expect(
+    disagreements(plantedIn('Gwall math ar 4 Hydref 2026.')),
+  ).toStrictEqual([]);
+  expect(
+    englishDateWordsOutsideCode(
+      '<p>Ar 4 Hydref 2026, <code lang="en">October.md</code>, nid Oct.</p>',
+    ),
+  ).toStrictEqual(['Oct']);
+});
+
+/**
  * A page built at the commit that added one of its runs names that commit
  * twice over: on its "Built from" lines, and inside that run's `Recorded in`
  * link. A guard that looked for the commit anywhere on the page found it in
@@ -316,13 +375,17 @@ it('refuses "Built from" lines naming another commit, though a run row names the
   expect(planted).toContain(built.slice(0, 7));
 
   expect(
-    disagreements({ ...input, snapshot, pages: renderPages(snapshot) }),
+    disagreements({
+      ...input,
+      snapshot,
+      pages: renderPages(snapshot, welsh),
+    }),
   ).toStrictEqual([]);
   expect(
     disagreements({
       ...input,
       snapshot,
-      pages: { ...renderPages(snapshot), en: planted },
+      pages: { ...renderPages(snapshot, welsh), en: planted },
     }).join('\n'),
   ).toContain(`does not name ${built}`);
 });
@@ -336,7 +399,12 @@ it('refuses "Built from" lines naming another commit, though a run row names the
 function soundReplay(): VerificationInput {
   const contents = fixtureContentsFromAReplay();
   const snapshot = fixtureSnapshot(contents);
-  return { ...sound(), contents, snapshot, pages: renderPages(snapshot) };
+  return {
+    ...sound(),
+    contents,
+    snapshot,
+    pages: renderPages(snapshot, welsh),
+  };
 }
 
 /** The same input, with one run's published fields changed. */
@@ -351,7 +419,11 @@ function withRun(
       runs: check.runs.map(change),
     })),
   };
-  return { ...input, snapshot, pages: renderPages(snapshot) };
+  return {
+    ...input,
+    snapshot,
+    pages: renderPages(snapshot, welsh),
+  };
 }
 
 it('finds nothing wrong with a replay that agrees with its record', () => {
@@ -414,7 +486,7 @@ function soundUnsettled(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
     databaseTotals: { ...totals, runs: totals.runs + 1 },
     summaries: fixtureSummariesWithAnUnsettledRun(),
   };
@@ -432,7 +504,11 @@ function withUnsettledRun(
       runs: check.runs.map(change),
     })),
   };
-  return { ...input, snapshot, pages: renderPages(snapshot) };
+  return {
+    ...input,
+    snapshot,
+    pages: renderPages(snapshot, welsh),
+  };
 }
 
 it('finds nothing wrong with a ledger whose newest run settled nothing', () => {
@@ -565,7 +641,7 @@ function soundTied(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
     databaseTotals: { ...totals, runs: totals.runs + 1 },
     summaries,
   };
@@ -592,7 +668,7 @@ it('finds a table headed by a different run from the one the status was read fro
   const found = disagreements({
     ...input,
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
   });
 
   const { latest, other } = tiedIds();
@@ -698,7 +774,7 @@ function soundTiedObservations(): VerificationInput {
     ...sound(),
     contents,
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
     databaseTotals: { ...totals, observations: totals.observations + 1 },
     summaries,
   };
@@ -725,7 +801,7 @@ it('finds a list headed by a different observation from the one the armed state 
   const found = disagreements({
     ...input,
     snapshot,
-    pages: renderPages(snapshot),
+    pages: renderPages(snapshot, welsh),
   });
 
   const { latest, other } = tiedObservationIds();

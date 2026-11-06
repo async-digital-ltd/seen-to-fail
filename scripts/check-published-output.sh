@@ -14,8 +14,8 @@
 # language, its canonical address, its icons, a robots.txt naming the sitemap,
 # and a sitemap listing every page served and nothing else. Since #284 it holds
 # the page in Welsh beside it: there, in Welsh, built from the same commit,
-# canonical at its own address, and paired with the English page by hreflang
-# and by a link each way.
+# canonical at its own address, paired with the English page by hreflang and
+# by a link each way, and naming no month or day in English outside code.
 #
 # One script rather than a run block in the CI workflow, because two things run
 # it. CI runs it after `pnpm ledger:build`, on every pull request and every push
@@ -94,7 +94,10 @@ short="${commit:0:7}"
 #
 # A line is found by the words "Built from commit" followed by a raw `<`, the
 # start of the renderer's own link. Text on the page cannot produce that:
-# everything a record contributes is escaped, so its `<` reads `&lt;`. This
+# everything a record contributes is escaped, so its `<` reads `&lt;`. The one
+# raw tag a record's text brings is the `<code lang="en">` around what its
+# Welsh entry marks as code (#284), and a record whose code came straight
+# after those words would be read as a line and refused, not passed. This
 # step used to take the words "Built from" anywhere (#170), and the page shows
 # each plant's description, so a recorded catch of the plant that names the
 # wrong commit put that plant's own description on the page, where it was
@@ -319,6 +322,23 @@ if grep -qi 'noindex' "$welsh_page"; then
   exit 1
 fi
 
+# The Welsh page names no month and no day of the week in English, in full or
+# as its first three letters, anywhere outside code. The records write dates in
+# prose, such as "4 October 2026", and a Welsh entry copied from one keeps the
+# English month unless someone rewrites it. Code is printed as it is, so it is
+# taken out before the page is read, and a code element holds no markup, so it
+# ends at the first closing tag. Whole words and any case, so "Oct" and "OCT"
+# are found and "Hydref" and "Mai" are not.
+english_dates="$(
+  sed -E 's/<code[^>]*>[^<]*<\/code>/ /g' "$welsh_page" |
+    { grep -oiwE 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun' || true; } |
+    sort -u | paste -sd ' ' -
+)"
+if [ -n "$english_dates" ]; then
+  echo "The published page index.cy.html names a month or a day in English outside code: $english_dates" >&2
+  exit 1
+fi
+
 welsh_canonicals="$({ grep -o '<link rel="canonical" href="[^"]*">' "$welsh_page" || true; } | sed -E 's/.*href="([^"]*)">$/\1/')"
 welsh_og_urls="$({ grep -o '<meta property="og:url" content="[^"]*">' "$welsh_page" || true; } | sed -E 's/.*content="([^"]*)">$/\1/')"
 if [ "$welsh_canonicals" != "$welsh_url" ] || [ "$welsh_og_urls" != "$welsh_url" ]; then
@@ -399,4 +419,4 @@ if [ "$dated" -ne "$(printf '%s\n' "$listed" | grep -c .)" ]; then
   exit 1
 fi
 
-echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline, beside the page in Welsh at $welsh_url, built from the same commit and paired with it by hreflang."
+echo "The published output in $directory is sound: the page, its export, its preview image and its icons, built from $commit, with no script, open to search, canonical at $og_url, with a link preview there, a robots.txt and a sitemap listing every page, and with its count scoped under the headline, beside the page in Welsh at $welsh_url, built from the same commit, paired with it by hreflang, and naming no month or day in English."

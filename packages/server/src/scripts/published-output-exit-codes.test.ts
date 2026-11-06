@@ -14,7 +14,7 @@ import {
   renderPage,
 } from '../ledger/page.ts';
 import type { PageLanguage } from '../ledger/words.ts';
-import { fixtureSnapshot } from '../testing/ledger.ts';
+import { fixtureRecordWelsh, fixtureSnapshot } from '../testing/ledger.ts';
 
 /**
  * The check CI runs on the published output, judged the way CI judges it: by
@@ -75,6 +75,7 @@ function aPage(
       })),
     },
     language,
+    fixtureRecordWelsh,
   );
 }
 
@@ -767,6 +768,45 @@ it('refuses a Welsh page that carries a script or asks not to be indexed, and ex
   expect(refused.stderr).toContain(
     'The published page index.cy.html asks search engines not to index it.',
   );
+});
+
+/**
+ * An English month left in a record's Welsh, as a translation copied from a
+ * note that says "4 October 2026" would leave it, and an English day or a
+ * month's abbreviation the same way. Each is refused by name. The same words
+ * inside code are printed as they are, and pass, so the check reads the
+ * page's own words and not its identifiers.
+ */
+it('refuses a Welsh page that names a month or a day in English outside code, and passes it inside code', async () => {
+  const welshPlanted = '<dd>Gwall math.</dd>';
+  for (const [plant, named] of [
+    ['<dd>Gwall math ar 4 October 2026.</dd>', 'October'],
+    ['<dd>Gwall math ar 4 Oct 2026.</dd>', 'Oct'],
+    ['<dd>Gwall math ddydd Monday.</dd>', 'Monday'],
+  ] as const) {
+    const refused = await outcomeAgainst(
+      await anOutputWith(
+        soundFiles(
+          await aSoundPage(),
+          swapped(aWelshPage, welshPlanted, plant),
+        ),
+      ),
+    );
+    expect(refused.code).toBe(1);
+    expect(refused.stderr).toContain(
+      `The published page index.cy.html names a month or a day in English outside code: ${named}`,
+    );
+  }
+
+  expect(
+    await exitCodeForWelsh(
+      swapped(
+        aWelshPage,
+        welshPlanted,
+        '<dd>Gwall math, <code lang="en">October 2026</code>.</dd>',
+      ),
+    ),
+  ).toBe(0);
 });
 
 it('refuses a Welsh page that gives the English address as its own, and exits 1', async () => {

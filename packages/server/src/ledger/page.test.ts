@@ -9,6 +9,7 @@ import {
   fixtureContents,
   fixtureContentsFromAReplay,
   fixtureContentsWithAnUnsettledRun,
+  fixtureRecordWelsh,
   fixtureReplayCommit,
   fixtureReplayRunUrl,
   fixtureSnapshot,
@@ -526,8 +527,17 @@ it('ends a reason written without a full stop before the next sentence starts', 
   expect(renderPage(withoutStop, 'en')).toContain(
     `${escapeHtml(unstopped)}. Its status is read from`,
   );
-  expect(renderPage(withoutStop, 'cy')).toContain(
-    `${escapeHtml(unstopped)}</span>. Mae ei statws`,
+  // The Welsh is the entry's, and an entry may leave its full stop off too.
+  const welshReason = fixtureRecordWelsh.get(fixtureUnsettledReason) ?? '';
+  const welshUnstopped = new Map([
+    ...fixtureRecordWelsh,
+    [unstopped, welshReason.replace(/\.$/u, '')],
+  ]);
+  expect(renderPage(withoutStop, 'cy', welshUnstopped)).toContain(
+    'felly ni thorrwyd dim. Mae ei statws',
+  );
+  expect(renderPage(snapshot, 'cy', fixtureRecordWelsh)).toContain(
+    'felly ni thorrwyd dim. Mae ei statws',
   );
   expect(renderPage(snapshot, 'en')).toContain(
     `${escapeHtml(fixtureUnsettledReason)} Its status is read from`,
