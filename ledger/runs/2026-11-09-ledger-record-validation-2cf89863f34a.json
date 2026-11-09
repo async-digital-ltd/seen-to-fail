@@ -1,0 +1,12 @@
+{
+  "checkId": "ledger-record-validation",
+  "runOn": "2026-11-09",
+  "planted": "A run file naming a check that is not in the ledger.",
+  "expected": "The validator refuses the ledger and exits non-zero, and nothing is recorded.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "5744c75210c5ce38a01409168faf239d029569ee",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/42620497021"
+}

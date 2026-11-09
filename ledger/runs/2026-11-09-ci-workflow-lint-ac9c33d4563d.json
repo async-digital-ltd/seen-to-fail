@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-workflow-lint",
+  "runOn": "2026-11-09",
+  "planted": "record-run.yml reads inputs.check_id where the input is named check-id, which GitHub reads as an empty string rather than an error.",
+  "expected": "The workflow lint or the script lint fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "5744c75210c5ce38a01409168faf239d029569ee",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/42620497021"
+}

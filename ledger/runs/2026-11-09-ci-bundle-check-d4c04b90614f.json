@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-bundle-check",
+  "runOn": "2026-11-09",
+  "planted": "The client entry imports the whole of graphql and keeps it, which builds and type checks while the JavaScript grows by about half.",
+  "expected": "The bundle check fails, so the run does not go green.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "5744c75210c5ce38a01409168faf239d029569ee",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/42620497021"
+}

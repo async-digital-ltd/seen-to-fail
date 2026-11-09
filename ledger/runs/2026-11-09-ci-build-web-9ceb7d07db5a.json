@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-build-web",
+  "runOn": "2026-11-09",
+  "planted": "The page's script names /src/main.ts where the entry is /src/main.tsx, which the type check cannot see because it never reads the page.",
+  "expected": "The client build fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "5744c75210c5ce38a01409168faf239d029569ee",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/42620497021"
+}
