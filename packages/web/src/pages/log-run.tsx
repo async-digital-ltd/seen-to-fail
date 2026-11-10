@@ -17,6 +17,7 @@ import {
 } from '../components/form/fields';
 import { useFormErrors } from '../components/form/use-form-errors';
 import { Loading } from '../components/loading';
+import { PageTitle } from '../components/page-title';
 import type {
   LogTestRunInput,
   LogTestRunMutation,
@@ -464,6 +465,7 @@ function LogRunVisit(): ReactElement {
 
   return (
     <div className="log-run">
+      <PageTitle page="Log a test run" />
       <h1>Log a test run</h1>
       <p className="log-run__lede">
         One run is one planted defect. Record what you planted and what the

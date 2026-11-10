@@ -6,6 +6,7 @@ import { useQuery } from 'urql';
 
 import { ErrorNotice } from '../components/error-notice';
 import { Loading } from '../components/loading';
+import { PageTitle } from '../components/page-title';
 import { OutcomeBadge } from '../components/outcome-badge';
 import { StatusBadge } from '../components/status-badge';
 import { ago, counted, daysAgo, formatDay, lastCaughtLine } from '../days';
@@ -554,11 +555,14 @@ export function CheckDetail(): ReactElement {
     variables: { id },
   });
 
+  // Until the check has arrived the title says only that this is a check's
+  // page, then it takes the check's name, as the heading does.
+  let page = 'Check';
+  let body: ReactElement;
   if (fetching) {
-    return <Loading />;
-  }
-  if (error !== undefined) {
-    return (
+    body = <Loading />;
+  } else if (error !== undefined) {
+    body = (
       <ErrorNotice
         error={error}
         onRetry={() => {
@@ -566,12 +570,19 @@ export function CheckDetail(): ReactElement {
         }}
       />
     );
+  } else if (data === undefined) {
+    body = <Loading />;
+  } else if (data.check === null) {
+    page = 'Check not found';
+    body = <CheckNotFound />;
+  } else {
+    page = data.check.name;
+    body = <CheckRecord check={data.check} today={today()} />;
   }
-  if (data === undefined) {
-    return <Loading />;
-  }
-  if (data.check === null) {
-    return <CheckNotFound />;
-  }
-  return <CheckRecord check={data.check} today={today()} />;
+  return (
+    <>
+      <PageTitle page={page} />
+      {body}
+    </>
+  );
 }

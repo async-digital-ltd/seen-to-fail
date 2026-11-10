@@ -8,6 +8,7 @@ import { useQuery } from 'urql';
 import { ErrorNotice } from '../../components/error-notice';
 import { FilterBar } from '../../components/filter/filter-bar';
 import { Loading } from '../../components/loading';
+import { PageTitle } from '../../components/page-title';
 import { StatusTile } from '../../components/status-tile';
 import { useFilter } from '../../filter/use-filter';
 import type {
@@ -173,6 +174,7 @@ export function ChecksPage(): ReactElement {
 
   return (
     <>
+      <PageTitle page="Checks" />
       <h1>Checks</h1>
       {body}
     </>
