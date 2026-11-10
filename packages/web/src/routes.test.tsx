@@ -5,117 +5,23 @@ import { describe, expect, it } from 'vitest';
 import {
   AreasDocument,
   CheckDetailDocument,
-  CheckOptionsDocument,
-  ChecksDocument,
-  StatusCountsDocument,
 } from './graphql/generated/graphql';
-import type { ListedCheck } from './pages/checks/check-row';
 import { paths } from './paths';
 import { createRoutes } from './routes';
 import type { Answer } from './testing/client';
 import { answer } from './testing/client';
-import { aRecordedCheck, aRun } from './testing/records';
 import { renderApp } from './testing/render';
+import {
+  areas,
+  detail,
+  empty,
+  lint,
+  options,
+  populated,
+} from './testing/workspace';
 
 const footerSentence =
   'Async Digital is a one-person studio testing, in the open, what really changes when AI can write the code.';
-
-/**
- * A workspace of two checks: enough for the list to have rows, the run form a
- * choice, and a check's page a record to show. Every screen in the table below
- * is rendered with the answers it asks for, so what is counted on it is the
- * screen and not the notice a missing answer would put in its place (#47).
- */
-const lint = {
-  id: 'ci-lint',
-  name: 'Lint on every push',
-  area: 'CI',
-};
-
-const listed: readonly ListedCheck[] = [
-  {
-    ...lint,
-    status: 'PROVEN',
-    lastCaughtOn: '2026-09-12',
-    runCount: 1,
-    runs: [
-      {
-        id: 'run-1',
-        runOn: '2026-09-12',
-        outcome: 'CAUGHT',
-        planted: 'An unused import.',
-      },
-    ],
-  },
-  {
-    id: 'git-secrets',
-    name: 'Secrets never committed',
-    area: 'Git',
-    status: 'UNARMED',
-    lastCaughtOn: null,
-    runCount: 0,
-    runs: [],
-  },
-];
-
-const recorded = aRecordedCheck({
-  ...lint,
-  protects: 'A file that no longer lints reaching the main branch.',
-  howToTellArmed: 'The lint job is listed on every push.',
-  status: 'PROVEN',
-  lastCaughtOn: '2026-09-12',
-  lastSettledOn: '2026-09-12',
-  runCount: 1,
-  caughtCount: 1,
-  runs: [
-    aRun({
-      id: 'run-1',
-      runOn: '2026-09-12',
-      planted: 'An unused import.',
-      expected: 'The push is refused.',
-    }),
-  ],
-});
-
-const areas = answer(AreasDocument, { areas: ['CI', 'Git'] });
-
-const populated: readonly Answer[] = [
-  answer(StatusCountsDocument, {
-    statusCounts: {
-      proven: 1,
-      broken: 0,
-      stale: 0,
-      unproven: 0,
-      unarmed: 1,
-      total: 2,
-    },
-  }),
-  answer(ChecksDocument, {
-    checks: { checks: listed, matching: 2, hidden: 0 },
-  }),
-  areas,
-];
-
-const empty: readonly Answer[] = [
-  answer(StatusCountsDocument, {
-    statusCounts: {
-      proven: 0,
-      broken: 0,
-      stale: 0,
-      unproven: 0,
-      unarmed: 0,
-      total: 0,
-    },
-  }),
-  answer(ChecksDocument, { checks: { checks: [], matching: 0, hidden: 0 } }),
-  areas,
-];
-
-const options = answer(CheckOptionsDocument, {
-  checks: { checks: listed.map(({ id, name }) => ({ id, name })) },
-});
-
-const detail = answer(CheckDetailDocument, { check: recorded });
 
 const saveRun = () => screen.findByRole('button', { name: 'Save run' });
 

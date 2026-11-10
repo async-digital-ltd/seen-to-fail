@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { useMutation, useQuery } from 'urql';
 
 import { ErrorNotice } from '../components/error-notice';
+import { PageTitle } from '../components/page-title';
 import { ErrorSummary } from '../components/form/error-summary';
 import type { FieldErrors } from '../components/form/field-errors';
 import { SubmitButton, TextField } from '../components/form/fields';
@@ -146,6 +147,7 @@ export function AddCheck(): ReactElement {
 
   return (
     <div className="add-check">
+      <PageTitle page="Add a check" />
       <h1>Add a check</h1>
       <p className="add-check__lede">
         A check is anything meant to catch a mistake before it lands. Name it

@@ -32,6 +32,11 @@ CORS headers either, so a page on another port of the same machine can neither
 post JSON through it nor read what comes back.
 `packages/web/src/dev-server.test.ts` holds that.
 
-The list, the filter bar and the three forms carry keyboard tests, including the
-observation form on a check's own page. The rest of that page does not, and no
-dedicated keyboard and screen reader pass has been run over any of them.
+Every screen, in each state it can be in, is read by axe in
+`packages/web/src/accessibility.test.tsx`, which also tabs through every
+control on it in reading order and checks the page's title.
+`eslint-plugin-jsx-a11y`, in its strict set, reads the client's markup as part
+of `pnpm lint`. `packages/web/src/keyboard.test.tsx` walks each item of the web
+epic's "Done when" list with the keyboard alone
+([#28](https://github.com/async-digital-ltd/seen-to-fail/issues/28)). Nobody
+has walked the app with a screen reader yet.

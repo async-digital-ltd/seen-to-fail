@@ -78,7 +78,8 @@ is what was checked, what was not, and where the evidence for each is.
 
 Not checked:
 
-- No keyboard and screen reader pass has been run
+- Nobody has walked the app with a screen reader. Axe, the jsx-a11y lint rules
+  and the keyboard tests hold what can be read off the page without one
   ([#28](https://github.com/async-digital-ltd/seen-to-fail/issues/28)).
 - Nothing automated exercises the client and the server together. That path
   was walked by hand over HTTP on 16 September 2026
