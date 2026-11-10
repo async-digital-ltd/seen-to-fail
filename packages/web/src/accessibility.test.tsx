@@ -341,15 +341,15 @@ describe.each(states)('$screen, $state', (state) => {
    */
   it('reaches every control by Tab, in the order the page reads', async () => {
     const { user, container } = await arrive();
+    // A control taken out of the Tab order with tabindex="-1" is still a
+    // control, so it is expected here and fails when Tab skips it. Only an
+    // element that is not a control, such as the sentence focus is put on
+    // after a save, may be focusable without being in the order.
     const controls = [
       ...container.querySelectorAll<HTMLElement>(
-        'a[href], button, input, select, textarea, [tabindex]',
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
       ),
-    ].filter(
-      (control) =>
-        !control.matches(':disabled') &&
-        control.getAttribute('tabindex') !== '-1',
-    );
+    ].filter((control) => !control.matches(':disabled'));
 
     // From the top of the page, whatever `then` left focused.
     if (document.activeElement instanceof HTMLElement) {
