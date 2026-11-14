@@ -405,3 +405,20 @@ it('pairs the two pages with hreflang, a canonical each and a link to the other'
     '<a href="./" hreflang="en-GB" lang="en-GB">English</a>',
   );
 });
+
+/**
+ * The studio mark in the footer sends a reader to the studio's home in the
+ * page's own language: the Welsh page to the Welsh home, not the English one.
+ */
+it('sends the footer studio link to the studio home in the page’s language', () => {
+  const english = renderPage(fixtureSnapshot(), 'en');
+  const welsh = renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh);
+  const englishHome = '<a class="studio" href="https://async-digital.com">';
+  const welshHome =
+    '<a class="studio" href="https://async-digital.com/index.cy.html?lang=cy">';
+
+  expect(english.split(englishHome)).toHaveLength(2);
+  expect(english).not.toContain(welshHome);
+  expect(welsh.split(welshHome)).toHaveLength(2);
+  expect(welsh).not.toContain(englishHome);
+});
