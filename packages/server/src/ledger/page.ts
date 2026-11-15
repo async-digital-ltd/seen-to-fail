@@ -759,6 +759,17 @@ export const languagePageFilenames = {
 } as const satisfies Record<PageLanguage, string>;
 
 /**
+ * Where the studio mark in the footer sends a reader: the studio's home page in
+ * the page's own language, so a reader of the Welsh page lands on the Welsh
+ * home rather than the English one. Held to every language the page is
+ * published in, so a language added without a home fails to compile.
+ */
+export const studioHomes = {
+  en: 'https://async-digital.com',
+  cy: 'https://async-digital.com/index.cy.html?lang=cy',
+} as const satisfies Record<PageLanguage, string>;
+
+/**
  * Where a page is served. The site's index is its root address, the way the
  * page names itself in its canonical link, and any other page is its filename
  * under the root.
@@ -929,7 +940,7 @@ ${words.howItWorks(ledger.staleAfterDays)}
 <span>${built}</span>
 <a href="${escapeHtml(repository)}">${words.onGitHub(escapeHtml(ledger.repository))}</a>
 </div>
-<a class="studio" href="https://async-digital.com"><span>${words.madeBy}</span>${studioMark}</a>
+<a class="studio" href="${escapeHtml(studioHomes[words.language])}"><span>${words.madeBy}</span>${studioMark}</a>
 </footer>
 </div>
 </body>
