@@ -1,0 +1,12 @@
+{
+  "checkId": "ci-lint",
+  "runOn": "2026-11-16",
+  "planted": "The filter hook drops the promise navigate returns without marking it as dropped, which the type check accepts.",
+  "expected": "The lint fails.",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "71625548a342a3fa4456342c2fd6e843d052e648",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/43869178244"
+}
