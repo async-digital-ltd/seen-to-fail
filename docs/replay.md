@@ -89,24 +89,28 @@ workflow that runs on every pull request: `canfail` edits real source files on
 disk and restores them, which is fine on a runner nobody else is using and is
 not something to put in the path of every contributor's change.
 
-The job does seven things:
+The job has eleven steps. The first four check out the repository and install
+pnpm, Node and the dependencies. The seven after them do the work, one item
+each, in the order the workflow runs them:
 
 1. **Works out which checks are due**, with `pnpm replay:select`. It exits 0
    when something is due, 3 when nothing is, and 1 when it refuses, and the
    workflow reads that status rather than looking for an output file, because a
-   missing file cannot tell a refusal from an honest empty answer.
-2. **Creates and migrates the databases**, the same way CI does and against
-   the same kind of service container, because two of the declared checks are
-   the build and the build derives every status in PostgreSQL. Only once
-   something is due; the service itself starts with the job.
-3. **Installs `canfail` 0.2.1 and runs it** over the declaration, writing the
-   report under the runner's temporary directory rather than into the checkout.
-   The two packages its verdicts rest on, `didrun` and `restore-verified`, are
-   installed with it, each pinned by version and hash. All of this, and step 4,
-   is one step: the
+   missing file cannot tell a refusal from an honest empty answer. Every step
+   after this one runs only once something is due; the database service itself
+   starts with the job.
+2. **Creates the databases**, the same way CI does and against the same kind of
+   service container, because two of the declared checks are the build and the
+   build derives every status in PostgreSQL.
+3. **Applies the migrations** to them, with the same `pnpm db:migrate` CI runs.
+4. **Replays the declared plants**, through the
    [canfail-action](https://github.com/async-digital-ltd/canfail-action)
-   release the workflow pins by SHA, whose `requirements.txt` holds the pins.
-4. **Checks the tree came back.** `canfail` edits real files and puts them back,
+   release the workflow pins by SHA. It installs `canfail` 0.2.1 and runs it
+   over the declaration, writing the report under the runner's temporary
+   directory rather than into the checkout. The two packages its verdicts rest
+   on, `didrun` and `restore-verified`, are installed with it, each pinned by
+   version and hash in the action's `requirements.txt`. The same step then
+   checks the tree came back. `canfail` edits real files and puts them back,
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
    declared, so the job stops instead of recording them.
@@ -116,8 +120,11 @@ The job does seven things:
 6. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
    and the hand-recording workflow run, so this job cannot commit a ledger
    either of them would have refused.
-7. **Pushes `replay/<run id>` and says what is waiting**, printing the
-   `gh pr create` command into the run summary. It does not open the pull
+7. **Commits the record, pushes `replay/<run id>` and says what is waiting.**
+   The commit is staged by `scripts/stage-record.sh`, which stages `ledger/`
+   and nothing else, and stops the step with nothing staged if any path
+   outside `ledger/` changed. The step then prints the `gh pr create` command
+   into the run summary. It does not open the pull
    request. The printed title takes its ticket number from `TICKET`, and the
    command will not run until that is set, so the merged commit's subject
    names the issue the replay evidences
