@@ -66,11 +66,19 @@ const plantedCheckSchema = z.object({
       'Every check in the plant declaration needs an expected, which is what the check is expected to do about a plant.',
     ),
   /**
-   * Read for the names and nothing else, because a name is what a report files
-   * each outcome under, and a report is held to these one for one (#128).
-   * Required for the reason the check's own name is: the name a report would
-   * carry for an unnamed break is a rule inside canfail, and a copy of that
-   * rule here would be free to disagree with it after an upgrade.
+   * Read for the names, because a name is what a report files each outcome
+   * under, and a report is held to these one for one (#128). Required for the
+   * reason the check's own name is: the name a report would carry for an
+   * unnamed break is a rule inside canfail, and a copy of that rule here would
+   * be free to disagree with it after an upgrade.
+   *
+   * Read too for the three keys that say whether the plant can show anything
+   * at all (#294): `file`, `replace` and `with`, to refuse a plant that
+   * changes nothing, and `expect`, to refuse a failure pattern any failure
+   * would match. Those are refused by name in `soundnessProblems`, not here,
+   * so that each refusal names the plant it is about. `replace` and `with`
+   * stay optional here, because whether a break can be applied without them
+   * is canfail's rule, not this reader's.
    */
   breaks: z.array(
     z.object({
@@ -81,9 +89,148 @@ const plantedCheckSchema = z.object({
           1,
           'Every break in the plant declaration needs a name, which is what a report files its outcome under.',
         ),
+      file: z.string().optional(),
+      replace: z.string().optional(),
+      with: z.string().optional(),
+      expect: z.string().optional(),
     }),
   ),
 });
+
+/** One declared break, as this reader reads it. */
+type DeclaredBreak = z.output<typeof plantedCheckSchema>['breaks'][number];
+
+/**
+ * The `expect` patterns refused because any failure at all would match them,
+ * compared after trimming and ignoring case.
+ *
+ * Deliberately short (#294). The ledger cannot judge whether a pattern is good
+ * in general; it can only refuse the few that plainly say nothing. A pattern
+ * here would score a run that failed for any reason, such as a missing
+ * database or a typo in the command, as a catch.
+ */
+const catchAllExpects: readonly string[] = ['', '.*', 'error', 'fail'];
+
+/**
+ * How comments are written in a file, by its extension, for the one purpose
+ * of telling a plant that changes only comments from one that changes code.
+ *
+ * Deliberately modest rather than a parser for each language. A line comment
+ * counts only at the start of a line or after whitespace, so the `//` in a
+ * URL and the `#` in a shell `$#` are left alone; the cost is that a comment
+ * written straight after code with no space between is read as code, which
+ * can only let a plant through, never refuse a sound one. A file whose type
+ * is not listed is compared for whitespace alone.
+ */
+const commentSyntax: Readonly<
+  Record<
+    string,
+    { readonly line?: string; readonly block?: readonly [string, string] }
+  >
+> = {
+  ts: { line: '//', block: ['/*', '*/'] },
+  tsx: { line: '//', block: ['/*', '*/'] },
+  js: { line: '//', block: ['/*', '*/'] },
+  jsx: { line: '//', block: ['/*', '*/'] },
+  mjs: { line: '//', block: ['/*', '*/'] },
+  cjs: { line: '//', block: ['/*', '*/'] },
+  css: { block: ['/*', '*/'] },
+  graphql: { line: '#' },
+  sh: { line: '#' },
+  bash: { line: '#' },
+  yml: { line: '#' },
+  yaml: { line: '#' },
+  toml: { line: '#' },
+  py: { line: '#' },
+  sql: { line: '--', block: ['/*', '*/'] },
+  html: { block: ['<!--', '-->'] },
+  md: { block: ['<!--', '-->'] },
+  svg: { block: ['<!--', '-->'] },
+  xml: { block: ['<!--', '-->'] },
+};
+
+function escaped(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+}
+
+/**
+ * The text with its comments and all of its whitespace taken out, so two
+ * texts that differ only in those read the same.
+ *
+ * All whitespace rather than runs of it, because a plant that only adds a
+ * space around an operator changes nothing either. That also refuses a plant
+ * whose only change is a space inside a string or the indent of a YAML line,
+ * which can change behaviour; such a plant can always be written to change
+ * something else instead, and the ticket asks for whitespace to be refused.
+ */
+function withoutCommentsOrWhitespace(text: string, file: string): string {
+  const extension = /\.([^./]+)$/.exec(file)?.[1]?.toLowerCase() ?? '';
+  const syntax = commentSyntax[extension];
+  let stripped = text;
+  if (syntax?.block !== undefined) {
+    const [open, close] = syntax.block;
+    stripped = stripped.replace(
+      new RegExp(`${escaped(open)}[\\s\\S]*?${escaped(close)}`, 'g'),
+      '',
+    );
+  }
+  if (syntax?.line !== undefined) {
+    stripped = stripped.replace(
+      new RegExp(`(^|\\s)${escaped(syntax.line)}[^\\n]*`, 'gm'),
+      '$1',
+    );
+  }
+  return stripped.replace(/\s+/g, '');
+}
+
+/**
+ * Every reason this break cannot show whether its check works, each naming
+ * the plant (#294).
+ *
+ * A plant that changes nothing is recorded as a miss when the check stays
+ * green, which shows a sound check as Broken. An `expect` that any failure
+ * matches scores a run that failed for the wrong reason as a catch, which
+ * shows a check as Proven that nothing proved. Both are refused when the
+ * declaration is read, before any replay runs.
+ *
+ * A plant that applies, changes behaviour, and that no check sees is not
+ * refused: canfail scores it `blind`, and the ledger cannot tell that from a
+ * weak check.
+ */
+function soundnessProblems(
+  checkName: string,
+  declared: DeclaredBreak,
+): string[] {
+  const plant = `The break ${declared.name} of the check ${checkName}`;
+  const problems: string[] = [];
+
+  if (declared.replace !== undefined && declared.with !== undefined) {
+    if (declared.replace === declared.with) {
+      problems.push(
+        `${plant} replaces its text with the same text, so the plant changes nothing and cannot show whether the check works.`,
+      );
+    } else if (
+      withoutCommentsOrWhitespace(declared.replace, declared.file ?? '') ===
+      withoutCommentsOrWhitespace(declared.with, declared.file ?? '')
+    ) {
+      problems.push(
+        `${plant} changes only whitespace or comments, so the plant changes nothing and cannot show whether the check works.`,
+      );
+    }
+  }
+
+  if (declared.expect === undefined) {
+    problems.push(
+      `${plant} declares no expect, so any failure at all would be scored as a catch.`,
+    );
+  } else if (catchAllExpects.includes(declared.expect.trim().toLowerCase())) {
+    problems.push(
+      `${plant} expects ${JSON.stringify(declared.expect)}, which any failure at all would match, so it would score a failure for the wrong reason as a catch.`,
+    );
+  }
+
+  return problems;
+}
 
 const declarationSchema = z.object({
   checks: z.array(plantedCheckSchema),
@@ -148,6 +295,9 @@ export function parsePlantedChecks(
       problems.push(
         `Two breaks of the check ${check.name} are both named ${name}, so an outcome filed under it could mean either.`,
       );
+    }
+    for (const declared of check.breaks) {
+      problems.push(...soundnessProblems(check.name, declared));
     }
     checks.set(check.name, {
       checkId: check.checkId,

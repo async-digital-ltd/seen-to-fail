@@ -55,6 +55,7 @@ function declaring(breakNames: readonly string[]) {
           file: 'a.ts',
           replace: 'a',
           with: 'b',
+          expect: 'error TS[0-9]+',
         })),
       },
     ],

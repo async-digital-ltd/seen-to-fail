@@ -48,6 +48,7 @@ function checks(breakNames: readonly string[]): PlantedChecks {
           file: 'a.ts',
           replace: 'a',
           with: 'b',
+          expect: 'error TS[0-9]+',
         })),
       },
     ],
@@ -344,13 +345,13 @@ describe('a report held to the breaks the declaration holds', () => {
           name: 'Type check',
           checkId: 'ci-type-check',
           expected: 'The type check fails.',
-          breaks: declared.map((name) => ({ name })),
+          breaks: declared.map((name) => ({ name, expect: 'error TS[0-9]+' })),
         },
         {
           name: 'Lint',
           checkId: 'ci-lint',
           expected: 'The lint fails.',
-          breaks: [{ name: 'An unused import.' }],
+          breaks: [{ name: 'An unused import.', expect: 'no-unused-vars' }],
         },
       ],
     });
