@@ -449,8 +449,8 @@ export const welsh: PageWords = {
   kindsCaught: 'Mathau o nam a ddaliwyd',
   plantKinds: {
     'wrong-answer': 'Ateb anghywir',
-    'missing-case': 'Achos ar goll',
-    crash: 'Chwalfa',
+    'missing-case': 'Achos heb ei drin',
+    crash: 'Methiant y rhaglen',
     security: 'Diogelwch',
     configuration: 'Ffurfweddiad',
     dependency: 'Dibyniaeth',
@@ -494,7 +494,7 @@ export const welsh: PageWords = {
 <p>I brofi gwiriad, mae nam y dylai’r gwiriad ei ddal yn cael ei blannu’n fwriadol, mae’r gwiriad yn cael ei redeg, ac mae’r canlyniad yn cael ei gofnodi fel un o dri chanlyniad.</p>
 <dl class="pair"><dt>${cyOutcomeNames.caught}</dt><dd>Trodd y gwiriad yn goch.</dd><dt>${cyOutcomeNames.missed}</dt><dd>Arhosodd y gwiriad yn wyrdd. Mae nam wedi’i blannu sy’n newid yr hyn y mae’r cod yn ei wneud, ond nad yw’r gwiriad yn ei weld, hefyd yn cael ei gofnodi fel ${cyOutcomeNames.missed}: ni all y cyfriflyfr wahaniaethu rhwng hynny a gwiriad gwan.</dd><dt>${cyOutcomeNames.inconclusive}</dt><dd>Ni ddywedodd y rhediad ddim wrthym am y gwiriad, ac mae’r rheswm a gofnodwyd yn cael ei ddangos. Nid oes statws yn cael ei ddarllen ohono.</dd></dl>
 <p>Rhediad â llaw yw un y mae rhywun wedi’i blannu, ei wylio a’i gofnodi. Mae ailchwarae yn cael ei blannu a’i sgorio gan swydd yn erbyn cod newyddach, felly mae gwiriad a ddatganwyd ar gyfer ailchwarae yn dal i gael ei brofi ar ôl ei brawf cyntaf. Dim ond pan fydd rhywun yn plannu nam â llaw y caiff gwiriad nad yw wedi’i ddatgan ei brofi. Mae prawf sy’n hŷn na ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} yn cael y statws ${cyStatuses.Stale}.</p>
-<p>Mae math nam a blannwyd, fel ateb anghywir neu chwalfa, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>
+<p>Mae math nam a blannwyd, fel ateb anghywir neu fethiant y rhaglen, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>
 <p>Mae pob rhediad yn ffeil yn yr ystorfa, wedi’i hychwanegu gan ymrwymiad fel unrhyw newid arall, felly mae gan gofnod anghywir awdur, gwahaniaeth i’w ddarllen, a ffordd o’i ddadwneud.</p>
 <p>Darllen yn unig yw’r dudalen hon: nid oes ganddi far hidlo na gweinydd y tu ôl iddi. Mae’r hidlydd yn gweithio pan fyddwch yn rhedeg yr ap yn lleol. Cyhoeddir yr un cyfriflyfr wrth ymyl y dudalen hon fel <a href="ledger.json"><code>ledger.json</code></a>.</p>`,
   onGitHub: (repository) => `${repository} ar GitHub ↗`,

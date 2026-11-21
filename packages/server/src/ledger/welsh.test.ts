@@ -459,8 +459,8 @@ it('names every kind of planted defect a check caught in Welsh', () => {
   expect(english).toHaveLength(PLANT_KINDS.length);
   expect(welsh).toStrictEqual([
     'Ateb anghywir',
-    'Achos ar goll',
-    'Chwalfa',
+    'Achos heb ei drin',
+    'Methiant y rhaglen',
     'Diogelwch',
     'Ffurfweddiad',
     'Dibyniaeth',
@@ -473,6 +473,6 @@ it('names every kind of planted defect a check caught in Welsh', () => {
 /** The Welsh half of the help text on where a kind comes from (#295). */
 it('says in its Welsh help text that a kind is declared by the plant’s author, not inferred', () => {
   expect(renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh)).toContain(
-    '<p>Mae math nam a blannwyd, fel ateb anghywir neu chwalfa, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>',
+    '<p>Mae math nam a blannwyd, fel ateb anghywir neu fethiant y rhaglen, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>',
   );
 });
