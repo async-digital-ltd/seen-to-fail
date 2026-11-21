@@ -30,11 +30,18 @@ untested.
 What nothing holds is a long-lived token against a running instance, because
 there is no instance to write to. Both workflows, the one below and the [replay](replay.md), run on the short-lived
 `GITHUB_TOKEN` the runner is handed and carry no secret of their own, so there
-is nothing here to leak, rotate or scope. Their `permissions:` blocks are the
-whole of what they can do and are the same one line: each asks for `contents:
-write` and nothing else, because neither tries to open its own pull request.
-What either of them writes is a commit on a branch that a person then has to
-merge.
+is nothing here to leak or rotate. Neither keeps that token where the rest of
+the job can read it. Each checkout is told not to write it into the clone's git
+config, so the installs, the build and every plant run without it, and only the
+step that pushes the record is given it, through that step's own environment.
+That is the part to copy: a dependency or a plant that misbehaves has no token
+to misuse. Their `permissions:` blocks are the whole of what the token can do,
+and only a job that pushes asks for `contents: write`. The recording workflow
+has one job and asks for it there. The replay grants nothing at the top of the
+file, gives its selection job `contents: read` and gives `contents: write` to
+the replay job alone. Neither asks for more, because neither tries to open its
+own pull request. What either of them writes is a commit on a branch that a
+person then has to merge.
 
 ## A run recorded by hand
 
