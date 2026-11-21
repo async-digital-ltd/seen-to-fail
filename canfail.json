@@ -22,6 +22,7 @@
       "breaks": [
         {
           "name": "STATUSES loses its as const, so Status widens to string.",
+          "kind": "missing-case",
           "file": "packages/filter/src/types.ts",
           "replace": "  'Unproven',\n] as const;",
           "with": "  'Unproven',\n];",
@@ -29,6 +30,7 @@
         },
         {
           "name": "STALE_AFTER_DAYS is written as a string rather than a number.",
+          "kind": "wrong-answer",
           "file": "packages/server/src/staleness.ts",
           "replace": "export const STALE_AFTER_DAYS = 30;",
           "with": "export const STALE_AFTER_DAYS = '30';",
@@ -60,6 +62,7 @@
       "breaks": [
         {
           "name": "The build writes a script tag into the page after the page it checked, so the file on disk is not the page it verified.",
+          "kind": "security",
           "file": "packages/server/src/ledger/build.ts",
           "replace": "  await writeFile(pagePath, page, 'utf8');",
           "with": "  await writeFile(pagePath, `${page}<script></script>`, 'utf8');",
@@ -67,6 +70,7 @@
         },
         {
           "name": "The build reads the commit it was built from as the parent of HEAD, so the page's \"Built from\" lines name a commit the page was not built from.",
+          "kind": "wrong-answer",
           "file": "packages/server/src/ledger/commits.ts",
           "replace": "  return (await git(repositoryRoot, 'rev-parse', 'HEAD')).trim();",
           "with": "  return (await git(repositoryRoot, 'rev-parse', 'HEAD~1')).trim();",
@@ -97,6 +101,7 @@
       "breaks": [
         {
           "name": "One observation dropped from the export, inside the function that builds it, so the page holds one fewer than the ledger.",
+          "kind": "wrong-answer",
           "file": "packages/server/src/ledger/snapshot.ts",
           "replace": "for (const entry of input.contents.observations) {",
           "with": "for (const entry of input.contents.observations.slice(1)) {",
@@ -104,6 +109,7 @@
         },
         {
           "name": "The status tally counts nothing, so every tile on the page says zero however many checks hold that status.",
+          "kind": "wrong-answer",
           "file": "packages/server/src/ledger/snapshot.ts",
           "replace": "    counts[check.status] += 1;",
           "with": "    counts[check.status] += 0;",
@@ -135,6 +141,7 @@
       "breaks": [
         {
           "name": "A run file whose outcome is a word the ledger does not know.",
+          "kind": "missing-case",
           "file": "ledger/runs/2026-09-18-ledger-record-validation-718c6198ebf1.json",
           "replace": "\"outcome\": \"caught\"",
           "with": "\"outcome\": \"passed\"",
@@ -142,6 +149,7 @@
         },
         {
           "name": "A run file naming a check that is not in the ledger.",
+          "kind": "configuration",
           "file": "ledger/runs/2026-09-18-ledger-record-validation-718c6198ebf1.json",
           "replace": "\"checkId\": \"ledger-record-validation\"",
           "with": "\"checkId\": \"ledger-record-validatio\"",
@@ -167,6 +175,7 @@
       "breaks": [
         {
           "name": "record-run.yml reads inputs.check_id where the input is named check-id, which GitHub reads as an empty string rather than an error.",
+          "kind": "configuration",
           "file": ".github/workflows/record-run.yml",
           "replace": "          INPUT_CHECK_ID: ${{ inputs.check-id }}\n          INPUT_RUN_ON: ${{ inputs.run-on }}\n          INPUT_PLANTED:",
           "with": "          INPUT_CHECK_ID: ${{ inputs.check_id }}\n          INPUT_RUN_ON: ${{ inputs.run-on }}\n          INPUT_PLANTED:",
@@ -174,6 +183,7 @@
         },
         {
           "name": "replay.yml reads inputs.only_due where the input is named only-due, so a dispatch ticked to replay only what is due would replay everything.",
+          "kind": "configuration",
           "file": ".github/workflows/replay.yml",
           "replace": "inputs.only-due }}",
           "with": "inputs.only_due }}",
@@ -181,6 +191,7 @@
         },
         {
           "name": "check-published-output.sh leaves $page unquoted in its first test, so a path to the page with a space in it would be split into separate words.",
+          "kind": "wrong-answer",
           "file": "scripts/check-published-output.sh",
           "replace": "if [ ! -f \"$page\" ]; then",
           "with": "if [ ! -f $page ]; then",
@@ -188,6 +199,7 @@
         },
         {
           "name": "waiting-branches.yml uses actions/checkout@v7, a tag anyone who can write to that repository can move, rather than a commit SHA, which actionlint accepts.",
+          "kind": "dependency",
           "file": ".github/workflows/waiting-branches.yml",
           "replace": "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
           "with": "uses: actions/checkout@v7",
@@ -218,6 +230,7 @@
       "breaks": [
         {
           "name": "The entry point imports ./environment without its file extension, which the type check accepts and Node cannot resolve.",
+          "kind": "crash",
           "file": "packages/server/src/index.ts",
           "replace": "import './environment.ts';",
           "with": "import './environment';",
@@ -225,6 +238,7 @@
         },
         {
           "name": "The entry point starts a timer where it would listen, so the process stays up and never binds the port.",
+          "kind": "crash",
           "file": "packages/server/src/index.ts",
           "replace": "server.listen(serverPort, serverHost, () => {",
           "with": "setInterval(() => undefined, 60_000);\nvoid (() => {",
@@ -254,6 +268,7 @@
       "breaks": [
         {
           "name": "REPLAY_AFTER_DAYS loses the semicolon every other statement ends with, which the type check and the tests both accept.",
+          "kind": "configuration",
           "file": "packages/server/src/staleness.ts",
           "replace": "export const REPLAY_AFTER_DAYS = 14;",
           "with": "export const REPLAY_AFTER_DAYS = 14",
@@ -284,6 +299,7 @@
       "breaks": [
         {
           "name": "The filter hook drops the promise navigate returns without marking it as dropped, which the type check accepts.",
+          "kind": "missing-case",
           "file": "packages/web/src/filter/use-filter.ts",
           "replace": "      void navigate(paths.checks({ filter: next }));",
           "with": "      navigate(paths.checks({ filter: next }));",
@@ -313,6 +329,7 @@
       "breaks": [
         {
           "name": "A link's day count accepts a leading zero, so one filter has two links, which the type check accepts.",
+          "kind": "missing-case",
           "file": "packages/filter/src/url.ts",
           "replace": "const WHOLE_NUMBER = /^(?:0|[1-9][0-9]*)$/;",
           "with": "const WHOLE_NUMBER = /^[0-9]+$/;",
@@ -343,6 +360,7 @@
       "breaks": [
         {
           "name": "The page's script names /src/main.ts where the entry is /src/main.tsx, which the type check cannot see because it never reads the page.",
+          "kind": "crash",
           "file": "packages/web/index.html",
           "replace": "<script type=\"module\" src=\"/src/main.tsx\"></script>",
           "with": "<script type=\"module\" src=\"/src/main.ts\"></script>",
@@ -373,6 +391,7 @@
       "breaks": [
         {
           "name": "The client entry imports the whole of graphql and keeps it, which builds and type checks while the JavaScript grows by about half.",
+          "kind": "dependency",
           "file": "packages/web/src/main.tsx",
           "replace": "import { Provider } from 'urql';\n",
           "with": "import { Provider } from 'urql';\nimport * as graphql from 'graphql';\n\nObject.assign(window, { graphql });\n",
@@ -380,6 +399,7 @@
         },
         {
           "name": "The base stylesheet gains four shadow classes nothing uses, which grows the CSS by about one and a half per cent and the whole build by well under one, so only the CSS limit can catch it.",
+          "kind": "configuration",
           "file": "packages/web/src/styles/base.css",
           "replace": "html {\n  /* Form controls follow the page",
           "with": ".shadow-1 {\n  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 6px rgb(0 0 0 / 0.06);\n}\n\n.shadow-2 {\n  box-shadow: 0 2px 4px rgb(0 0 0 / 0.1), 0 6px 16px rgb(0 0 0 / 0.08);\n}\n\n.shadow-3 {\n  box-shadow: 0 4px 8px rgb(0 0 0 / 0.12), 0 12px 32px rgb(0 0 0 / 0.1);\n}\n\n.shadow-4 {\n  box-shadow: 0 8px 16px rgb(0 0 0 / 0.14), 0 24px 64px rgb(0 0 0 / 0.12);\n}\n\nhtml {\n  /* Form controls follow the page",

@@ -45,6 +45,7 @@ function checks(breakNames: readonly string[]): PlantedChecks {
         run: 'pnpm typecheck',
         breaks: breakNames.map((name) => ({
           name,
+          kind: 'wrong-answer',
           file: 'a.ts',
           replace: 'a',
           with: 'b',
@@ -345,13 +346,23 @@ describe('a report held to the breaks the declaration holds', () => {
           name: 'Type check',
           checkId: 'ci-type-check',
           expected: 'The type check fails.',
-          breaks: declared.map((name) => ({ name, expect: 'error TS[0-9]+' })),
+          breaks: declared.map((name) => ({
+            name,
+            kind: 'wrong-answer',
+            expect: 'error TS[0-9]+',
+          })),
         },
         {
           name: 'Lint',
           checkId: 'ci-lint',
           expected: 'The lint fails.',
-          breaks: [{ name: 'An unused import.', expect: 'no-unused-vars' }],
+          breaks: [
+            {
+              name: 'An unused import.',
+              kind: 'configuration',
+              expect: 'no-unused-vars',
+            },
+          ],
         },
       ],
     });

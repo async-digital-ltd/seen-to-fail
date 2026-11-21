@@ -115,6 +115,31 @@ not refused. `canfail` scores it `blind`, which is recorded as missed, because
 the ledger cannot tell it from a weak check. The published page says so in its
 help text.
 
+## The kind of defect a plant is
+
+Every break in `canfail.json` declares a `kind`, the sort of defect it plants
+(#295), from this fixed list:
+
+- `wrong-answer`: the code runs and gives a plausible answer that is wrong;
+- `missing-case`: an input or a path the code should handle is left unhandled
+  or let through;
+- `crash`: the code stops, or never starts, rather than answering;
+- `security`: the defect exposes something or lets in something it should not;
+- `configuration`: a setting, a workflow, a rule file or a declared record is
+  wrong while the code is right;
+- `dependency`: something the code depends on is pulled in, pinned or resolved
+  wrongly.
+
+Reading `canfail.json` refuses a break with no `kind`, or with a `kind` outside
+the list, before any replay runs, and names the check and the break, as it does
+for the plants above. `canfail` ignores the key.
+
+The kind is declared by the plant's author, not inferred: nothing reads the
+replacement to decide it. It says what sort of defect a check has been seen to
+catch, so that a check seen to catch only crashes is not taken for one that
+catches a wrong answer. It plays no part in a check's status, and it does not
+say whether the plant is a realistic risk, which stays a human judgement.
+
 ## Which checks a change touches
 
 A replay that runs on every commit says nothing and costs money, so each check

@@ -52,6 +52,7 @@ function declaring(breakNames: readonly string[]) {
         run: 'pnpm typecheck',
         breaks: breakNames.map((name) => ({
           name,
+          kind: 'wrong-answer',
           file: 'a.ts',
           replace: 'a',
           with: 'b',
