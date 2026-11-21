@@ -175,10 +175,14 @@ const readFrom = {
  * Unarmed is the one status read from either kind of evidence or from neither,
  * so its sentence turns on which the API said, and on whether a run has ever
  * settled anything for the status to go back to.
+ *
+ * The staleness threshold is the one the API derived the status with, never a
+ * number written here, so moving it on the server moves this sentence too. A
+ * catch exactly that many days old is still Proven, hence "more than".
  */
 const whatWouldChange = {
-  Proven: () =>
-    'A test run that misses would make it Broken. An observation that finds it switched off would make it Unarmed. With no new run, it turns Stale once the last catch is more than 30 days old.',
+  Proven: (_check, staleAfterDays) =>
+    `A test run that misses would make it Broken. An observation that finds it switched off would make it Unarmed. With no new run, it turns Stale once the last catch is more than ${counted(staleAfterDays, 'day')} old.`,
   Stale: () =>
     'A test run that catches would make it Proven again, and one that misses would make it Broken. An observation that finds it switched off would make it Unarmed.',
   Broken: () =>
@@ -195,7 +199,10 @@ const whatWouldChange = {
         : 'An observation that finds it switched on would hand the status back to the latest test run.';
     return `${backTo} A test run on a later day than the latest observation would make it Proven if it catches and Broken if it misses.`;
   },
-} as const satisfies Record<Status, (check: RecordedCheck) => string>;
+} as const satisfies Record<
+  Status,
+  (check: RecordedCheck, staleAfterDays: number) => string
+>;
 
 /**
  * The text a check was described with, or a muted line saying nobody has
@@ -338,10 +345,16 @@ function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
 interface CheckRecordProps {
   readonly check: RecordedCheck;
   readonly today: string;
+  /** The threshold the API derived the status with, in days. */
+  readonly staleAfterDays: number;
 }
 
 /** Everything recorded about one check, and what to do about it next. */
-function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
+function CheckRecord({
+  check,
+  today: day,
+  staleAfterDays,
+}: CheckRecordProps): ReactElement {
   const protectsId = useId();
   const armedId = useId();
   const evidenceId = useId();
@@ -427,7 +440,7 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
          */}
         <div className="check-detail__basis">
           <p>{readFrom[check.statusFrom]}</p>
-          <p>{whatWouldChange[status](check)}</p>
+          <p>{whatWouldChange[status](check, staleAfterDays)}</p>
         </div>
       </header>
 
@@ -632,7 +645,13 @@ export function CheckDetail(): ReactElement {
     body = <CheckNotFound />;
   } else {
     page = data.check.name;
-    body = <CheckRecord check={data.check} today={today()} />;
+    body = (
+      <CheckRecord
+        check={data.check}
+        today={today()}
+        staleAfterDays={data.staleAfterDays}
+      />
+    );
   }
   return (
     <>

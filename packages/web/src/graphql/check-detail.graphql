@@ -1,4 +1,5 @@
 query CheckDetail($id: ID!) {
+  staleAfterDays
   check(id: $id) {
     id
     name

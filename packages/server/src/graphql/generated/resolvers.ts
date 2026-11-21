@@ -301,6 +301,15 @@ export type Query = {
    */
   checks: CheckList;
   /**
+   * How many days old a check's latest catch may be and still read Proven.
+   *
+   * The threshold every status in this response was derived with. A catch exactly
+   * this many days old is Proven, and one a day older is Stale. It is here so a
+   * page that explains the rule can say the number the server used, rather than
+   * keep a copy of its own that could fall behind.
+   */
+  staleAfterDays: Scalars['Int']['output'];
+  /**
    * How many checks hold each status.
    *
    * Always the whole workspace, whatever the list is filtered by, so the counts
@@ -854,6 +863,7 @@ export type QueryResolvers<
     ContextType,
     Partial<QueryChecksArgs>
   >;
+  staleAfterDays?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   statusCounts?: Resolver<
     ResolversTypes['StatusCounts'],
     ParentType,

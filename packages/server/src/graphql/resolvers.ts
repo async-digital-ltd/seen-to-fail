@@ -95,6 +95,10 @@ const Query: Required<QueryResolvers> = {
 
   areas: (_parent, _args, context) => listAreas(context.database),
 
+  // The same value every status in the response was derived with, so the
+  // number a page explains the rule with cannot differ from the rule it ran.
+  staleAfterDays: (_parent, _args, context) => context.staleAfterDays,
+
   statusCounts: async (_parent, _args, context) => {
     const totals = await countChecksByStatus(
       context.database,

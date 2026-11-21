@@ -51,11 +51,11 @@ function anUnsettledRun(
   });
 }
 
-function renderCheck(check: RecordedCheck | null) {
+function renderCheck(check: RecordedCheck | null, staleAfterDays = 30) {
   return renderWithProviders(<CheckDetail />, {
     route: paths.check(id),
     path: '/checks/:id',
-    answers: [answer(CheckDetailDocument, { check })],
+    answers: [answer(CheckDetailDocument, { staleAfterDays, check })],
   });
 }
 
@@ -277,7 +277,9 @@ describe('the next step', () => {
   it('is the only brick fill on the screen, shell included', async () => {
     const { container } = renderApp({
       route: paths.check(id),
-      answers: [answer(CheckDetailDocument, { check: aCheck() })],
+      answers: [
+        answer(CheckDetailDocument, { staleAfterDays: 30, check: aCheck() }),
+      ],
     });
     await screen.findByRole('heading', { level: 1, name: aCheck().name });
 
@@ -529,6 +531,26 @@ describe('which evidence the status came from', () => {
 
     expect(within(hero()).getByText(says)).toBeVisible();
   });
+
+  it.each([
+    [45, 'more than 45 days old'],
+    [1, 'more than 1 day old'],
+  ])(
+    'says the staleness threshold the API answered with, %i',
+    async (staleAfterDays, phrase) => {
+      // The server owns the number and the page holds no copy of it, so the
+      // sentence moves with whatever the API says, including a number the
+      // server does not use today.
+      renderCheck(aCheck({ status: 'PROVEN' }), staleAfterDays);
+      await screen.findByRole('heading', { level: 1 });
+
+      expect(
+        within(hero()).getByText(
+          new RegExp(`turns Stale once the last catch is ${phrase}\\.$`, 'u'),
+        ),
+      ).toBeVisible();
+    },
+  );
 });
 
 describe('a latest run that settled nothing', () => {

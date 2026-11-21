@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
 import { get, post, query } from '../testing/graphql.ts';
+import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { statusName } from './enums.ts';
 import { createGraphQLServer, healthRoute, readinessRoute } from './server.ts';
@@ -306,6 +307,21 @@ it('counts every status, including the ones no check holds', async () => {
     broken: 0,
     total: 0,
   });
+});
+
+it('says the staleness threshold it derived every status with', async () => {
+  const read = async (server: ReturnType<typeof createGraphQLServer>) =>
+    (await query<{ staleAfterDays: number }>(server, '{ staleAfterDays }'))
+      .staleAfterDays;
+
+  expect(await read(createGraphQLServer({ database: database.client() }))).toBe(
+    STALE_AFTER_DAYS,
+  );
+  expect(
+    await read(
+      createGraphQLServer({ database: database.client(), staleAfterDays: 45 }),
+    ),
+  ).toBe(45);
 });
 
 it('answers with null for an id nothing is recorded under', async () => {

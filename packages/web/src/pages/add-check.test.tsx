@@ -517,7 +517,7 @@ describe('the list, once a check has been added', () => {
           },
         };
       }),
-      answer(CheckDetailDocument, { check: null }),
+      answer(CheckDetailDocument, { staleAfterDays: 30, check: null }),
     ];
   }
 

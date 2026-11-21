@@ -142,6 +142,7 @@ export type CheckDetailQueryVariables = Exact<{
 }>;
 
 export type CheckDetailQuery = {
+  staleAfterDays: number;
   check: {
     id: string;
     name: string;
@@ -302,6 +303,7 @@ export const CheckDetailDocument = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'staleAfterDays' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'check' },
