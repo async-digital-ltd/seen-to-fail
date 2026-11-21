@@ -36,6 +36,7 @@ export function aRecordedCheck(
     caughtCount: 0,
     missedCount: 0,
     inconclusiveCount: 0,
+    kindsCaught: [],
     runs: [],
     armingObservations: [],
     ...overrides,

@@ -226,6 +226,16 @@
   font-size: 0.875rem;
 }
 
+.check-detail__plant-kinds h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+.check-detail__plant-kinds ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.25rem;
+}
+
 .check-detail__history-heading {
   display: flex;
   flex-wrap: wrap;

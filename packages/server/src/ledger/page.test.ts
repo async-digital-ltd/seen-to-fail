@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { STATUSES } from '@seen-to-fail/filter';
+import type { PlantKind } from '@seen-to-fail/replay';
 import { expect, it } from 'vitest';
 
 import {
@@ -26,9 +27,10 @@ import {
   renderNotFoundPage,
   renderPage,
 } from './page.ts';
+import { ledgerCheckUuid } from './identity.ts';
 import { repositoryRoot } from './location.ts';
 import { buildSnapshot } from './snapshot.ts';
-import type { PublishedCheck } from './snapshot.ts';
+import type { PublishedCheck, PublishedLedger } from './snapshot.ts';
 
 /**
  * The published page.
@@ -939,5 +941,53 @@ it('keeps the not-found page out of search, with no script', () => {
 it('says in its help text that a plant no check sees is recorded as missed', () => {
   expect(renderPage(fixtureSnapshot(), 'en')).toContain(
     'but that the check does not see, is recorded as Missed too: the ledger cannot tell that from a weak check.',
+  );
+});
+
+/** The fixture with the first check seen to catch these kinds, through the snapshot. */
+function caughtKinds(kinds: readonly PlantKind[]): PublishedLedger {
+  return fixtureSnapshot(
+    fixtureContents(),
+    fixtureSummaries(),
+    new Map([[ledgerCheckUuid('first-check'), kinds]]),
+  );
+}
+
+/** The kinds a check's facts list on a page, in the order the page lists them. */
+function kindsListed(page: string, checkId: string): string[] {
+  const start = page.indexOf(`<details class="check" id="${checkId}">`);
+  const section = page.slice(start, page.indexOf('</details>', start));
+  const list = /<ul class="kinds">(.*?)<\/ul>/u.exec(section)?.[1] ?? '';
+  return [...list.matchAll(/<li>([^<]*)<\/li>/gu)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/**
+ * A check's facts list each kind of planted defect it has caught (#295), and a
+ * check that has caught no declared kind shows no label and no list at all.
+ */
+it('lists every kind a check caught, and nothing for a check that caught none', () => {
+  const page = renderPage(caughtKinds(['wrong-answer', 'crash']), 'en');
+
+  expect(kindsListed(page, 'first-check')).toStrictEqual([
+    'Wrong answer',
+    'Crash',
+  ]);
+  expect(page.split('<dt>Kinds of defect caught</dt>')).toHaveLength(2);
+
+  const none = renderPage(fixtureSnapshot(), 'en');
+  expect(none).not.toContain('Kinds of defect caught');
+  expect(none).not.toContain('<ul class="kinds">');
+});
+
+/**
+ * The help text says where a kind comes from: its plant's author declared it,
+ * and the ledger did not work it out (#295). The Welsh page says the same,
+ * held in the Welsh tests.
+ */
+it('says in its help text that a kind is declared by the plant’s author, not inferred', () => {
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain(
+    '<p>The kind of a planted defect, such as a wrong answer or a crash, is declared by whoever wrote the plant and is not worked out by the ledger. A check lists only the kinds of the defects it caught.</p>',
   );
 });

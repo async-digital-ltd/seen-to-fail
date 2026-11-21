@@ -529,6 +529,25 @@ function checkFact(words: PageWords, check: PublishedCheck): string {
   );
 }
 
+/**
+ * The kinds of planted defect a check has caught, as one more fact beside the
+ * others, listed in the order the export gives them (#295). A check that has
+ * caught no declared kind gets nothing here, not an empty label, so a reader
+ * is never told a check "catches nothing" when it only has no kinds recorded.
+ * What a kind is, and that its plant's author declared it, is said once in
+ * the section on how the page works.
+ */
+function kindsCaught(words: PageWords, check: PublishedCheck): string {
+  if (check.kindsCaught.length === 0) {
+    return '';
+  }
+  const items = check.kindsCaught
+    .map((kind) => `<li>${escapeHtml(words.plantKinds[kind])}</li>`)
+    .join('');
+  return `<div><dt>${words.kindsCaught}</dt><dd><ul class="kinds">${items}</ul></dd></div>
+`;
+}
+
 function checkSection(
   words: Words,
   ledger: PublishedLedger,
@@ -542,7 +561,7 @@ ${unsettledNotice(words, check)}
 <div><dt>${words.protectsAgainst}</dt><dd>${written(words, check.protects)}</dd></div>
 <div><dt>${words.howToTellArmed}</dt><dd>${written(words, check.howToTellArmed)}</dd></div>
 <div><dt>${words.lastSeen}</dt><dd>${lastSeen(words, check)}</dd></div>
-</dl>
+${kindsCaught(words, check)}</dl>
 ${runsList(words, ledger, check)}
 ${observationsList(words, ledger, check)}
 </div>
@@ -723,6 +742,7 @@ details[open] > summary .chevron { transform: rotate(90deg); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 1rem 2rem; margin: 0; }
 .facts dt, h4 { color: var(--muted); font-size: 0.875rem; }
 .facts dd { margin: 0.125rem 0 0; }
+.kinds { margin: 0; padding-left: 1.25rem; }
 h4 { margin: 0; font-weight: 600; }
 .runs, .observations { list-style: none; margin: 0; padding: 0; }
 .run, .observations li { padding: 0.875rem 0; border-top: 1px solid var(--border); }

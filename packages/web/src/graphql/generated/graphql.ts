@@ -75,6 +75,23 @@ export type Outcome =
   /** The defect was planted and the check said nothing. */
   | 'MISSED';
 
+/**
+ * The kind of defect a plant was declared to be.
+ *
+ * Declared by the plant's author, never inferred from the plant, and never read
+ * by any status rule. A check seen to catch only one kind can still let another
+ * through, and this is how a reader can tell. The values are the fixed list in
+ * packages/replay/src/plants.ts, in its order, spelled in capitals with an
+ * underscore for each hyphen.
+ */
+export type PlantKind =
+  | 'CONFIGURATION'
+  | 'CRASH'
+  | 'DEPENDENCY'
+  | 'MISSING_CASE'
+  | 'SECURITY'
+  | 'WRONG_ANSWER';
+
 /** Evidence, on one day, about whether a check is switched on. */
 export type RecordArmingObservationInput = {
   /** What they found. */
@@ -157,6 +174,7 @@ export type CheckDetailQuery = {
     caughtCount: number;
     missedCount: number;
     inconclusiveCount: number;
+    kindsCaught: Array<PlantKind>;
     runs: Array<{
       id: string;
       runOn: string;
@@ -345,6 +363,7 @@ export const CheckDetailDocument = {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'inconclusiveCount' },
                 },
+                { kind: 'Field', name: { kind: 'Name', value: 'kindsCaught' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'runs' },

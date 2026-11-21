@@ -13,12 +13,14 @@ import { ago, counted, daysAgo, formatDay, lastCaughtLine } from '../days';
 import type {
   CheckDetailQuery,
   Outcome,
+  PlantKind,
   StatusEvidence,
 } from '../graphql/generated/graphql';
 import { CheckDetailDocument } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import { statusFromName } from '../status';
 import { today } from '../today';
+import { plantKindNames } from '../words';
 import './check-detail.css';
 import type { SavedObservation } from './record-observation';
 import { ObservationForm } from './record-observation';
@@ -203,6 +205,37 @@ const whatWouldChange = {
   Status,
   (check: RecordedCheck, staleAfterDays: number) => string
 >;
+
+/**
+ * The kinds of planted defect the check has caught, as a list with the line
+ * that says where a kind comes from (#295). A check that has caught no
+ * declared kind shows nothing here at all, so an empty list never reads as
+ * "catches nothing".
+ */
+function KindsCaught({
+  kinds,
+}: {
+  readonly kinds: readonly PlantKind[];
+}): ReactElement | null {
+  const headingId = useId();
+  if (kinds.length === 0) {
+    return null;
+  }
+  return (
+    <div className="check-detail__plant-kinds">
+      <h4 id={headingId}>Kinds of defect caught</h4>
+      <ul aria-labelledby={headingId}>
+        {kinds.map((kind) => (
+          <li key={kind}>{plantKindNames[kind]}</li>
+        ))}
+      </ul>
+      <p className="muted">
+        The kind is declared by whoever wrote the plant, not worked out by this
+        app. Only the kinds of defect this check caught are listed.
+      </p>
+    </div>
+  );
+}
 
 /**
  * The text a check was described with, or a muted line saying nobody has
@@ -499,6 +532,7 @@ function CheckRecord({
               and saw what happened.
             </p>
             <p className="evidence-kind__count">{runSummary}</p>
+            <KindsCaught kinds={check.kindsCaught} />
             <Link
               to={paths.newRun({ check: check.id })}
               className="button button--primary"
