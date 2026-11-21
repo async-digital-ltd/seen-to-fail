@@ -37,7 +37,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--text);
   font: inherit;
 }
 
@@ -61,20 +61,20 @@ textarea.field__control {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--text);
   font-weight: 600;
   line-height: 1.25;
   cursor: pointer;
 }
 
 .toggle:hover {
-  background: var(--surface);
+  background: var(--card);
 }
 
 /* Pressed is ink rather than brick: brick is kept for the one primary action. */
 .toggle[aria-pressed='true'] {
-  border-color: var(--ink);
-  background: var(--ink);
+  border-color: var(--text);
+  background: var(--text);
   color: var(--bg);
 }
 
@@ -89,7 +89,7 @@ textarea.field__control {
   border: 1px solid var(--error);
   border-left-width: 4px;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--card);
   color: var(--error);
   font-weight: 600;
 }

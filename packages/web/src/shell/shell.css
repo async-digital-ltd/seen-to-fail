@@ -21,12 +21,12 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.5rem;
-  color: var(--ink);
+  color: var(--text);
   text-decoration: none;
 }
 
 .top-bar__home:hover {
-  color: var(--ink);
+  color: var(--text);
   text-decoration: underline;
 }
 

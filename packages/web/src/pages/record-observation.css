@@ -6,9 +6,9 @@
 .record-observation__form {
   margin-top: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--text);
   border-radius: 16px;
-  background: var(--surface);
+  background: var(--card);
 }
 
 .record-observation__heading {

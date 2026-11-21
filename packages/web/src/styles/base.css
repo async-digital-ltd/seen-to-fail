@@ -17,14 +17,10 @@ html {
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--text);
+  /* The brand's system stack, --font-sans in brand.css. */
   font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
   font-size: 1rem;
   line-height: 1.5;
@@ -71,9 +67,10 @@ button {
   display: inline-block;
   padding: 0.5rem 1rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--ink);
+  /* The brand's --radius, which its own buttons use. */
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
   font-weight: 600;
   line-height: 1.25;
   text-decoration: none;
@@ -81,7 +78,7 @@ button {
 }
 
 .button:hover {
-  color: var(--ink);
+  color: var(--text);
   background: var(--border);
 }
 
@@ -93,13 +90,13 @@ button {
 .button--primary {
   border-color: var(--primary);
   background: var(--primary);
-  color: var(--bg);
+  color: var(--on-primary);
 }
 
 .button--primary:hover {
   border-color: var(--primary-hover);
   background: var(--primary-hover);
-  color: var(--bg);
+  color: var(--on-primary);
 }
 
 /*
@@ -114,7 +111,7 @@ button {
 
 .button--outlined:hover {
   border-color: var(--primary-hover);
-  background: var(--surface);
+  background: var(--card);
   color: var(--primary-hover);
 }
 
@@ -129,7 +126,7 @@ button {
 }
 
 .button:disabled:hover {
-  background: var(--surface);
+  background: var(--card);
 }
 
 .button--primary:disabled:hover {

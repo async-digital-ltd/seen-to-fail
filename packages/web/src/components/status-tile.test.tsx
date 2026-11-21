@@ -120,16 +120,16 @@ describe('the stylesheet', () => {
   const rules = rulesOf(css);
 
   it('reads its own rules, by selector', () => {
-    const parsed = rulesOf('.a,\n.b:hover {\n  color: var(--ink);\n}');
-    expect(parsed.get('.a')?.get('color')).toBe('var(--ink)');
-    expect(parsed.get('.b:hover')?.get('color')).toBe('var(--ink)');
+    const parsed = rulesOf('.a,\n.b:hover {\n  color: var(--text);\n}');
+    expect(parsed.get('.a')?.get('color')).toBe('var(--text)');
+    expect(parsed.get('.b:hover')?.get('color')).toBe('var(--text)');
     expect(parsed.get('.c')).toBeUndefined();
   });
 
   it('gives the resting tile the pointer, on the surface tint', () => {
     const resting = rules.get('.status-tile');
     expect(resting?.get('cursor')).toBe('pointer');
-    expect(resting?.get('background')).toBe('var(--surface)');
+    expect(resting?.get('background')).toBe('var(--card)');
     expect(resting?.get('border')).toBe('1px solid var(--border)');
   });
 
@@ -137,14 +137,14 @@ describe('the stylesheet', () => {
     'turns the edge ink and lifts the ground for %s',
     (state) => {
       const rule = rules.get(state);
-      expect(rule?.get('border-color')).toBe('var(--ink)');
+      expect(rule?.get('border-color')).toBe('var(--text)');
       expect(rule?.get('background')).toBe('var(--bg)');
     },
   );
 
   it('gives the pressed tile a second ink line inside its edge', () => {
     const pressed = rules.get(".status-tile[aria-pressed='true']");
-    expect(pressed?.get('border-color')).toBe('var(--ink)');
-    expect(pressed?.get('box-shadow')).toBe('inset 0 0 0 1px var(--ink)');
+    expect(pressed?.get('border-color')).toBe('var(--text)');
+    expect(pressed?.get('box-shadow')).toBe('inset 0 0 0 1px var(--text)');
   });
 });

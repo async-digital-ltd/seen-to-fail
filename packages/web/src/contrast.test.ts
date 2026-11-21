@@ -25,11 +25,13 @@ const css = readFileSync(
 
 type Token =
   | 'bg'
-  | 'surface'
+  | 'card'
   | 'border'
-  | 'ink'
+  | 'text'
   | 'muted'
   | 'primary'
+  | 'primary-hover'
+  | 'on-primary'
   | 'success'
   | 'warning'
   | 'error';
@@ -83,7 +85,7 @@ describe('the measure', () => {
   // The pairings #50 found. They are measured here to prove this file can
   // fail: if either ever reads as a boundary, the measure is broken.
   it('fails the surface tint and the border as boundaries on the page', () => {
-    expect(ratio(token('surface'), token('bg'))).toBeLessThan(boundary);
+    expect(ratio(token('card'), token('bg'))).toBeLessThan(boundary);
     expect(ratio(token('border'), token('bg'))).toBeLessThan(boundary);
   });
 });
@@ -95,12 +97,12 @@ const pairings: readonly {
   readonly back: Token;
   readonly floor: number;
 }[] = [
-  { use: 'body text on the page', fore: 'ink', back: 'bg', floor: text },
+  { use: 'body text on the page', fore: 'text', back: 'bg', floor: text },
   { use: 'muted text on the page', fore: 'muted', back: 'bg', floor: text },
   {
     use: 'muted text on the surface tint',
     fore: 'muted',
-    back: 'surface',
+    back: 'card',
     floor: text,
   },
   {
@@ -110,33 +112,51 @@ const pairings: readonly {
     floor: text,
   },
   {
-    use: 'light text on a brick fill',
-    fore: 'bg',
+    use: 'the label on a brick button',
+    fore: 'on-primary',
     back: 'primary',
     floor: text,
   },
   {
+    use: 'the label on a brick button under the pointer',
+    fore: 'on-primary',
+    back: 'primary-hover',
+    floor: text,
+  },
+  {
+    use: 'a brick link under the pointer on the page',
+    fore: 'primary-hover',
+    back: 'bg',
+    floor: text,
+  },
+  {
+    use: 'an outlined button under the pointer, on the card tint',
+    fore: 'primary-hover',
+    back: 'card',
+    floor: text,
+  },
+  {
     use: 'the dark surface against the page',
-    fore: 'ink',
+    fore: 'text',
     back: 'bg',
     floor: boundary,
   },
   {
     use: 'light text on the dark surface',
     fore: 'bg',
-    back: 'ink',
+    back: 'text',
     floor: text,
   },
   {
     use: 'pale labels on the dark surface',
     fore: 'border',
-    back: 'ink',
+    back: 'text',
     floor: text,
   },
   {
     use: 'a green status pill against the dark surface',
     fore: 'success',
-    back: 'ink',
+    back: 'text',
     floor: boundary,
   },
   {
@@ -148,38 +168,38 @@ const pairings: readonly {
   {
     use: 'a red status pill against the dark surface',
     fore: 'error',
-    back: 'ink',
+    back: 'text',
     floor: boundary,
   },
   { use: 'light text on a red fill', fore: 'bg', back: 'error', floor: text },
   {
     use: 'an amber status pill against the dark surface',
     fore: 'warning',
-    back: 'ink',
+    back: 'text',
     floor: boundary,
   },
   {
     use: 'dark text on an amber fill',
-    fore: 'ink',
+    fore: 'text',
     back: 'warning',
     floor: text,
   },
   {
     use: 'dark text on a pale status pill',
-    fore: 'ink',
+    fore: 'text',
     back: 'border',
     floor: text,
   },
   {
     use: 'the ink rule over each kind of evidence',
-    fore: 'ink',
+    fore: 'text',
     back: 'bg',
     floor: boundary,
   },
   {
     use: 'the ink edge of a form on the surface tint',
-    fore: 'ink',
-    back: 'surface',
+    fore: 'text',
+    back: 'card',
     floor: boundary,
   },
   { use: 'green words on the page', fore: 'success', back: 'bg', floor: text },
