@@ -84,6 +84,37 @@ A declared check the report does not name is not a refusal. The workflow runs
 `canfail` over the checks the selection found due and records against the whole
 declaration, so a check absent from the report was not selected this time.
 
+## A plant that cannot show whether its check works
+
+A plant earns its check a catch only if the plant itself was sound. Reading
+`canfail.json` refuses a break that cannot show whether its check works, before
+any replay runs, and names the check and the break (#294):
+
+- a `with` that is the same text as its `replace`;
+- a `with` that differs from its `replace` only in whitespace or comments;
+- no `expect`, or an `expect` any failure would match: empty, `.*`, `error` or
+  `fail`, compared after trimming and ignoring case.
+
+Without the first two, a plant that changes nothing stays green, `canfail`
+scores it `blind`, and a sound check reads Broken. Without the third, a run
+that failed for the wrong reason, such as a missing database, reads as a catch.
+The list of patterns is short on purpose: the ledger cannot judge whether a
+pattern is good in general, only refuse the few that say nothing.
+
+Whitespace means all of it, including the indent of a line and a space inside a
+string, so a plant that changes only those is refused even where they matter.
+Comments are recognised by the file's extension and nothing more: `//` and
+`/* */` in TypeScript and JavaScript, `/* */` in CSS, `#` in shell, YAML,
+TOML, Python and GraphQL, `--` and `/* */` in SQL, and `<!-- -->` in HTML,
+Markdown, SVG and XML. A line comment counts only at the start of a line or
+after whitespace, so the `//` in a URL is code. A file of any other type is
+compared for whitespace alone.
+
+A plant that applies, changes what the code does, and that no check sees is
+not refused. `canfail` scores it `blind`, which is recorded as missed, because
+the ledger cannot tell it from a weak check. The published page says so in its
+help text.
+
 ## Which checks a change touches
 
 A replay that runs on every commit says nothing and costs money, so each check

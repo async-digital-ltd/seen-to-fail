@@ -929,3 +929,14 @@ it('keeps the not-found page out of search, with no script', () => {
   expect(page).toContain('<html lang="en-GB">');
   expect(page).not.toMatch(/<script/i);
 });
+
+/**
+ * A plant that applies and changes behaviour no check sees stays a miss: the
+ * ledger cannot tell it from a weak check, so the help text says so (#294).
+ * The Welsh page says the same, held in the Welsh tests.
+ */
+it('says in its help text that a plant no check sees is recorded as missed', () => {
+  expect(renderPage(fixtureSnapshot(), 'en')).toContain(
+    'but that the check does not see, is recorded as Missed too: the ledger cannot tell that from a weak check.',
+  );
+});
