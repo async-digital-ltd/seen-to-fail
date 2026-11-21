@@ -565,6 +565,8 @@ it('publishes a run that settled nothing without moving the status', async () =>
       source: 'replay',
       sourceCommit: 'abcdefabcdefabcdefabcdefabcdefabcdefabcd',
       sourceRunUrl: 'https://ci.example.com/runs/91',
+      tool: 'canfail',
+      toolVersion: '0.2.1',
     },
   });
   if (!caught.ok || !toldNothing.ok) {
@@ -1013,4 +1015,86 @@ it('publishes the kinds each check has been seen to catch, and none for a check 
   expect(byId.get('ci-test')?.kindsCaught).toEqual([]);
   expect(byId.get('ci-test')?.runs.map((run) => run.kind)).toEqual([null]);
   expect(written).toEqual(ledger);
+});
+
+/**
+ * The tool and version that scored a replay (#101), stored in the row and
+ * written into the export beside the run. A replay recorded before tools were,
+ * and a run typed in by hand, carry neither, and the file of the first is read
+ * exactly as it was written, with no tool key in it.
+ */
+it('stores and publishes the tool that scored a replay, and none for an older replay or a hand run', async () => {
+  const replay = {
+    source: 'replay',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  };
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    [runFile(oneDay, 'aaaaaaaaaaaa')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A replay scored by a named tool.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+      ...replay,
+      tool: 'canfail',
+      toolVersion: '0.2.1',
+    },
+    [runFile(oneDay, 'bbbbbbbbbbbb')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A replay from before tools were recorded.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+      ...replay,
+    },
+    [runFile(oneDay, 'cccccccccccc')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A typed-in plant.',
+      expected: 'The lint step fails.',
+      outcome: 'caught',
+    },
+  });
+
+  const { outputDirectory } = await build(directory);
+  const written = JSON.parse(
+    await readFile(join(outputDirectory, exportFilename), 'utf8'),
+  ) as PublishedLedger;
+
+  const tools = new Map(
+    written.checks[0]?.runs.map((run) => [
+      run.planted,
+      [run.tool, run.toolVersion],
+    ]),
+  );
+  expect(tools.get('A replay scored by a named tool.')).toEqual([
+    'canfail',
+    '0.2.1',
+  ]);
+  expect(tools.get('A replay from before tools were recorded.')).toEqual([
+    null,
+    null,
+  ]);
+  expect(tools.get('A typed-in plant.')).toEqual([null, null]);
+
+  const stored = await database.client().query<{
+    planted: string;
+    tool: string | null;
+    tool_version: string | null;
+  }>('SELECT planted, tool, tool_version FROM test_runs ORDER BY planted');
+  expect(stored.rows).toEqual([
+    {
+      planted: 'A replay from before tools were recorded.',
+      tool: null,
+      tool_version: null,
+    },
+    {
+      planted: 'A replay scored by a named tool.',
+      tool: 'canfail',
+      tool_version: '0.2.1',
+    },
+    { planted: 'A typed-in plant.', tool: null, tool_version: null },
+  ]);
 });

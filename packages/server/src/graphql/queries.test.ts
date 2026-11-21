@@ -540,3 +540,46 @@ it('lists the kinds each check has been seen to catch, and none for a check with
       .sort(),
   ).toStrictEqual(['CRASH', null]);
 });
+
+/**
+ * The tool and version that scored a replay (#101), through the API, and null
+ * for both on a run typed in by hand.
+ */
+it('reads the tool and version that scored a replay, and null for a hand run', async () => {
+  const client = database.client();
+  const inserted = await client.query<{ id: string }>(
+    `INSERT INTO checks (name, area, protects, how_to_tell_armed)
+     VALUES ('Replayed', 'CI', '', '') RETURNING id`,
+  );
+  const checkId = inserted.rows[0]?.id;
+  await client.query(
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome, source,
+        source_commit, source_run_url, tool, tool_version)
+     VALUES ($1, '2026-03-01', 'Replayed', 'It fails', 'caught', 'replay',
+             '1234567890abcdef1234567890abcdef12345678',
+             'https://ci.example.com/runs/91', 'canfail', '0.2.1'),
+            ($1, '2026-03-01', 'Typed in', 'It fails', 'caught', 'hand',
+             NULL, NULL, NULL, NULL)`,
+    [checkId],
+  );
+  const server = createGraphQLServer({ database: client, asOf: '2026-03-02' });
+
+  const {
+    checks: { checks },
+  } = await query<
+    Listed<{
+      runs: {
+        planted: string;
+        tool: string | null;
+        toolVersion: string | null;
+      }[];
+    }>
+  >(server, '{ checks { checks { runs { planted tool toolVersion } } } }');
+
+  const runs = new Map(
+    checks[0]?.runs.map((run) => [run.planted, [run.tool, run.toolVersion]]),
+  );
+  expect(runs.get('Replayed')).toStrictEqual(['canfail', '0.2.1']);
+  expect(runs.get('Typed in')).toStrictEqual([null, null]);
+});

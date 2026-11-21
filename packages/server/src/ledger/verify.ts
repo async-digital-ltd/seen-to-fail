@@ -528,6 +528,18 @@ export function disagreements(input: VerificationInput): string[] {
         record.sourceRunUrl,
         run.sourceRunUrl,
       );
+      compare(
+        found,
+        `${where}: the tool that scored it`,
+        record.tool,
+        run.tool,
+      );
+      compare(
+        found,
+        `${where}: that tool's version`,
+        record.toolVersion,
+        run.toolVersion,
+      );
     }
   }
 

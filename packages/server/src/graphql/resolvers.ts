@@ -316,6 +316,8 @@ const TestRun: TestRunResolvers = {
   source: (run) => sourceName(run.source),
   sourceCommit: (run) => run.sourceCommit,
   sourceRunUrl: (run) => run.sourceRunUrl,
+  tool: (run) => run.tool,
+  toolVersion: (run) => run.toolVersion,
 };
 
 const ArmingObservation: ArmingObservationResolvers = {

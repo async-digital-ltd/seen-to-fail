@@ -131,7 +131,11 @@ seven run in the replay job, which owns the database service
    ([#224](https://github.com/async-digital-ltd/seen-to-fail/issues/224)).
 6. **Records what the report means**, with `pnpm ledger:replay`. One run per
    declared break, each carrying `source: replay`, the commit the plants were
-   applied to, and a link to the run that produced it.
+   applied to, a link to the run that produced it, and the tool and version
+   that scored it. Those last two are read from pip's description of the
+   canfail installed in the action's environment, asked for just before this
+   step, and never from the pin, so a moved pin shows in the next record
+   ([#101](https://github.com/async-digital-ltd/seen-to-fail/issues/101)).
 7. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
    and the hand-recording workflow run, so this job cannot commit a ledger
    either of them would have refused.

@@ -468,6 +468,16 @@ export type TestRun = {
   sourceCommit?: Maybe<Scalars['String']['output']>;
   /** The run that produced it, as a link. Null for a run typed in. */
   sourceRunUrl?: Maybe<Scalars['String']['output']>;
+  /**
+   * The tool that scored a replay, as its installation names itself. Null for a
+   * run typed in, and for a replay recorded before tools were recorded.
+   */
+  tool?: Maybe<Scalars['String']['output']>;
+  /**
+   * The version of that tool that scored it, read from the installation that ran
+   * rather than from a pin. Null exactly when tool is.
+   */
+  toolVersion?: Maybe<Scalars['String']['output']>;
 };
 
 /** A run that was logged, with the check it was logged against. */
@@ -943,6 +953,12 @@ export type TestRunResolvers<
     ContextType
   >;
   sourceRunUrl: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  tool: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  toolVersion: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType

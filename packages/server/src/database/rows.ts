@@ -368,6 +368,13 @@ export interface TestRun {
   readonly sourceCommit: string | null;
   /** The run that produced it, or null for a run typed in. */
   readonly sourceRunUrl: string | null;
+  /**
+   * The tool that scored a replay and its version, as the installation that
+   * ran described itself (#101). Both null on a run typed in by hand and on a
+   * replay recorded before tools were recorded; never one without the other.
+   */
+  readonly tool: string | null;
+  readonly toolVersion: string | null;
   readonly createdAt: Date;
 }
 
@@ -469,6 +476,8 @@ export const testRunColumns = [
   'source',
   'source_commit AS "sourceCommit"',
   'source_run_url AS "sourceRunUrl"',
+  'tool',
+  'tool_version AS "toolVersion"',
   'created_at AS "createdAt"',
 ].join(', ');
 

@@ -459,6 +459,21 @@ jobs:
           declaration: ${{ steps.declaration.outputs.config }}
           fail-on-mismatch: 'false'
 
+      # Which tool scored the report, and at which version (#101), asked of the
+      # installation that scored it rather than read off the pin above. The
+      # report carries neither, and canfail 0.2.1 has no --version, so this is
+      # pip's description of the package in the environment the action ran
+      # canfail out of. The recorder reads the name and version from it, and
+      # refuses metadata for any other package. A runner without that
+      # environment fails here, before anything is recorded, rather than
+      # recording a replay with no version.
+      - name: Ask the installed canfail what it is
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/canfail-venv/bin/python" -m pip show --disable-pip-version-check canfail \
+            > "$RUNNER_TEMP/canfail-tool.txt"
+          cat "$RUNNER_TEMP/canfail-tool.txt"
+
       # The gate. A verdict this mapping does not recognise, a check the
       # declaration does not declare, or a record that breaks a ledger rule
       # stops here with nothing written, so the steps below have nothing to
@@ -478,7 +493,8 @@ jobs:
             --report "$REPORT" \
             --config canfail.json \
             --source-commit "$SOURCE_COMMIT" \
-            --source-run-url "$SOURCE_RUN_URL"
+            --source-run-url "$SOURCE_RUN_URL" \
+            --tool-metadata "$RUNNER_TEMP/canfail-tool.txt"
 
       # The same command CI runs and the recording workflow runs, so this job
       # cannot commit a ledger either of them would have refused.

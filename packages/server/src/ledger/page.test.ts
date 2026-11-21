@@ -13,6 +13,8 @@ import {
   fixtureRecordWelsh,
   fixtureReplayCommit,
   fixtureReplayRunUrl,
+  fixtureReplayTool,
+  fixtureReplayToolVersion,
   fixtureSnapshot,
   fixtureSummaries,
   fixtureSummariesWithAnUnsettledRun,
@@ -472,6 +474,36 @@ it('names the commit a replay ran against apart from the one that recorded it', 
   expect(page).toContain('/commit/1234567890abcdef1234567890abcdef12345678');
   expect(page).toContain('Ran against');
   expect(page).toContain('Recorded in');
+});
+
+/**
+ * The tool and version that scored a replay sit beside the run (#101), in both
+ * languages, read from the record. A replay recorded before tools were names
+ * none, and the page guesses none for it.
+ */
+it('names the tool and version that scored a replay, and none for one recorded before tools were', () => {
+  const ledger = fixtureSnapshot(fixtureContentsFromAReplay());
+  expect(renderPage(ledger, 'en')).toContain(
+    `Scored by ${fixtureReplayTool} ${fixtureReplayToolVersion}.`,
+  );
+  expect(renderPage(ledger, 'cy', fixtureRecordWelsh)).toContain(
+    `Sgoriwyd gan ${fixtureReplayTool} ${fixtureReplayToolVersion}.`,
+  );
+
+  const before = {
+    ...ledger,
+    checks: ledger.checks.map((check) => ({
+      ...check,
+      runs: check.runs.map((run) => ({
+        ...run,
+        tool: null,
+        toolVersion: null,
+      })),
+    })),
+  };
+  const page = renderPage(before, 'en');
+  expect(page).toContain('By replay');
+  expect(page).not.toContain('Scored by');
 });
 
 /**

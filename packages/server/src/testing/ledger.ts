@@ -74,6 +74,10 @@ export const fixtureCommit = 'ffffffffffffffffffffffffffffffffffffffff';
 export const fixtureReplayCommit = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';
 export const fixtureReplayRunUrl = 'https://ci.example.com/runs/91';
 
+/** The tool and version that scored the fixture's replay (#101). */
+export const fixtureReplayTool = 'canfail';
+export const fixtureReplayToolVersion = '0.2.1';
+
 export function fixtureContents(): LedgerContents {
   return {
     checks: [
@@ -113,6 +117,8 @@ export function fixtureContents(): LedgerContents {
           source: 'hand',
           sourceCommit: null,
           sourceRunUrl: null,
+          tool: null,
+          toolVersion: null,
         },
       },
     ],
@@ -154,6 +160,8 @@ export function fixtureContentsFromAReplay(): LedgerContents {
           source: 'replay',
           sourceCommit: fixtureReplayCommit,
           sourceRunUrl: fixtureReplayRunUrl,
+          tool: fixtureReplayTool,
+          toolVersion: fixtureReplayToolVersion,
         },
       },
       ...rest,
@@ -230,6 +238,8 @@ export function fixtureContentsWithAnUnsettledRun(): LedgerContents {
           source: 'replay',
           sourceCommit: fixtureReplayCommit,
           sourceRunUrl: fixtureReplayRunUrl,
+          tool: fixtureReplayTool,
+          toolVersion: fixtureReplayToolVersion,
         },
       },
     ],

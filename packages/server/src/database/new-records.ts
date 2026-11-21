@@ -1,4 +1,8 @@
 import { MAX_AREA_LENGTH } from '@seen-to-fail/filter';
+import {
+  MAX_TOOL_VERSION_LENGTH,
+  TOOL_VERSION_PATTERN,
+} from '@seen-to-fail/replay';
 import { z } from 'zod';
 
 import { uuidPattern } from './checks.ts';
@@ -388,6 +392,110 @@ export function checkRunProvenance(
   context: z.RefinementCtx,
 ): void {
   addIssues(context, runProvenanceIssues(run));
+}
+
+/** The longest tool name this accepts. A package name, so far past any real one. */
+export const MAX_TOOL_LENGTH = 100;
+
+/**
+ * The name of the tool that scored a replay, or null when none is recorded
+ * (#101). A tool name is one word as its package spells it, so it carries no
+ * space, which also keeps a sentence from being filed here as though it were a
+ * name.
+ */
+export const optionalTool = replayEvidence(
+  MAX_TOOL_LENGTH,
+  (value) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value),
+  'A tool is named as its package spells it, with no spaces.',
+);
+
+/**
+ * The version of that tool, or null when none is recorded (#101). Held to the
+ * same shape the replay package reads it in, so a version the adapter would
+ * refuse is not one a record can carry either.
+ */
+export const optionalToolVersion = replayEvidence(
+  MAX_TOOL_VERSION_LENGTH,
+  (value) => TOOL_VERSION_PATTERN.test(value),
+  'A version is written as its tool writes it, with no spaces.',
+);
+
+/**
+ * The four things a run's source and the tool it names can disagree about.
+ *
+ * Constants for the reason given for the provenance issues above.
+ */
+export const handRunHasNoTool: RecordIssue = {
+  path: 'tool',
+  message: 'A run typed in by hand was not scored by a tool.',
+};
+
+export const handRunHasNoToolVersion: RecordIssue = {
+  path: 'toolVersion',
+  message: 'A run typed in by hand has no tool version to record.',
+};
+
+export const toolNeedsItsVersion: RecordIssue = {
+  path: 'toolVersion',
+  message: 'A replay that names its tool records that tool’s version.',
+};
+
+export const toolVersionNeedsItsTool: RecordIssue = {
+  path: 'tool',
+  message: 'A replay that records a tool version names the tool.',
+};
+
+/**
+ * Refused when a replay is written, never when one is read: every replay
+ * recorded before #101 has no tool, and those records stay valid exactly as
+ * they were written. A new one has no such excuse.
+ */
+export const replayNeedsItsTool: RecordIssue = {
+  path: 'tool',
+  message: 'A replay records the tool that scored it and its version.',
+};
+
+/** A run's source and the tool it says scored it. */
+export interface RunTool {
+  readonly source: TestRunSource;
+  readonly tool: string | null;
+  readonly toolVersion: string | null;
+}
+
+/**
+ * What a run's source and its tool disagree about, if anything (#101).
+ *
+ * A run typed in by hand carries neither, in both directions as the provenance
+ * rule does: a hand run naming a tool is refused, not ignored. A replay carries
+ * both or neither. Neither is a replay recorded before tools were recorded,
+ * and is read as unknown rather than refused, because rewriting those files to
+ * add a tool would change each one's digest, which is its name. That a new
+ * replay carries both is the recorder's rule, `replayNeedsItsTool`. The
+ * database's `test_runs_tool_belongs_to_a_replay` holds the same reading.
+ */
+export function runToolIssues(run: RunTool): RecordIssue[] {
+  const issues: RecordIssue[] = [];
+  if (run.source === 'hand') {
+    if (run.tool !== null) {
+      issues.push(handRunHasNoTool);
+    }
+    if (run.toolVersion !== null) {
+      issues.push(handRunHasNoToolVersion);
+    }
+    return issues;
+  }
+  if (run.tool !== null && run.toolVersion === null) {
+    issues.push(toolNeedsItsVersion);
+  }
+  if (run.tool === null && run.toolVersion !== null) {
+    issues.push(toolVersionNeedsItsTool);
+  }
+  return issues;
+}
+
+/** Adds the issues above to a schema's own, against the fields they name. */
+export function checkRunTool(run: RunTool, context: z.RefinementCtx): void {
+  addIssues(context, runToolIssues(run));
 }
 
 /** A run's outcome and the reason an unsettled one has to travel with. */

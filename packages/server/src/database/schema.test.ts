@@ -492,6 +492,72 @@ it('accepts a hand run with nothing beside it and a replay with both', async () 
 });
 
 /**
+ * A run's source and the tool that scored it (#101), each refused by name.
+ *
+ * A hand run naming either is a tool nobody ran, and a replay with one and not
+ * the other is a version of nothing or a tool at no version. The accepting
+ * statement underneath holds the three shapes that are allowed: a hand run with
+ * neither, a replay with both, and a replay with neither, which is every replay
+ * recorded before tools were and cannot be rewritten.
+ */
+const replayEvidence = `'replay', '1234567890abcdef1234567890abcdef12345678', 'https://ci.example.com/runs/91'`;
+for (const [description, values] of [
+  [
+    'a run typed in by hand naming a tool',
+    `'hand', NULL, NULL, 'canfail', NULL`,
+  ],
+  [
+    'a run typed in by hand naming a version',
+    `'hand', NULL, NULL, NULL, '0.2.1'`,
+  ],
+  [
+    'a run typed in by hand naming both',
+    `'hand', NULL, NULL, 'canfail', '0.2.1'`,
+  ],
+  [
+    'a replay naming a tool at no version',
+    `${replayEvidence}, 'canfail', NULL`,
+  ],
+  ['a replay naming a version of no tool', `${replayEvidence}, NULL, '0.2.1'`],
+  ['a replay naming a blank tool', `${replayEvidence}, '', '0.2.1'`],
+  ['a replay naming a blank version', `${replayEvidence}, 'canfail', ''`],
+] as const) {
+  refusalTest(
+    'test_runs_tool_belongs_to_a_replay',
+    `refuses ${description}`,
+    async () =>
+      rejectionOf(
+        database.client(),
+        `INSERT INTO test_runs
+           (check_id, run_on, planted, expected, outcome,
+            source, source_commit, source_run_url, tool, tool_version)
+         VALUES ($1, ${today}, 'A removed semicolon', 'The job fails',
+                 'caught', ${values})`,
+        [await insertCheck()],
+      ),
+  );
+}
+
+it('accepts a hand run with no tool, and a replay with both or with neither', async () => {
+  const checkId = await insertCheck();
+
+  await database.client().query(
+    `INSERT INTO test_runs
+       (check_id, run_on, planted, expected, outcome,
+        source, source_commit, source_run_url, tool, tool_version)
+     VALUES ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             'hand', NULL, NULL, NULL, NULL),
+            ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             ${replayEvidence}, 'canfail', '0.2.1'),
+            ($1, ${today}, 'A removed semicolon', 'The job fails', 'caught',
+             ${replayEvidence}, NULL, NULL)`,
+    [checkId],
+  );
+
+  expect(await count('test_runs')).toBe(3);
+});
+
+/**
  * An outcome and its reason, both directions, each refused by name.
  *
  * The first row is the one the rule was nearly blind to. btrim of null is

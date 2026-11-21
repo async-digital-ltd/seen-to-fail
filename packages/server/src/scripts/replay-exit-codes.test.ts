@@ -151,7 +151,21 @@ async function aLedgerWith(
     JSON.stringify(plants),
     'utf8',
   );
+  await writeFile(join(directory, 'tool.txt'), toolMetadata, 'utf8');
   return directory;
+}
+
+/**
+ * What `pip show canfail` prints, at a version that is deliberately not the one
+ * the workflow pins, so a recorder that wrote the pin rather than what the
+ * installation said would fail the test that reads it back (#101).
+ */
+const toolVersion = '9.8.7';
+const toolMetadata = `Name: canfail\nVersion: ${toolVersion}\nSummary: Break the thing on purpose.\nRequires: didrun, restore-verified\n`;
+
+/** The flag that hands the recorder the metadata written beside the report. */
+function toolFlag(directory: string): string[] {
+  return ['--tool-metadata', join(directory, 'tool.txt')];
 }
 
 async function runAdapter(
@@ -169,6 +183,7 @@ async function runAdapter(
     commit,
     '--source-run-url',
     runUrl,
+    ...toolFlag(directory),
     ...extra,
   ]);
 }
@@ -244,6 +259,7 @@ describe('recording what a replay found', () => {
         commit,
         '--source-run-url',
         runUrl,
+        ...toolFlag(directory),
       ]),
     ).toBe(0);
     expect(await runsIn(directory)).toHaveLength(1);
@@ -272,7 +288,42 @@ describe('recording what a replay found', () => {
       source: 'replay',
       sourceCommit: commit,
       sourceRunUrl: runUrl,
+      // Read from the installation's metadata, not from any pin (#101).
+      tool: 'canfail',
+      toolVersion,
     });
+  });
+
+  it('refuses metadata for a package other than canfail, exits 1, and leaves no file', async () => {
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
+    await writeFile(
+      join(directory, 'tool.txt'),
+      'Name: didrun\nVersion: 0.1.6\n',
+      'utf8',
+    );
+
+    expect(await runAdapter(directory)).toBe(1);
+    expect(await runsIn(directory)).toEqual([]);
+  });
+
+  it('refuses a replay with no tool metadata, exits 1, and leaves no file', async () => {
+    const directory = await aLedgerWith(redBaseline, declaringStatuses);
+
+    expect(
+      await exitCodeOf('record-replay.ts', [
+        '--directory',
+        directory,
+        '--report',
+        join(directory, 'report.json'),
+        '--config',
+        join(directory, 'canfail.json'),
+        '--source-commit',
+        commit,
+        '--source-run-url',
+        runUrl,
+      ]),
+    ).toBe(1);
+    expect(await runsIn(directory)).toEqual([]);
   });
 
   /**
@@ -433,6 +484,7 @@ describe('what the adapter refuses', () => {
         '31a56ad',
         '--source-run-url',
         runUrl,
+        ...toolFlag(directory),
       ]),
     ).toBe(1);
     expect(await runsIn(directory)).toEqual([]);
@@ -453,6 +505,7 @@ describe('what the adapter refuses', () => {
         commit,
         '--source-run-url',
         'javascript:alert(1)',
+        ...toolFlag(directory),
       ]),
     ).toBe(1);
     expect(await runsIn(directory)).toEqual([]);
@@ -508,6 +561,7 @@ describe('the same run recorded twice', () => {
         commit,
         '--source-run-url',
         'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/2',
+        ...toolFlag(directory),
       ]),
     ).toBe(0);
     expect(await runsIn(directory)).toHaveLength(2);

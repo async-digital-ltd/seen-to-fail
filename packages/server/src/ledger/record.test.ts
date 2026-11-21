@@ -3,6 +3,11 @@ import { join } from 'node:path';
 
 import { expect, it } from 'vitest';
 
+import {
+  handRunHasNoTool,
+  handRunHasNoToolVersion,
+  replayNeedsItsTool,
+} from '../database/new-records.ts';
 import { writeTemporaryLedger } from '../testing/ledger.ts';
 import { recordRun, runFilename } from './record.ts';
 import type { RecordResult } from './record.ts';
@@ -84,6 +89,8 @@ it('writes a record the loader will read back', async () => {
     source: 'hand',
     sourceCommit: null,
     sourceRunUrl: null,
+    tool: null,
+    toolVersion: null,
   });
 });
 
@@ -99,6 +106,8 @@ it('writes a replay with the commit and the run it names', async () => {
     source: 'replay',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
+    tool: 'canfail',
+    toolVersion: '0.2.1',
   });
   if (!result.ok) {
     throw new Error('The replay was refused.');
@@ -115,7 +124,42 @@ it('writes a replay with the commit and the run it names', async () => {
     source: 'replay',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
+    tool: 'canfail',
+    toolVersion: '0.2.1',
   });
+});
+
+/**
+ * A replay recorded now names the tool that scored it (#101). The reader takes
+ * one without, because every replay recorded before tools were recorded is one,
+ * but the recorder writes no new one.
+ */
+it('refuses a new replay that does not name its tool, and writes nothing', async () => {
+  const directory = await ledgerWithACheck();
+  const result = await record(directory, {
+    ...run,
+    source: 'replay',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  });
+
+  expect(result.ok ? [] : result.errors).toEqual([replayNeedsItsTool]);
+  expect(await runFiles(directory)).toEqual([]);
+});
+
+it('refuses a run typed in by hand that names a tool, and writes nothing', async () => {
+  const directory = await ledgerWithACheck();
+  const result = await record(directory, {
+    ...run,
+    tool: 'canfail',
+    toolVersion: '0.2.1',
+  });
+
+  expect(result.ok ? [] : result.errors).toEqual([
+    handRunHasNoTool,
+    handRunHasNoToolVersion,
+  ]);
+  expect(await runFiles(directory)).toEqual([]);
 });
 
 /**
@@ -183,8 +227,12 @@ it('names a file for what is in it, not for how it was built', () => {
     source: 'hand',
     sourceCommit: null,
     sourceRunUrl: null,
+    tool: null,
+    toolVersion: null,
   } as const;
   const backwards = {
+    toolVersion: null,
+    tool: null,
     sourceRunUrl: null,
     sourceCommit: null,
     source: 'hand',
