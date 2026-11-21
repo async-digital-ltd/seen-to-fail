@@ -30,12 +30,13 @@ const thisFile = relative(packageRoot, thisPath);
 /** Every token the design names. */
 const tokenNames = [
   'bg',
-  'surface',
+  'card',
   'border',
-  'ink',
+  'text',
   'muted',
   'primary',
   'primary-hover',
+  'on-primary',
   'success',
   'warning',
   'error',
@@ -58,6 +59,40 @@ describe('the tokens file', () => {
     for (const declaration of declarations) {
       expect(declaration).toMatch(/^--[a-z-]+: #[0-9a-f]{6};$/);
     }
+  });
+});
+
+/**
+ * The light values of the studio's brand record, brand.css in the
+ * async-digital-site repository, copied by hand (#43). --primary-hover has no
+ * token there: it is brick at 94% with black, the hover brand/colour.md gives
+ * for a brick fill.
+ */
+const brandValues: readonly (readonly [string, string])[] = [
+  ['bg', '#fdfbf7'],
+  ['card', '#f8f5ee'],
+  ['border', '#e8e4dc'],
+  ['text', '#1f1c18'],
+  ['muted', '#6b6560'],
+  ['primary', '#8b3a2a'],
+  ['primary-hover', '#833727'],
+  ['on-primary', '#ffffff'],
+  ['success', '#3e7a4a'],
+  ['warning', '#c48b2c'],
+  ['error', '#cc2222'],
+];
+
+describe('the brand record', () => {
+  const css = readFileSync(join(packageRoot, tokensFile), 'utf8');
+
+  it('gives a value for every token the design names', () => {
+    expect(brandValues.map(([name]) => name).sort()).toEqual(
+      [...tokenNames].sort(),
+    );
+  });
+
+  it.each(brandValues)('holds --%s at %s', (name, value) => {
+    expect(css).toMatch(new RegExp(`^\\s*--${name}:\\s*${value};`, 'im'));
   });
 });
 

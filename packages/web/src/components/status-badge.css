@@ -17,7 +17,7 @@
 
 /* Amber is too light to read as text, so Stale says its word in ink. */
 .status-badge--stale {
-  color: var(--ink);
+  color: var(--text);
 }
 
 .status-badge--unproven,
@@ -55,7 +55,7 @@
 .status-glyph--stale {
   border-color: var(--warning);
   background: var(--warning);
-  color: var(--ink);
+  color: var(--text);
 }
 
 .status-glyph--unproven {

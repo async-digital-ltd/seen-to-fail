@@ -2,7 +2,7 @@
   padding: 1rem 1.25rem;
   border: 1px solid var(--error);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--card);
 }
 
 .error-notice__what {

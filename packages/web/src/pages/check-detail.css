@@ -24,7 +24,7 @@
 }
 
 .check-detail__back:hover {
-  background: var(--surface);
+  background: var(--card);
   color: var(--primary-hover);
 }
 
@@ -32,7 +32,7 @@
   margin-top: 1rem;
   padding: 1.625rem 1.75rem;
   border-radius: 16px;
-  background: var(--ink);
+  background: var(--text);
   color: var(--bg);
 }
 
@@ -123,13 +123,13 @@
 
 .check-detail__hero .status-badge--stale {
   background: var(--warning);
-  color: var(--ink);
+  color: var(--text);
 }
 
 .check-detail__hero .status-badge--unproven,
 .check-detail__hero .status-badge--unarmed {
   background: var(--border);
-  color: var(--ink);
+  color: var(--text);
 }
 
 .check-detail__hero .status-glyph--proven {
@@ -146,8 +146,8 @@
 
 .check-detail__hero .status-glyph--stale,
 .check-detail__hero .status-glyph--unproven {
-  border-color: var(--ink);
-  background: var(--ink);
+  border-color: var(--text);
+  background: var(--text);
 }
 
 .check-detail__hero .status-glyph--stale {
@@ -159,8 +159,8 @@
 }
 
 .check-detail__hero .status-glyph--unarmed {
-  border-color: var(--ink);
-  color: var(--ink);
+  border-color: var(--text);
+  color: var(--text);
 }
 
 /* Side by side while each has room for 15.5rem, stacked below that. */
@@ -209,7 +209,7 @@
 /* Each kind opens under a rule in ink, which the eye reads as a pair. */
 .evidence-kind {
   padding-top: 0.875rem;
-  border-top: 2px solid var(--ink);
+  border-top: 2px solid var(--text);
 }
 
 .evidence-kind h3 {

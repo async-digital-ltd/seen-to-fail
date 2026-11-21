@@ -5,15 +5,23 @@
  *
  * Light mode only. There is no dark palette, because no brand colour here
  * stays readable on a dark ground.
+ *
+ * The names and values follow the studio's brand record, brand.css in the
+ * async-digital-site repository (#43). --card and --text are its names for the
+ * surface tint and the body ink. --on-primary is its label colour on a brick
+ * fill, white. --primary-hover has no token in brand.css: it is brick at 94%
+ * with black, the hover brand/colour.md gives for a brick fill and the one the
+ * site's own buttons use.
  */
 :root {
   --bg: #fdfbf7;
-  --surface: #f8f5ee;
+  --card: #f8f5ee;
   --border: #e8e4dc;
-  --ink: #1f1c18;
+  --text: #1f1c18;
   --muted: #6b6560;
   --primary: #8b3a2a;
-  --primary-hover: #7d3325;
+  --primary-hover: #833727;
+  --on-primary: #ffffff;
   --success: #3e7a4a;
   --warning: #c48b2c;
   --error: #cc2222;
