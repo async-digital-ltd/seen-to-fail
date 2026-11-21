@@ -1,7 +1,8 @@
 // node packages/server/src/scripts/record-replay.ts \
 //   --report <the JSON canfail printed> --config <canfail.json> \
 //   --source-commit <the forty-character commit it ran against> \
-//   --source-run-url https://github.com/<owner>/<repo>/actions/runs/<id>
+//   --source-run-url https://github.com/<owner>/<repo>/actions/runs/<id> \
+//   --tool-metadata <what pip show printed for the canfail that ran>
 //
 // The adapter's entry point: reads a replay tool's report and writes one run
 // into the ledger per declared break, through the same recorder a person's run
@@ -31,6 +32,7 @@ import { parseArgs } from 'node:util';
 import {
   parseCanfailReport,
   parsePlantedChecks,
+  parseToolMetadata,
   runsFromReport,
 } from '@seen-to-fail/replay';
 import type { ReplayOutcome, ReplayRun } from '@seen-to-fail/replay';
@@ -48,6 +50,10 @@ const { values } = parseArgs({
     config: { type: 'string' },
     'source-commit': { type: 'string' },
     'source-run-url': { type: 'string' },
+    // What `pip show canfail` printed for the installation that scored the
+    // report (#101). The tool and its version are read from it, never from a
+    // pin, so the record names the version that ran.
+    'tool-metadata': { type: 'string' },
     // A ledger other than this repository's own, which is how the tests run
     // this over a temporary one without touching the real record.
     directory: { type: 'string' },
@@ -91,15 +97,19 @@ function required(value: string | undefined, flag: string): string {
   return value;
 }
 
-/** A JSON document, or a refusal naming the file that was not one. */
-async function readJson(path: string, flag: string): Promise<unknown> {
-  let text: string;
+/** A file's text, or a refusal naming the file that could not be read. */
+async function readText(path: string, flag: string): Promise<string> {
   try {
-    text = await readFile(path, 'utf8');
+    return await readFile(path, 'utf8');
   } catch (cause) {
     const why = cause instanceof Error ? cause.message : String(cause);
     return refuse([`${flag} could not be read: ${why}`]);
   }
+}
+
+/** A JSON document, or a refusal naming the file that was not one. */
+async function readJson(path: string, flag: string): Promise<unknown> {
+  const text = await readText(path, flag);
   try {
     return JSON.parse(text);
   } catch (cause) {
@@ -112,6 +122,15 @@ const reportPath = required(values.report, '--report');
 const configPath = required(values.config, '--config');
 const sourceCommit = required(values['source-commit'], '--source-commit');
 const sourceRunUrl = required(values['source-run-url'], '--source-run-url');
+
+const toolMetadataPath = required(values['tool-metadata'], '--tool-metadata');
+
+const tool = parseToolMetadata(
+  await readText(toolMetadataPath, '--tool-metadata'),
+);
+if (!tool.ok) {
+  refuse(tool.problems);
+}
 
 const report = parseCanfailReport(await readJson(reportPath, '--report'));
 if (!report.ok) {
@@ -130,7 +149,12 @@ if (!checks.ok) {
 const runs = runsFromReport({
   report: report.value,
   checks: checks.value,
-  provenance: { runOn: todayInUtc(), sourceCommit, sourceRunUrl },
+  provenance: {
+    runOn: todayInUtc(),
+    sourceCommit,
+    sourceRunUrl,
+    tool: tool.value,
+  },
 });
 if (!runs.ok) {
   refuse(runs.problems);

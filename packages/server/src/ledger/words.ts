@@ -129,6 +129,8 @@ export interface PageWords {
   readonly viewProof: string;
   /** What a replay ran against, from a link to the commit. HTML. */
   readonly ranAgainst: (commit: Html) => Html;
+  /** The tool and version that scored a replay, escaped (#101). HTML. */
+  readonly scoredBy: (tool: Html) => Html;
   /** Each outcome's name and mark. HTML. */
   readonly outcomes: Readonly<Record<TestRunOutcome, Html>>;
   readonly planted: string;
@@ -293,6 +295,7 @@ export const english: PageWords = {
   byReplay: 'By replay',
   viewProof: 'View proof',
   ranAgainst: (commit) => `Ran against ${commit}.`,
+  scoredBy: (tool) => `Scored by ${tool}.`,
   outcomes: {
     caught: '✓ Caught',
     missed: '✕ Missed',
@@ -469,6 +472,7 @@ export const welsh: PageWords = {
   byReplay: 'Drwy ailchwarae',
   viewProof: 'Gweld y prawf',
   ranAgainst: (commit) => `Rhedwyd yn erbyn ${commit}.`,
+  scoredBy: (tool) => `Sgoriwyd gan ${tool}.`,
   outcomes: {
     caught: `✓ ${cyOutcomeNames.caught}`,
     missed: `✕ ${cyOutcomeNames.missed}`,

@@ -134,6 +134,8 @@ it('reads back a test run, with its day as text', async () => {
       source: true,
       sourceCommit: true,
       sourceRunUrl: true,
+      tool: true,
+      toolVersion: true,
       createdAt: true,
     }),
   );

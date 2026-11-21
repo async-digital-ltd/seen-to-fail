@@ -2,6 +2,7 @@ import { repeated } from './plants.ts';
 import type { PlantKind, PlantedChecks } from './plants.ts';
 import { canfailVerdicts } from './report.ts';
 import type { CanfailReport, CanfailVerdict, ReplayResult } from './report.ts';
+import type { ReplayTool } from './tool.ts';
 
 /**
  * Turning what a replay tool said into runs this ledger can record.
@@ -86,6 +87,13 @@ export interface ReplayRun {
   readonly source: 'replay';
   readonly sourceCommit: string;
   readonly sourceRunUrl: string;
+  /**
+   * The tool that scored it and that tool's version (#101), copied from the
+   * installation's own metadata by the caller and never from a pin. The same
+   * pair on every run of one report, because one installation scored them all.
+   */
+  readonly tool: string;
+  readonly toolVersion: string;
 }
 
 /** What the job knew and the report did not. */
@@ -96,6 +104,8 @@ export interface ReplayProvenance {
   readonly sourceCommit: string;
   /** A link to the run that produced the report. */
   readonly sourceRunUrl: string;
+  /** The tool that scored the report, as its installation describes itself. */
+  readonly tool: ReplayTool;
 }
 
 export interface AdaptOptions {
@@ -176,6 +186,8 @@ export function runsFromReport(
       source: 'replay',
       sourceCommit: provenance.sourceCommit,
       sourceRunUrl: provenance.sourceRunUrl,
+      tool: provenance.tool.name,
+      toolVersion: provenance.tool.version,
     });
   }
 

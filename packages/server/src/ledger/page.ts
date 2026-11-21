@@ -380,10 +380,17 @@ function provenance(
         'commit it ran against or the run that produced it.',
     );
   }
+  // The tool and version that scored it (#101), beside the commit it ran
+  // against. Absent from a replay recorded before tools were recorded, which
+  // says nothing rather than guessing a version nothing recorded.
+  const scored =
+    run.tool === null || run.toolVersion === null
+      ? ''
+      : ` ${words.scoredBy(escapeHtml(`${run.tool} ${run.toolVersion}`))}`;
   return {
     method: words.byReplay,
     proof: `<a class="proof" href="${escapeHtml(run.sourceRunUrl)}">${words.viewProof}</a>`,
-    detail: `${words.ranAgainst(commitLink(ledger, run.sourceCommit))} ${recorded}`,
+    detail: `${words.ranAgainst(commitLink(ledger, run.sourceCommit))}${scored} ${recorded}`,
   };
 }
 

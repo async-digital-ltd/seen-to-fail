@@ -32,6 +32,9 @@ const provenance: ReplayProvenance = {
   sourceCommit: '31a56ad94b3dad9a5cb7ae285d734df2a8bd45eb',
   sourceRunUrl:
     'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/1',
+  // Deliberately not the version the workflow pins today, so an adapter that
+  // wrote the pin instead of what it was handed fails here (#101).
+  tool: { name: 'canfail', version: '9.8.7' },
 };
 
 /** A declaration of the one check, carrying breaks with these names. */
@@ -209,6 +212,16 @@ describe('what every run carries', () => {
       expect(run.sourceRunUrl).toBe(provenance.sourceRunUrl);
       expect(run.runOn).toBe(provenance.runOn);
       expect(run.note).toBeNull();
+    }
+  });
+
+  it('records on every run the tool and version it was handed, and no other (#101)', () => {
+    const result = adapt([{ verdict: 'catches' }, { verdict: 'blind' }]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const run of result.value) {
+      expect(run.tool).toBe('canfail');
+      expect(run.toolVersion).toBe('9.8.7');
     }
   });
 

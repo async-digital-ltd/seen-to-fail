@@ -146,6 +146,16 @@ type TestRun {
   sourceCommit: String
   "The run that produced it, as a link. Null for a run typed in."
   sourceRunUrl: String
+  """
+  The tool that scored a replay, as its installation names itself. Null for a
+  run typed in, and for a replay recorded before tools were recorded.
+  """
+  tool: String
+  """
+  The version of that tool that scored it, read from the installation that ran
+  rather than from a pin. Null exactly when tool is.
+  """
+  toolVersion: String
 }
 
 """

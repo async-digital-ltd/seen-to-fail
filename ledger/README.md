@@ -33,11 +33,12 @@ identical in every field, including the day, are one record; a note is what
 separates them when they are genuinely two.
 
 The digest is of the keys written, not only of what they mean. The recorder
-writes every key a run can have, eleven since `kind` was added (#295), so a run
-typed in again today that matches one of the six-key records from before
-`source` existed, or one of the ten-key records from before `kind` existed,
-field for field as the validator reads them, lands in a second file and is
-published as a second run.
+writes every key a run can have, eleven since `kind` was added (#295) and
+thirteen since `tool` and `toolVersion` were (#101), so a run typed in again
+today that matches one of the six-key records from before `source` existed, or
+one of the ten-key or eleven-key records from before those keys existed, field
+for field as the validator reads them, lands in a second file and is published
+as a second run.
 
 Nothing here is edited by the app. Two commands write a run, and everything
 else, every check and every observation, is written by hand in a pull request.
@@ -156,6 +157,27 @@ its runs that caught were declared to be, each once, in the list's order. A run
 that missed or settled nothing adds none. So a check whose only catches predate
 kinds lists none, which says no declared kind has been seen caught, not that
 the check catches nothing.
+
+## The tool that scored a replay
+
+`tool` and `toolVersion` name the tool that scored a replay's verdict and the
+version of it that did (#101). The recorder reads both from the installation
+that ran, never from a pin: canfail's report names neither and canfail 0.2.1
+has no `--version`, so the replay workflow asks pip to describe the canfail
+package in the environment the action ran it from, and `pnpm ledger:replay`
+reads the name and version out of that description. It refuses a description
+of any other package, because a version copied from one would not be the
+version that scored the run. So when the action's pin moves to a new canfail,
+the next replay records the new version without anything here being edited.
+
+A run typed in by hand carries neither, and is refused if it names either. A
+replay carries both or neither. Neither is every replay recorded before the
+two keys existed: those files were not rewritten to add them, for the reason
+given for `kind` above, and read as null, which says the tool is unknown rather
+than guessing one. A replay recorded now is refused by the recorder if it does
+not carry both. The database holds the same rule as the reader, by the
+constraint `test_runs_tool_belongs_to_a_replay`, and the published page shows
+the tool and version beside each replay that names them.
 
 ## A check's address
 
@@ -280,8 +302,9 @@ exactly as it is on disk:
 }
 ```
 
-Those ten keys are the whole of a replay record, and none of them names what
-started the job. `source` separates a job from a person typing, and a replay
+Those ten keys were the whole of a replay record when it was written. A replay
+recorded today also carries `kind`, `tool` and `toolVersion`, and none of the
+thirteen names what started the job. `source` separates a job from a person typing, and a replay
 somebody dispatched is a job too. Two of the replays with records in `runs/`
 show it: run
 [35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)

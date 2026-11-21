@@ -1,7 +1,13 @@
 import { PLANT_KINDS } from '@seen-to-fail/replay';
 import { describe, expect, it } from 'vitest';
 
-import { MAX_TEXT_LENGTH } from '../database/new-records.ts';
+import {
+  handRunHasNoTool,
+  handRunHasNoToolVersion,
+  MAX_TEXT_LENGTH,
+  toolNeedsItsVersion,
+  toolVersionNeedsItsTool,
+} from '../database/new-records.ts';
 import {
   parseLedgerCheck,
   parseLedgerObservation,
@@ -195,6 +201,74 @@ describe('the kind a run was declared to be', () => {
         parseLedgerRun({ ...soundRun, ...soundReplay, kind: 'typo' }, today),
       ),
     ).toEqual(['kind']);
+  });
+});
+
+describe('the tool that scored a run (#101)', () => {
+  const tool = { tool: 'canfail', toolVersion: '0.2.1' } as const;
+
+  it('reads a run with no tool as one whose tool and version are null', () => {
+    const result = parseLedgerRun(soundRun, today);
+    expect(result.ok && [result.value.tool, result.value.toolVersion]).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it('reads a replay recorded before tools were, as one whose tool is unknown', () => {
+    const result = parseLedgerRun({ ...soundRun, ...soundReplay }, today);
+    expect(result.ok && [result.value.tool, result.value.toolVersion]).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it('keeps the tool and version a replay names', () => {
+    const result = parseLedgerRun(
+      { ...soundRun, ...soundReplay, ...tool },
+      today,
+    );
+    expect(result.ok && [result.value.tool, result.value.toolVersion]).toEqual([
+      'canfail',
+      '0.2.1',
+    ]);
+  });
+
+  it('refuses a run typed in by hand that names either', () => {
+    expect(
+      parseLedgerRun({ ...soundRun, tool: 'canfail' }, today),
+    ).toMatchObject({ ok: false, errors: [handRunHasNoTool] });
+    expect(
+      parseLedgerRun({ ...soundRun, toolVersion: '0.2.1' }, today),
+    ).toMatchObject({ ok: false, errors: [handRunHasNoToolVersion] });
+  });
+
+  it('refuses a replay that names one and omits the other', () => {
+    expect(
+      parseLedgerRun({ ...soundRun, ...soundReplay, tool: 'canfail' }, today),
+    ).toMatchObject({ ok: false, errors: [toolNeedsItsVersion] });
+    expect(
+      parseLedgerRun(
+        { ...soundRun, ...soundReplay, toolVersion: '0.2.1' },
+        today,
+      ),
+    ).toMatchObject({ ok: false, errors: [toolVersionNeedsItsTool] });
+  });
+
+  it('refuses a version written as a sentence', () => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun(
+          {
+            ...soundRun,
+            ...soundReplay,
+            ...tool,
+            toolVersion: 'the one pinned',
+          },
+          today,
+        ),
+      ),
+    ).toContain('toolVersion');
   });
 });
 

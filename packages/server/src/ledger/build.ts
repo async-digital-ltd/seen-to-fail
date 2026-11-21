@@ -181,8 +181,9 @@ async function writeLedgerToDatabase(
         `INSERT INTO test_runs
            (id, check_id, run_on, planted, expected, outcome,
             inconclusive_reason, note,
-            source, source_commit, source_run_url, plant_kind)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            source, source_commit, source_run_url, plant_kind,
+            tool, tool_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           ledgerFileUuid(`${ledgerPath}/${entry.file}`),
           ledgerCheckUuid(entry.record.checkId),
@@ -196,6 +197,8 @@ async function writeLedgerToDatabase(
           entry.record.sourceCommit,
           entry.record.sourceRunUrl,
           entry.record.kind,
+          entry.record.tool,
+          entry.record.toolVersion,
         ],
       );
     }

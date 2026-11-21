@@ -58,6 +58,12 @@ export interface PublishedRun {
   readonly sourceCommit: string | null;
   /** The run that produced it, or null for a run typed in. */
   readonly sourceRunUrl: string | null;
+  /**
+   * The tool that scored a replay and its version (#101), or null for a run
+   * typed in by hand and for a replay recorded before tools were recorded.
+   */
+  readonly tool: string | null;
+  readonly toolVersion: string | null;
   /** The file it was recorded in, relative to the repository root. */
   readonly sourceFile: string;
   /** The commit that added that file, or null when it is not committed yet. */
@@ -176,6 +182,8 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       source: entry.record.source,
       sourceCommit: entry.record.sourceCommit,
       sourceRunUrl: entry.record.sourceRunUrl,
+      tool: entry.record.tool,
+      toolVersion: entry.record.toolVersion,
       sourceFile,
       recordedIn: input.recordingCommits.get(sourceFile) ?? null,
     });

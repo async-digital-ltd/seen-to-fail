@@ -38,6 +38,14 @@ export {
 } from './dependencies.ts';
 export type { DeclaredCheck, TouchedOptions } from './dependencies.ts';
 
+export {
+  MAX_TOOL_VERSION_LENGTH,
+  REPLAY_TOOL,
+  TOOL_VERSION_PATTERN,
+  parseToolMetadata,
+} from './tool.ts';
+export type { ReplayTool } from './tool.ts';
+
 export { runsFromReport } from './adapt.ts';
 export type {
   AdaptOptions,

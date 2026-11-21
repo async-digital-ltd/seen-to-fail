@@ -5,6 +5,7 @@ import { isRealDay } from '../day.ts';
 import {
   checkRunProvenance,
   checkRunSettlement,
+  checkRunTool,
   issuesFrom,
   MAX_LABEL_LENGTH,
   MAX_TEXT_LENGTH,
@@ -13,6 +14,8 @@ import {
   optionalSourceCommit,
   optionalSourceRunUrl,
   optionalText,
+  optionalTool,
+  optionalToolVersion,
   requiredText,
   runSource,
 } from '../database/new-records.ts';
@@ -165,9 +168,17 @@ function ledgerRunSchema(today: IsoDate) {
       source: runSource.default(recordedBeforeSourcesExisted),
       sourceCommit: optionalSourceCommit,
       sourceRunUrl: optionalSourceRunUrl,
+      // The tool that scored a replay and its version (#101). Absent on every
+      // record written before they were recorded, which reads as null, the
+      // only spelling of unknown, for the reason given above for `source`.
+      // Nothing backfills them. A hand run carries neither and a replay both
+      // or neither, by checkRunTool.
+      tool: optionalTool,
+      toolVersion: optionalToolVersion,
     })
     .superRefine(checkRunProvenance)
-    .superRefine(checkRunSettlement);
+    .superRefine(checkRunSettlement)
+    .superRefine(checkRunTool);
 }
 
 function ledgerObservationSchema(today: IsoDate) {

@@ -902,6 +902,29 @@ it('finds a run published with a kind its record does not declare', () => {
   expect(found.join('\n')).toContain('its declared kind');
 });
 
+/**
+ * The tool and version a replay was scored by (#101). The fixture's run that
+ * settled nothing is a replay naming both, so publishing it with another
+ * version, or with none, is a disagreement with its file.
+ */
+it('finds a replay published with a tool version its record does not name', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive' ? { ...run, toolVersion: '0.3.0' } : run,
+    ),
+  );
+  expect(found.join('\n')).toContain("that tool's version");
+});
+
+it('finds a replay published without the tool its record names', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive' ? { ...run, tool: null } : run,
+    ),
+  );
+  expect(found.join('\n')).toContain('the tool that scored it');
+});
+
 it('finds a kind published as caught from a run that settled nothing', () => {
   const input = soundUnsettled();
   const found = disagreements({
