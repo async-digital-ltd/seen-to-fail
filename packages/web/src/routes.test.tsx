@@ -20,8 +20,7 @@ import {
   populated,
 } from './testing/workspace';
 
-const footerSentence =
-  'Async Digital is a one-person studio testing, in the open, what really changes when AI can write the code.';
+const footerSentence = 'Seen to Fail is made by Async Digital Ltd.';
 
 const saveRun = () => screen.findByRole('button', { name: 'Save run' });
 
