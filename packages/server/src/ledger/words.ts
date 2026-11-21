@@ -1,4 +1,5 @@
 import type { Status } from '@seen-to-fail/filter';
+import type { PlantKind } from '@seen-to-fail/replay';
 
 import type { TestRunOutcome } from '../database/rows.ts';
 
@@ -105,6 +106,14 @@ export interface PageWords {
   readonly protectsAgainst: string;
   readonly howToTellArmed: string;
   readonly lastSeen: string;
+  /** The label over the kinds of planted defect a check has caught (#295). */
+  readonly kindsCaught: string;
+  /**
+   * Each kind of planted defect by its name on the page. A complete record, so
+   * a kind added to the declared list fails to compile until both languages
+   * name it.
+   */
+  readonly plantKinds: Readonly<Record<PlantKind, string>>;
   readonly notWrittenDown: string;
   readonly notYetObserved: string;
   readonly seenSwitched: (armed: boolean) => string;
@@ -262,6 +271,15 @@ export const english: PageWords = {
   protectsAgainst: 'Protects against',
   howToTellArmed: 'How you can tell it is switched on',
   lastSeen: 'Last seen',
+  kindsCaught: 'Kinds of defect caught',
+  plantKinds: {
+    'wrong-answer': 'Wrong answer',
+    'missing-case': 'Missing case',
+    crash: 'Crash',
+    security: 'Security',
+    configuration: 'Configuration',
+    dependency: 'Dependency',
+  },
   notWrittenDown: 'Nobody has written this down.',
   notYetObserved: 'Not yet observed.',
   seenSwitched: (armed) => `Seen switched ${armed ? 'on' : 'off'}`,
@@ -299,6 +317,7 @@ export const english: PageWords = {
 <p>To prove a check, a defect it should catch is planted on purpose, the check is run, and the result is recorded as one of three outcomes.</p>
 <dl class="pair"><dt>Caught</dt><dd>The check went red.</dd><dt>Missed</dt><dd>The check stayed green. A planted defect that changes what the code does, but that the check does not see, is recorded as Missed too: the ledger cannot tell that from a weak check.</dd><dt>Settled nothing</dt><dd>The run told us nothing about the check, and the reason is shown as it was written. No status is read from it.</dd></dl>
 <p>A run by hand is one somebody planted, watched, and recorded. A replay was planted and scored by a job against newer code, so a check declared for replay keeps being tested after its first proof. A check that is not declared is tested only when somebody plants a defect by hand. A proof older than ${String(staleAfterDays)} days turns Stale.</p>
+<p>The kind of a planted defect, such as a wrong answer or a crash, is declared by whoever wrote the plant and is not worked out by the ledger. A check lists only the kinds of the defects it caught.</p>
 <p>Every run is a file in the repository, added by a commit like any other change, so a record that is wrong has an author, a diff, and a revert.</p>
 <p>This page is read-only: it has no filter bar and no server behind it. The filter works when you run the app locally. The same ledger is published beside this page as <a href="ledger.json"><code>ledger.json</code></a>.</p>`,
   onGitHub: (repository) => `${repository} on GitHub ↗`,
@@ -427,6 +446,15 @@ export const welsh: PageWords = {
   protectsAgainst: 'Yn amddiffyn rhag',
   howToTellArmed: 'Sut i wybod ei fod wedi’i droi ymlaen',
   lastSeen: 'Gwelwyd ddiwethaf',
+  kindsCaught: 'Mathau o nam a ddaliwyd',
+  plantKinds: {
+    'wrong-answer': 'Ateb anghywir',
+    'missing-case': 'Achos ar goll',
+    crash: 'Chwalfa',
+    security: 'Diogelwch',
+    configuration: 'Ffurfweddiad',
+    dependency: 'Dibyniaeth',
+  },
   notWrittenDown: 'Nid oes neb wedi ysgrifennu hyn.',
   notYetObserved: 'Heb ei weld eto.',
   seenSwitched: (armed) => `Gwelwyd ei fod ${armed ? 'ymlaen' : 'i ffwrdd'}`,
@@ -466,6 +494,7 @@ export const welsh: PageWords = {
 <p>I brofi gwiriad, mae nam y dylai’r gwiriad ei ddal yn cael ei blannu’n fwriadol, mae’r gwiriad yn cael ei redeg, ac mae’r canlyniad yn cael ei gofnodi fel un o dri chanlyniad.</p>
 <dl class="pair"><dt>${cyOutcomeNames.caught}</dt><dd>Trodd y gwiriad yn goch.</dd><dt>${cyOutcomeNames.missed}</dt><dd>Arhosodd y gwiriad yn wyrdd. Mae nam wedi’i blannu sy’n newid yr hyn y mae’r cod yn ei wneud, ond nad yw’r gwiriad yn ei weld, hefyd yn cael ei gofnodi fel ${cyOutcomeNames.missed}: ni all y cyfriflyfr wahaniaethu rhwng hynny a gwiriad gwan.</dd><dt>${cyOutcomeNames.inconclusive}</dt><dd>Ni ddywedodd y rhediad ddim wrthym am y gwiriad, ac mae’r rheswm a gofnodwyd yn cael ei ddangos. Nid oes statws yn cael ei ddarllen ohono.</dd></dl>
 <p>Rhediad â llaw yw un y mae rhywun wedi’i blannu, ei wylio a’i gofnodi. Mae ailchwarae yn cael ei blannu a’i sgorio gan swydd yn erbyn cod newyddach, felly mae gwiriad a ddatganwyd ar gyfer ailchwarae yn dal i gael ei brofi ar ôl ei brawf cyntaf. Dim ond pan fydd rhywun yn plannu nam â llaw y caiff gwiriad nad yw wedi’i ddatgan ei brofi. Mae prawf sy’n hŷn na ${cyNumbered(staleAfterDays, 'diwrnod', 'ddiwrnod')} yn cael y statws ${cyStatuses.Stale}.</p>
+<p>Mae math nam a blannwyd, fel ateb anghywir neu chwalfa, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>
 <p>Mae pob rhediad yn ffeil yn yr ystorfa, wedi’i hychwanegu gan ymrwymiad fel unrhyw newid arall, felly mae gan gofnod anghywir awdur, gwahaniaeth i’w ddarllen, a ffordd o’i ddadwneud.</p>
 <p>Darllen yn unig yw’r dudalen hon: nid oes ganddi far hidlo na gweinydd y tu ôl iddi. Mae’r hidlydd yn gweithio pan fyddwch yn rhedeg yr ap yn lleol. Cyhoeddir yr un cyfriflyfr wrth ymyl y dudalen hon fel <a href="ledger.json"><code>ledger.json</code></a>.</p>`,
   onGitHub: (repository) => `${repository} ar GitHub ↗`,

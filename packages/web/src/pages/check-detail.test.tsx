@@ -659,6 +659,47 @@ describe('the two kinds of evidence', () => {
     ).toHaveTextContent('3 runs, 2 caught and 1 missed');
   });
 
+  it('lists every kind of defect the check caught, with where a kind comes from (#295)', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-10',
+      runCount: 2,
+      caughtCount: 2,
+      kindsCaught: ['WRONG_ANSWER', 'CRASH'],
+    });
+
+    const works = within(evidence()).getByRole('region', {
+      name: 'Does it work?',
+    });
+    const kinds = within(works).getByRole('list', {
+      name: 'Kinds of defect caught',
+    });
+    expect(
+      within(kinds)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toStrictEqual(['Wrong answer', 'Crash']);
+    expect(works).toHaveTextContent(
+      'The kind is declared by whoever wrote the plant, not worked out by this app. Only the kinds of defect this check caught are listed.',
+    );
+  });
+
+  it('shows no kinds, and no heading for them, when the check caught no declared kind (#295)', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      lastCaughtOn: '2026-09-10',
+      runCount: 1,
+      caughtCount: 1,
+    });
+
+    const works = within(evidence()).getByRole('region', {
+      name: 'Does it work?',
+    });
+    expect(within(works).queryByRole('list')).toBeNull();
+    expect(works).not.toHaveTextContent('Kinds of defect caught');
+    expect(works).not.toHaveTextContent('declared by whoever wrote the plant');
+  });
+
   it('says when nothing of a kind is recorded', async () => {
     await renderRecordedCheck();
 

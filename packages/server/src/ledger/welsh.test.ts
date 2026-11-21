@@ -1,4 +1,5 @@
 import { STATUSES } from '@seen-to-fail/filter';
+import { PLANT_KINDS } from '@seen-to-fail/replay';
 import { expect, it } from 'vitest';
 
 import { testRunOutcomes } from '../database/rows.ts';
@@ -9,6 +10,7 @@ import {
   fixtureSnapshot,
   fixtureSummariesWithAnUnsettledRun,
 } from '../testing/ledger.ts';
+import { ledgerCheckUuid } from './identity.ts';
 import { readableDay, renderPage } from './page.ts';
 import { recordWelsh } from './record-welsh.ts';
 import type { PublishedLedger } from './snapshot.ts';
@@ -431,5 +433,46 @@ it('sends the footer studio link to the studio home in the page’s language', (
 it('says in its Welsh help text that a plant no check sees is recorded as missed', () => {
   expect(renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh)).toContain(
     'ond nad yw’r gwiriad yn ei weld, hefyd yn cael ei gofnodi fel Heb ddal: ni all y cyfriflyfr wahaniaethu rhwng hynny a gwiriad gwan.',
+  );
+});
+
+/**
+ * Every kind of planted defect has a Welsh name on the Welsh page (#295), and
+ * none of them is the English one. Rendered with all six kinds caught, so a
+ * kind left in English is on the page to be found.
+ */
+it('names every kind of planted defect a check caught in Welsh', () => {
+  const ledger = fixtureSnapshot(
+    undefined,
+    undefined,
+    new Map([[ledgerCheckUuid('first-check'), PLANT_KINDS]]),
+  );
+  const listed = (page: string): string[] => {
+    const list = /<ul class="kinds">(.*?)<\/ul>/u.exec(page)?.[1] ?? '';
+    return [...list.matchAll(/<li>([^<]*)<\/li>/gu)].map(
+      (match) => match[1] ?? '',
+    );
+  };
+  const english = listed(renderPage(ledger, 'en'));
+  const welsh = listed(renderPage(ledger, 'cy', fixtureRecordWelsh));
+
+  expect(english).toHaveLength(PLANT_KINDS.length);
+  expect(welsh).toStrictEqual([
+    'Ateb anghywir',
+    'Achos ar goll',
+    'Chwalfa',
+    'Diogelwch',
+    'Ffurfweddiad',
+    'Dibyniaeth',
+  ]);
+  const page = renderPage(ledger, 'cy', fixtureRecordWelsh);
+  expect(page).toContain('<dt>Mathau o nam a ddaliwyd</dt>');
+  expect(page).not.toContain('Kinds of defect caught');
+});
+
+/** The Welsh half of the help text on where a kind comes from (#295). */
+it('says in its Welsh help text that a kind is declared by the plant’s author, not inferred', () => {
+  expect(renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh)).toContain(
+    '<p>Mae math nam a blannwyd, fel ateb anghywir neu chwalfa, yn cael ei ddatgan gan bwy bynnag a ysgrifennodd y nam, ac nid yw’n cael ei gyfrifo gan y cyfriflyfr. Dim ond mathau’r namau a ddaliwyd gan wiriad sy’n cael eu rhestru ar ei gyfer.</p>',
   );
 });
