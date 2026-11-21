@@ -52,6 +52,12 @@ nothing is not read by any of these rules, in any of their branches.
 | **Stale**    | The latest run caught its defect, but longer ago than that.                                                                    |
 | **Unproven** | There are no runs, and the latest observation says it is on.                                                                   |
 
+Each status is read from one piece of evidence: Broken, Proven and Stale from
+the latest test run, Unproven from the latest observation, and Unarmed from the
+latest observation when it found the check switched off, or from nothing when
+nobody has looked. A check's page says which, and what new evidence would move
+the status.
+
 Because the rules are read in that order, a check that caught a defect and was
 then seen switched off reads Unarmed rather than Proven, and a check that caught
 and then missed reads Broken rather than Stale. A check whose plant has stopped

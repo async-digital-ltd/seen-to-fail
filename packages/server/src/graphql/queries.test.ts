@@ -39,6 +39,7 @@ interface CheckSummaryFields {
   readonly name: string;
   readonly area: string;
   readonly status: string;
+  readonly statusFrom: string;
   readonly lastCaughtOn: string | null;
   readonly lastRunOn: string | null;
   readonly runCount: number;
@@ -53,6 +54,7 @@ const checkSummaryFields = `
   name
   area
   status
+  statusFrom
   lastCaughtOn
   lastRunOn
   runCount
@@ -117,6 +119,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // and still has a catch to report from before it was.
   expect(broken).toMatchObject({
     status: 'BROKEN',
+    statusFrom: 'TEST_RUN',
     runCount: 2,
     caughtCount: 1,
     missedCount: 1,
@@ -133,6 +136,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // null means "nothing recorded" rather than zero.
   expect(neverRun).toMatchObject({
     status: 'UNPROVEN',
+    statusFrom: 'OBSERVATION',
     runCount: 0,
     caughtCount: 0,
     missedCount: 0,
@@ -148,6 +152,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // finding it off. Null is what says so.
   expect(nothingRecorded).toMatchObject({
     status: 'UNARMED',
+    statusFrom: 'NOTHING',
     lastArmed: null,
     lastSeenArmedOn: null,
   });

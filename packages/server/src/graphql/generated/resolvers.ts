@@ -135,6 +135,8 @@ export type Check = {
   runs: Array<TestRun>;
   /** The status derived from everything below, as of today. */
   status: Status;
+  /** Which of the two kinds of evidence the status was read from. */
+  statusFrom: StatusEvidence;
 };
 
 /**
@@ -374,6 +376,21 @@ export type StatusCounts = {
 };
 
 /**
+ * Which of a check's two kinds of evidence its status was read from.
+ *
+ * A status is read from the latest test run or from the latest arming
+ * observation. A check with neither reads Unarmed with nothing behind it. This
+ * names which, so a reader can tell what would move the status next.
+ */
+export type StatusEvidence =
+  /** Nothing yet: no run has settled anything and nobody has looked. */
+  | 'NOTHING'
+  /** The latest observation: somebody looked and found it switched on or off. */
+  | 'OBSERVATION'
+  /** The latest run that settled anything: it caught or it missed. */
+  | 'TEST_RUN';
+
+/**
  * One planted defect, and what the check did about it.
  *
  * A run is the unit of evidence in this product. Everything a check's status
@@ -609,6 +626,7 @@ export type ResolversTypes = {
   RunSource: RunSource;
   Status: Status;
   StatusCounts: ResolverTypeWrapper<StatusCounts>;
+  StatusEvidence: StatusEvidence;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   TestRun: ResolverTypeWrapper<TestRunRow>;
   TestRunLogged: ResolverTypeWrapper<
@@ -740,6 +758,11 @@ export type CheckResolvers<
   runCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   runs: Resolver<Array<ResolversTypes['TestRun']>, ParentType, ContextType>;
   status: Resolver<ResolversTypes['Status'], ParentType, ContextType>;
+  statusFrom: Resolver<
+    ResolversTypes['StatusEvidence'],
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 

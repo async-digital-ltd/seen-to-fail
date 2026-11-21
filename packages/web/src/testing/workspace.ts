@@ -55,6 +55,7 @@ export const recorded = aRecordedCheck({
   protects: 'A file that no longer lints reaching the main branch.',
   howToTellArmed: 'The lint job is listed on every push.',
   status: 'PROVEN',
+  statusFrom: 'TEST_RUN',
   lastCaughtOn: '2026-09-12',
   lastSettledOn: '2026-09-12',
   runCount: 1,

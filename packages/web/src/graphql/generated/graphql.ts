@@ -118,6 +118,21 @@ export type Status =
   /** There is evidence it is switched on, and nothing has ever been planted for it. */
   | 'UNPROVEN';
 
+/**
+ * Which of a check's two kinds of evidence its status was read from.
+ *
+ * A status is read from the latest test run or from the latest arming
+ * observation. A check with neither reads Unarmed with nothing behind it. This
+ * names which, so a reader can tell what would move the status next.
+ */
+export type StatusEvidence =
+  /** Nothing yet: no run has settled anything and nobody has looked. */
+  | 'NOTHING'
+  /** The latest observation: somebody looked and found it switched on or off. */
+  | 'OBSERVATION'
+  /** The latest run that settled anything: it caught or it missed. */
+  | 'TEST_RUN';
+
 export type AreasQueryVariables = Exact<{ [key: string]: never }>;
 
 export type AreasQuery = { areas: Array<string> };
@@ -134,6 +149,7 @@ export type CheckDetailQuery = {
     protects: string;
     howToTellArmed: string;
     status: Status;
+    statusFrom: StatusEvidence;
     lastCaughtOn: string | null;
     lastSettledOn: string | null;
     runCount: number;
@@ -311,6 +327,7 @@ export const CheckDetailDocument = {
                   name: { kind: 'Name', value: 'howToTellArmed' },
                 },
                 { kind: 'Field', name: { kind: 'Name', value: 'status' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'statusFrom' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'lastCaughtOn' },

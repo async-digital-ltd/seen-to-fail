@@ -26,6 +26,7 @@ import {
   statusName,
 } from './enums.ts';
 import { filterFromArgument, filterInputScalar } from './filter-input.ts';
+import { statusEvidence } from './status-evidence.ts';
 import type {
   ArmingObservationRecordedResolvers,
   ArmingObservationResolvers,
@@ -277,6 +278,7 @@ const Check: CheckResolvers = {
   protects: (check) => check.protects,
   howToTellArmed: (check) => check.howToTellArmed,
   status: (check) => statusName(check.status),
+  statusFrom: (check) => statusEvidence(check.status, check.lastArmed),
   lastCaughtOn: (check) => check.lastCaughtOn,
   lastRunOn: (check) => check.lastRunOn,
   lastSettledOn: (check) => check.lastSettledOn,
