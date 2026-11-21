@@ -26,8 +26,8 @@ export type {
   ReplayResult,
 } from './report.ts';
 
-export { parsePlantedChecks } from './plants.ts';
-export type { PlantedCheck, PlantedChecks } from './plants.ts';
+export { PLANT_KINDS, isPlantKind, parsePlantedChecks } from './plants.ts';
+export type { PlantKind, PlantedCheck, PlantedChecks } from './plants.ts';
 
 export {
   checksTouchedBy,

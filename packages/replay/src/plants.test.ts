@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePlantedChecks } from './plants.ts';
+import { PLANT_KINDS, parsePlantedChecks } from './plants.ts';
 
 /**
  * The plant declaration, read for the two things canfail does not read.
@@ -16,6 +16,7 @@ const canfailsOwnKeys = {
   breaks: [
     {
       name: 'A plant.',
+      kind: 'wrong-answer',
       file: 'a.ts',
       replace: 'a',
       with: 'b',
@@ -42,6 +43,7 @@ describe('reading the plant declaration', () => {
       checkId: 'ci-type-check',
       expected: 'The type check fails.',
       breaks: ['A plant.'],
+      kinds: new Map([['A plant.', 'wrong-answer']]),
     });
   });
 
@@ -118,6 +120,7 @@ describe('reading the declared breaks', () => {
     const result = withBreaks([
       {
         name: 'The first plant.',
+        kind: 'wrong-answer',
         file: 'a.ts',
         replace: 'a',
         with: 'b',
@@ -125,6 +128,7 @@ describe('reading the declared breaks', () => {
       },
       {
         name: 'The second plant.',
+        kind: 'crash',
         file: 'b.ts',
         replace: 'b',
         with: 'c',
@@ -195,6 +199,7 @@ describe('refusing a plant that cannot show whether a check works', () => {
           breaks: [
             {
               name: 'The plant under test.',
+              kind: 'wrong-answer',
               file: 'a.ts',
               expect: 'error TS[0-9]+',
               ...planted,
@@ -288,4 +293,63 @@ describe('refusing a plant that cannot show whether a check works', () => {
       );
     },
   );
+});
+
+/**
+ * The kind of defect each plant declares itself to be (#295), asserted on
+ * both halves: a missing or unlisted kind is refused, naming the plant, and
+ * every listed kind is accepted and carried through as declared.
+ */
+describe('reading the kind each plant declares', () => {
+  function withKind(kind: unknown) {
+    const planted: Record<string, unknown> = {
+      name: 'The plant under test.',
+      file: 'a.ts',
+      replace: 'a',
+      with: 'b',
+      expect: 'error TS[0-9]+',
+    };
+    if (kind !== undefined) planted.kind = kind;
+    return parsePlantedChecks({
+      checks: [
+        {
+          name: 'Type check',
+          checkId: 'ci-type-check',
+          expected: 'The type check fails.',
+          run: 'pnpm typecheck',
+          breaks: [planted],
+        },
+      ],
+    });
+  }
+
+  function refusal(kind: unknown): string {
+    const result = withKind(kind);
+    expect(result.ok).toBe(false);
+    if (result.ok) return '';
+    expect(result.problems).toHaveLength(1);
+    expect(result.problems[0]).toContain('The plant under test.');
+    expect(result.problems[0]).toContain('Type check');
+    return result.problems[0] ?? '';
+  }
+
+  it('refuses a break that declares no kind', () => {
+    expect(refusal(undefined)).toContain('declares no kind');
+  });
+
+  it.each(['flaky', 'Crash', 'wrong answer', '', 3, null])(
+    'refuses the unlisted kind %j',
+    (kind) => {
+      expect(refusal(kind)).toContain('which is not one of');
+    },
+  );
+
+  it.each([...PLANT_KINDS])('accepts the listed kind %s', (kind) => {
+    const result = withKind(kind);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.value.get('Type check')?.kinds.get('The plant under test.'),
+    ).toBe(kind);
+  });
 });

@@ -29,6 +29,32 @@ import type { ReplayResult } from './report.ts';
  */
 
 /**
+ * The kinds of defect a plant can declare itself to be (#295), the one list
+ * the reader, the server and the page all read.
+ *
+ * The kind is declared by the plant's author, never inferred from the plant:
+ * the ledger cannot tell a wrong answer from a missing case by reading a
+ * replacement. It is recorded so that a reader can see what sort of defect a
+ * check has been seen to catch, and it plays no part in a check's status.
+ */
+export const PLANT_KINDS = [
+  'wrong-answer',
+  'missing-case',
+  'crash',
+  'security',
+  'configuration',
+  'dependency',
+] as const;
+
+/** One kind of defect from the fixed list. */
+export type PlantKind = (typeof PLANT_KINDS)[number];
+
+/** Whether a value is one of the fixed kinds, narrowing it if so. */
+export function isPlantKind(value: unknown): value is PlantKind {
+  return (PLANT_KINDS as readonly unknown[]).includes(value);
+}
+
+/**
  * A check in the configuration, read for this ledger's two keys.
  *
  * The one schema here that is deliberately NOT strict, and the exception is
@@ -93,6 +119,12 @@ const plantedCheckSchema = z.object({
       replace: z.string().optional(),
       with: z.string().optional(),
       expect: z.string().optional(),
+      /**
+       * Held as it arrived and refused by name in `kindProblems` rather than
+       * here, so that the refusal names the plant it is about. Only a value
+       * from `PLANT_KINDS` reaches a `PlantedCheck`.
+       */
+      kind: z.unknown().optional(),
     }),
   ),
 });
@@ -232,6 +264,26 @@ function soundnessProblems(
   return problems;
 }
 
+/**
+ * Why this break's kind cannot be read, naming the plant (#295), or nothing
+ * when it declares one of `PLANT_KINDS`.
+ */
+function kindProblems(checkName: string, declared: DeclaredBreak): string[] {
+  const plant = `The break ${declared.name} of the check ${checkName}`;
+  const listed = PLANT_KINDS.join(', ');
+  if (declared.kind === undefined) {
+    return [
+      `${plant} declares no kind, so nobody can see what sort of defect it shows the check catching. Declare one of: ${listed}.`,
+    ];
+  }
+  if (!isPlantKind(declared.kind)) {
+    return [
+      `${plant} declares the kind ${JSON.stringify(declared.kind)}, which is not one of: ${listed}.`,
+    ];
+  }
+  return [];
+}
+
 const declarationSchema = z.object({
   checks: z.array(plantedCheckSchema),
 });
@@ -247,6 +299,11 @@ export interface PlantedCheck {
    * about this check has to carry exactly one outcome for each of them.
    */
   readonly breaks: readonly string[];
+  /**
+   * The kind each declared break says it is, by the break's name (#295).
+   * Declared by the plant's author, not inferred, and never read by status.
+   */
+  readonly kinds: ReadonlyMap<string, PlantKind>;
 }
 
 /**
@@ -296,13 +353,19 @@ export function parsePlantedChecks(
         `Two breaks of the check ${check.name} are both named ${name}, so an outcome filed under it could mean either.`,
       );
     }
+    const kinds = new Map<string, PlantKind>();
     for (const declared of check.breaks) {
       problems.push(...soundnessProblems(check.name, declared));
+      problems.push(...kindProblems(check.name, declared));
+      if (isPlantKind(declared.kind)) {
+        kinds.set(declared.name, declared.kind);
+      }
     }
     checks.set(check.name, {
       checkId: check.checkId,
       expected: check.expected,
       breaks,
+      kinds,
     });
   }
 
