@@ -422,3 +422,14 @@ it('sends the footer studio link to the studio home in the page’s language', (
   expect(welsh.split(welshHome)).toHaveLength(2);
   expect(welsh).not.toContain(englishHome);
 });
+
+/**
+ * The Welsh half of the English page's help text about a plant no check sees
+ * (#294): it is recorded as missed, because the ledger cannot tell it from a
+ * weak check.
+ */
+it('says in its Welsh help text that a plant no check sees is recorded as missed', () => {
+  expect(renderPage(fixtureSnapshot(), 'cy', fixtureRecordWelsh)).toContain(
+    'ond nad yw’r gwiriad yn ei weld, hefyd yn cael ei gofnodi fel Heb ddal: ni all y cyfriflyfr wahaniaethu rhwng hynny a gwiriad gwan.',
+  );
+});
