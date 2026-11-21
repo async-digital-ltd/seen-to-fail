@@ -31,10 +31,7 @@ export function Shell(): ReactElement {
         <Outlet />
       </main>
       <footer className="footer">
-        <p>
-          Async Digital is a one-person studio testing, in the open, what really
-          changes when AI can write the code.
-        </p>
+        <p>Seen to Fail is made by Async Digital Ltd.</p>
       </footer>
     </div>
   );
