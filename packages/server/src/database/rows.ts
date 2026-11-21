@@ -1,3 +1,4 @@
+import type { PlantKind } from '@seen-to-fail/replay';
 import type { QueryResult, QueryResultRow } from 'pg';
 
 /**
@@ -336,6 +337,13 @@ export interface TestRun {
   readonly runOn: IsoDate;
   readonly planted: string;
   readonly expected: string;
+  /**
+   * The kind of defect the plant was declared to be, or null when nobody
+   * declared one, which is every run typed in by hand and every run recorded
+   * before plants carried a kind (#295). Declared, never inferred, and never
+   * read by any status rule.
+   */
+  readonly kind: PlantKind | null;
   readonly outcome: TestRunOutcome;
   /**
    * Why the run settled nothing, or null when it settled something.
@@ -454,6 +462,7 @@ export const testRunColumns = [
   `${isoDate('run_on')} AS "runOn"`,
   'planted',
   'expected',
+  'plant_kind AS "kind"',
   'outcome',
   'inconclusive_reason AS "inconclusiveReason"',
   'note',

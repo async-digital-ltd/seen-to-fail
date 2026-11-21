@@ -2,6 +2,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import type { PlantKind } from '@seen-to-fail/replay';
+
 import type { StatusTotals } from '../database/checks.ts';
 import type { CheckSummary } from '../database/summaries.ts';
 import { ledgerCheckUuid, ledgerFileUuid } from '../ledger/identity.ts';
@@ -104,6 +106,7 @@ export function fixtureContents(): LedgerContents {
           runOn: '2026-09-10',
           planted: 'A type error.',
           expected: 'The type check fails.',
+          kind: null,
           outcome: 'caught',
           inconclusiveReason: null,
           note: null,
@@ -219,6 +222,8 @@ export function fixtureContentsWithAnUnsettledRun(): LedgerContents {
           runOn: '2026-09-16',
           planted: 'A type error at the declared anchor.',
           expected: 'The type check fails.',
+          // Declared, and settled nothing, so it adds no kind caught.
+          kind: 'wrong-answer',
           outcome: 'inconclusive',
           inconclusiveReason: fixtureUnsettledReason,
           note: null,
@@ -303,11 +308,13 @@ export function fixtureStatusTotals(): StatusTotals {
  *
  * Both are arguments so that a test can hand it a variant, such as the replay
  * or the run that settled nothing above, without a second copy of everything
- * else the build needs.
+ * else the build needs. The kinds caught stand in for what the database read;
+ * none of the fixture's runs that caught declares a kind, so it reads none.
  */
 export function fixtureSnapshot(
   contents: LedgerContents = fixtureContents(),
   summaries: readonly CheckSummary[] = fixtureSummaries(),
+  kindsCaught: ReadonlyMap<string, readonly PlantKind[]> = new Map(),
 ): PublishedLedger {
   return buildSnapshot({
     contents,
@@ -323,5 +330,6 @@ export function fixtureSnapshot(
         '1234567890abcdef1234567890abcdef12345678',
       ],
     ]),
+    kindsCaught,
   });
 }

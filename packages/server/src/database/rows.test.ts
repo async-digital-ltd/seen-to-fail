@@ -127,6 +127,7 @@ it('reads back a test run, with its day as text', async () => {
       runOn: true,
       planted: true,
       expected: true,
+      kind: true,
       outcome: true,
       inconclusiveReason: true,
       note: true,

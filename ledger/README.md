@@ -33,9 +33,11 @@ identical in every field, including the day, are one record; a note is what
 separates them when they are genuinely two.
 
 The digest is of the keys written, not only of what they mean. The recorder
-writes all ten keys a run can have, so a run typed in again today that matches
-one of the six-key records from before `source` existed, field for field as the
-validator reads them, lands in a second file and is published as a second run.
+writes every key a run can have, eleven since `kind` was added (#295), so a run
+typed in again today that matches one of the six-key records from before
+`source` existed, or one of the ten-key records from before `kind` existed,
+field for field as the validator reads them, lands in a second file and is
+published as a second run.
 
 Nothing here is edited by the app. Two commands write a run, and everything
 else, every check and every observation, is written by hand in a pull request.
@@ -106,8 +108,11 @@ ignored is a record published without it. A field written in words is trimmed
 of surrounding spaces, and an empty `note`, `inconclusiveReason`,
 `sourceCommit` or `sourceRunUrl` reads as absent.
 
-A run typed in by hand, in the shape `pnpm ledger:record` writes one today:
-every key present, and the empty ones null. The values are made up for the
+A run typed in by hand, in the shape `pnpm ledger:record` wrote one before
+`kind` existed: every key present, and the empty ones null. One written today
+also carries `"kind": null`, as
+[The kind a plant was declared to be](#the-kind-a-plant-was-declared-to-be)
+explains. The values are made up for the
 example. Three hand records in `runs/` have this shape, two typed in on 4
 October 2026 and one on 5 October 2026, and
 `grep -l '"source": "hand"' ledger/runs/*.json` lists them today. The four
@@ -128,6 +133,29 @@ before them were written before `source` existed and carry six keys, as
   "sourceRunUrl": null
 }
 ```
+
+## The kind a plant was declared to be
+
+`kind` is the kind of defect a run's plant was declared to be, one of the fixed
+list in `packages/replay/src/plants.ts`: `wrong-answer`, `missing-case`,
+`crash`, `security`, `configuration` or `dependency` (#295). A replay copies
+it from the break's own declaration in `canfail.json`. Nothing here infers it
+from the plant, and nothing in the status rules reads it.
+
+It is optional, and null is the only way to say nobody declared one. Every run
+recorded before breaks carried a kind has none, and so does every run typed in
+by hand, because there is no declaration to copy. None of those is given a
+kind after the fact, and no file in `runs/` was rewritten to add the key: a
+kind guessed now would be published as though somebody had declared it, and
+adding a key would change each file's digest, which is its name. A value
+outside the list is refused by the validator, and again by the database, whose
+`plant_kind` enum holds the same list in the same order.
+
+The build stores the kind on each run and publishes, for each check, the kinds
+its runs that caught were declared to be, each once, in the list's order. A run
+that missed or settled nothing adds none. So a check whose only catches predate
+kinds lists none, which says no declared kind has been seen caught, not that
+the check catches nothing.
 
 ## A check's address
 
@@ -183,7 +211,7 @@ verdicts, `look` and `wrong-failure`, to `inconclusive`, and copies canfail's
 sentence into the reason.
 
 The record below is made up for the example: the commit and the run link are
-placeholders, and the reason is invented. It has the ten keys the recorder writes into every replay record.
+placeholders, and the reason is invented. It has the ten keys the recorder wrote into every replay record before `kind` existed; one written today also carries the kind its plant declares.
 
 ```json
 {

@@ -19,6 +19,7 @@ import {
 import type { RequestContext } from './context.ts';
 import { dateScalar } from './date.ts';
 import {
+  kindName,
   outcomeFromName,
   outcomeName,
   sourceFromName,
@@ -299,6 +300,8 @@ const Check: CheckResolvers = {
   runs: (check, _args, context) => context.runs.load(check.id),
   armingObservations: (check, _args, context) =>
     context.armingObservations.load(check.id),
+  kindsCaught: async (check, _args, context) =>
+    (await context.kindsCaught.load(check.id)).map((kind) => kindName(kind)),
 };
 
 const TestRun: TestRunResolvers = {
@@ -306,6 +309,7 @@ const TestRun: TestRunResolvers = {
   runOn: (run) => run.runOn,
   planted: (run) => run.planted,
   expected: (run) => run.expected,
+  kind: (run) => (run.kind === null ? null : kindName(run.kind)),
   outcome: (run) => outcomeName(run.outcome),
   inconclusiveReason: (run) => run.inconclusiveReason,
   note: (run) => run.note,

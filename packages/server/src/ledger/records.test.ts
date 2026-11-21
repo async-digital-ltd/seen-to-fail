@@ -1,3 +1,4 @@
+import { PLANT_KINDS } from '@seen-to-fail/replay';
 import { describe, expect, it } from 'vitest';
 
 import { MAX_TEXT_LENGTH } from '../database/new-records.ts';
@@ -167,6 +168,33 @@ describe('a run', () => {
     expect(
       fieldsAtFault(parseLedgerRun({ ...soundRun, planted: '' }, today)),
     ).toEqual(['planted']);
+  });
+});
+
+/**
+ * The kind of defect a plant was declared to be (#295). Optional, because no
+ * run recorded before plants carried one has one and no hand run has a
+ * declaration to copy, and read as null when absent rather than given a
+ * default nobody declared.
+ */
+describe('the kind a run was declared to be', () => {
+  it('reads a run with no kind as a run whose kind is null', () => {
+    const result = parseLedgerRun(soundRun, today);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.kind).toBeNull();
+  });
+
+  it.each(PLANT_KINDS)('keeps the listed kind %s', (kind) => {
+    const result = parseLedgerRun({ ...soundRun, ...soundReplay, kind }, today);
+    expect(result.ok && result.value.kind).toBe(kind);
+  });
+
+  it('refuses a kind outside the fixed list', () => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun({ ...soundRun, ...soundReplay, kind: 'typo' }, today),
+      ),
+    ).toEqual(['kind']);
   });
 });
 

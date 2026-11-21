@@ -780,6 +780,7 @@ it('escapes what a record holds rather than letting it close a tag', () => {
       builtOn: '2026-09-18',
       staleAfterDays: 30,
       recordingCommits: new Map(),
+      kindsCaught: new Map(),
     }),
     'en',
   );

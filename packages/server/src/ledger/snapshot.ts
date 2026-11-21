@@ -1,4 +1,5 @@
 import type { Status } from '@seen-to-fail/filter';
+import type { PlantKind } from '@seen-to-fail/replay';
 
 import { newestObservationFirst, newestRunFirst } from '../database/rows.ts';
 import type {
@@ -32,6 +33,8 @@ export interface PublishedRun {
   readonly runOn: IsoDate;
   readonly planted: string;
   readonly expected: string;
+  /** The kind its plant was declared to be, or null when none was (#295). */
+  readonly kind: PlantKind | null;
   readonly outcome: TestRunOutcome;
   /**
    * Why the run settled nothing, or null when it settled something.
@@ -90,6 +93,13 @@ export interface PublishedCheck {
   readonly lastSettledOn: IsoDate | null;
   readonly lastSeenArmedOn: IsoDate | null;
   readonly lastArmed: boolean | null;
+  /**
+   * The kinds of defect a run of this check has caught, each once, in the
+   * order of PLANT_KINDS (#295). Read from the database, and held by the build
+   * against the runs below. Empty when no run that caught declared a kind. A
+   * label on the evidence, never read by the status above.
+   */
+  readonly kindsCaught: readonly PlantKind[];
   /** Newest first, by newestRunFirst in rows.ts, as the app lists them. */
   readonly runs: readonly PublishedRun[];
   /** Newest first, by newestObservationFirst in rows.ts, as the app lists them. */
@@ -124,6 +134,11 @@ export interface SnapshotInput {
   readonly staleAfterDays: number;
   /** The commit that added each file, keyed by its path in the repository. */
   readonly recordingCommits: ReadonlyMap<string, string>;
+  /**
+   * The kinds each check has been seen to catch, as the database read them,
+   * keyed by the check's uuid. A check absent from it has caught none.
+   */
+  readonly kindsCaught: ReadonlyMap<string, readonly PlantKind[]>;
 }
 
 /** Where a record's file sits in the repository. */
@@ -154,6 +169,7 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       runOn: entry.record.runOn,
       planted: entry.record.planted,
       expected: entry.record.expected,
+      kind: entry.record.kind,
       outcome: entry.record.outcome,
       inconclusiveReason: entry.record.inconclusiveReason,
       note: entry.record.note,
@@ -213,6 +229,8 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       lastSettledOn: summary.lastSettledOn,
       lastSeenArmedOn: summary.lastSeenArmedOn,
       lastArmed: summary.lastArmed,
+      kindsCaught:
+        input.kindsCaught.get(ledgerCheckUuid(entry.record.id)) ?? [],
       runs: runsByCheck.get(entry.record.id) ?? [],
       observations: observationsByCheck.get(entry.record.id) ?? [],
     });

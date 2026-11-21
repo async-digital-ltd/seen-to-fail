@@ -1,6 +1,7 @@
 import { STATUSES } from '@seen-to-fail/filter';
 
 import type { StatusTotals } from '../database/checks.ts';
+import { kindsCaughtIn } from '../database/kinds.ts';
 import { outcomeSettlesSomething } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
 import type { CheckSummary } from '../database/summaries.ts';
@@ -376,6 +377,15 @@ export function disagreements(input: VerificationInput): string[] {
       runs.length,
       check.runs.length,
     );
+    // The kinds it has been seen to catch (#295), worked out here from the
+    // files and compared with what the database read, which is what the
+    // export carries. Joined into one string so the order is compared too.
+    compare(
+      found,
+      `${label}: kinds caught`,
+      kindsCaughtIn(runs.map((run) => run.record)).join(', '),
+      check.kindsCaught.join(', '),
+    );
 
     // Which run the status was read from, derivation against export. The
     // status comes from the run the derivation picked, and the table under it
@@ -505,6 +515,7 @@ export function disagreements(input: VerificationInput): string[] {
         run.inconclusiveReason,
       );
       compare(found, `${where}: where it came from`, record.source, run.source);
+      compare(found, `${where}: its declared kind`, record.kind, run.kind);
       compare(
         found,
         `${where}: the commit it ran against`,

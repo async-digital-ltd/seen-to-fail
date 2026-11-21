@@ -1,4 +1,5 @@
 import type { Status } from '@seen-to-fail/filter';
+import type { PlantKind } from '@seen-to-fail/replay';
 
 import type { TestRunOutcome, TestRunSource } from '../database/rows.ts';
 
@@ -8,8 +9,9 @@ import type { TestRunOutcome, TestRunSource } from '../database/rows.ts';
  * Three vocabularies cross this boundary and none is defined here. The five
  * statuses are the filter package's list, read by the database enum, the web
  * client and this API alike. The three outcomes and the two sources are the run
- * table's own enums. GraphQL enum values are conventionally written in capitals,
- * though, so the wire spells all three differently from everything behind them,
+ * table's own enums. The plant kinds are the replay package's PLANT_KINDS, which
+ * the plant_kind enum is held to. GraphQL enum values are conventionally written
+ * in capitals, though, so the wire spells all of them differently from everything behind them,
  * and something has to say how.
  *
  * The maps below are that and nothing more. Neither is a second list. Each map
@@ -64,6 +66,36 @@ const sourcesByName = {
 } as const satisfies {
   readonly [S in TestRunSource as Uppercase<S>]: S;
 };
+
+/**
+ * A kebab-case value in the capitals a GraphQL enum value is written in, with
+ * an underscore for each hyphen, since a GraphQL name cannot hold a hyphen.
+ */
+type Constant<Value extends string> =
+  Value extends `${infer Head}-${infer Tail}`
+    ? `${Uppercase<Head>}_${Constant<Tail>}`
+    : Uppercase<Value>;
+
+/**
+ * Plant kinds only go outward (#295): nothing a caller sends carries one, so
+ * there is no inward map to pin.
+ */
+const kindNames = {
+  'wrong-answer': 'WRONG_ANSWER',
+  'missing-case': 'MISSING_CASE',
+  crash: 'CRASH',
+  security: 'SECURITY',
+  configuration: 'CONFIGURATION',
+  dependency: 'DEPENDENCY',
+} as const satisfies { readonly [K in PlantKind]: Constant<K> };
+
+/** How a plant kind is spelled on the wire. */
+export type KindName = (typeof kindNames)[PlantKind];
+
+/** The plant kind, as the schema's enum spells it. */
+export function kindName(kind: PlantKind): KindName {
+  return kindNames[kind];
+}
 
 /** How a status is spelled on the wire. */
 export type StatusName = (typeof statusNames)[Status];

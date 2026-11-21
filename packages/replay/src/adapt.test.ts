@@ -379,3 +379,41 @@ describe('a report held to the breaks the declaration holds', () => {
     expect(result.value).toHaveLength(2);
   });
 });
+
+/**
+ * Each run carries the kind its own break declares (#295), read by the break's
+ * name rather than by position, so two breaks of different kinds in one check
+ * cannot trade kinds on the way through.
+ */
+it('copies each break its own declared kind', () => {
+  const parsed = parsePlantedChecks({
+    checks: [
+      {
+        name: 'Type check',
+        checkId: 'ci-type-check',
+        expected: 'The type check fails.',
+        breaks: [
+          { name: 'First.', kind: 'crash', expect: 'error TS[0-9]+' },
+          { name: 'Second.', kind: 'security', expect: 'error TS[0-9]+' },
+        ],
+      },
+    ],
+  });
+  if (!parsed.ok) {
+    throw new Error(parsed.problems.join('\n'));
+  }
+  const result = runsFromReport({
+    report: report([
+      { break_name: 'Second.', verdict: 'catches' },
+      { break_name: 'First.', verdict: 'blind' },
+    ]),
+    checks: parsed.value,
+    provenance,
+  });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.value.map((run) => [run.planted, run.kind])).toEqual([
+    ['Second.', 'security'],
+    ['First.', 'crash'],
+  ]);
+});

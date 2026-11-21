@@ -1,7 +1,10 @@
+import type { PlantKind } from '@seen-to-fail/replay';
+
 import {
   listArmingObservationsForChecks,
   listRunsForChecks,
 } from '../database/checks.ts';
+import { listKindsCaughtForChecks } from '../database/kinds.ts';
 import type {
   ArmingObservation,
   IsoDate,
@@ -37,6 +40,8 @@ export interface RequestContext {
   readonly runs: Loader<string, TestRun[]>;
   /** Arming observations for a check, batched the same way. */
   readonly armingObservations: Loader<string, ArmingObservation[]>;
+  /** The kinds of defect a check has been seen to catch, batched the same way. */
+  readonly kindsCaught: Loader<string, PlantKind[]>;
 }
 
 export interface RequestContextOptions {
@@ -72,6 +77,10 @@ export function createRequestContext(
     armingObservations: createLoader(
       async (checkIds) =>
         groupByCheck(await listArmingObservationsForChecks(database, checkIds)),
+      () => [],
+    ),
+    kindsCaught: createLoader(
+      async (checkIds) => listKindsCaughtForChecks(database, checkIds),
       () => [],
     ),
   };

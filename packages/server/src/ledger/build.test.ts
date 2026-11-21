@@ -948,3 +948,69 @@ it('refuses Welsh whose code is not printed in the English, and writes nothing',
   );
   expect(await readdir(outputDirectory)).toEqual([]);
 });
+
+/**
+ * The kinds of defect a check has been seen to catch (#295), stored per run,
+ * read back out of the database, and written into the export. Two caught kinds
+ * are listed in the order of PLANT_KINDS whatever order the files are in, a
+ * kind on a miss is not one, and a check with no catch lists none.
+ */
+it('publishes the kinds each check has been seen to catch, and none for a check with no catch', async () => {
+  const replay = {
+    source: 'replay',
+    sourceCommit: '1234567890abcdef1234567890abcdef12345678',
+    sourceRunUrl: 'https://ci.example.com/runs/91',
+  };
+  const directory = await writeTemporaryLedger({
+    'checks/ci-lint.json': check,
+    'checks/ci-test.json': { ...check, id: 'ci-test', name: 'Tests' },
+    [runFile(oneDay, 'aaaaaaaaaaaa')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A security plant.',
+      expected: 'The lint step fails.',
+      kind: 'security',
+      outcome: 'caught',
+      ...replay,
+    },
+    [runFile(oneDay, 'bbbbbbbbbbbb')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A wrong answer.',
+      expected: 'The lint step fails.',
+      kind: 'wrong-answer',
+      outcome: 'caught',
+      ...replay,
+    },
+    [runFile(oneDay, 'cccccccccccc')]: {
+      checkId: 'ci-lint',
+      runOn: oneDay,
+      planted: 'A crash.',
+      expected: 'The lint step fails.',
+      kind: 'crash',
+      outcome: 'missed',
+      ...replay,
+    },
+    'runs/2026-09-18-ci-test-dddddddddddd.json': {
+      checkId: 'ci-test',
+      runOn: oneDay,
+      planted: 'A typed-in plant.',
+      expected: 'The tests fail.',
+      outcome: 'caught',
+    },
+  });
+
+  const { outputDirectory, ledger } = await build(directory);
+  const written = JSON.parse(
+    await readFile(join(outputDirectory, exportFilename), 'utf8'),
+  ) as PublishedLedger;
+
+  const byId = new Map(written.checks.map((one) => [one.id, one]));
+  expect(byId.get('ci-lint')?.kindsCaught).toEqual([
+    'wrong-answer',
+    'security',
+  ]);
+  expect(byId.get('ci-test')?.kindsCaught).toEqual([]);
+  expect(byId.get('ci-test')?.runs.map((run) => run.kind)).toEqual([null]);
+  expect(written).toEqual(ledger);
+});
