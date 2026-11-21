@@ -89,21 +89,30 @@ workflow that runs on every pull request: `canfail` edits real source files on
 disk and restores them, which is fine on a runner nobody else is using and is
 not something to put in the path of every contributor's change.
 
-The job has eleven steps. The first four check out the repository and install
-pnpm, Node and the dependencies. The seven after them do the work, one item
-each, in the order the workflow runs them:
+The workflow has two jobs and sixteen steps. Each job starts with four steps
+that check out the repository and install pnpm, Node and the dependencies. The
+eight after them do the work, one item each, in the order the workflow runs
+them. The first runs in the selection job, which has no service. The other
+seven run in the replay job, which owns the database service
+([#142](https://github.com/async-digital-ltd/seen-to-fail/issues/142)):
 
 1. **Works out which checks are due**, with `pnpm replay:select`. It exits 0
    when something is due, 3 when nothing is, and 1 when it refuses, and the
    workflow reads that status rather than looking for an output file, because a
-   missing file cannot tell a refusal from an honest empty answer. Every step
-   after this one runs only once something is due; the database service itself
-   starts with the job.
-2. **Creates the databases**, the same way CI does and against the same kind of
+   missing file cannot tell a refusal from an honest empty answer. A refusal
+   fails the selection job and the run. When nothing is due the run ends green
+   with a summary saying so, and the replay job never starts, so neither does
+   the database service, which starts with the replay job before its first
+   step. When something is due, the declaration naming it passes to the replay
+   job as a job output.
+2. **Writes down the declaration the selection chose**, as a file for the
+   replay. It stops the job if the selection said something is due and no
+   declaration arrived.
+3. **Creates the databases**, the same way CI does and against the same kind of
    service container, because two of the declared checks are the build and the
    build derives every status in PostgreSQL.
-3. **Applies the migrations** to them, with the same `pnpm db:migrate` CI runs.
-4. **Replays the declared plants**, through the
+4. **Applies the migrations** to them, with the same `pnpm db:migrate` CI runs.
+5. **Replays the declared plants**, through the
    [canfail-action](https://github.com/async-digital-ltd/canfail-action)
    release the workflow pins by SHA. It installs `canfail` 0.2.1 and runs it
    over the declaration, writing the report under the runner's temporary
@@ -114,13 +123,13 @@ each, in the order the workflow runs them:
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
    declared, so the job stops instead of recording them.
-5. **Records what the report means**, with `pnpm ledger:replay`. One run per
+6. **Records what the report means**, with `pnpm ledger:replay`. One run per
    declared break, each carrying `source: replay`, the commit the plants were
    applied to, and a link to the run that produced it.
-6. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
+7. **Validates the whole ledger**, with the same `pnpm ledger:validate` that CI
    and the hand-recording workflow run, so this job cannot commit a ledger
    either of them would have refused.
-7. **Commits the record, pushes `replay/<run id>` and says what is waiting.**
+8. **Commits the record, pushes `replay/<run id>` and says what is waiting.**
    The commit is staged by `scripts/stage-record.sh`, which stages `ledger/`
    and nothing else, and stops the step with nothing staged if any path
    outside `ledger/` changed. The step then prints the `gh pr create` command

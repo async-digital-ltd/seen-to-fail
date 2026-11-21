@@ -117,9 +117,11 @@ name: Replay a plant
 # a slower one would not survive GitHub dropping a scheduled run.
 #
 # It costs nothing extra to bill. The floor adds no dispatch, since the schedule
-# fires weekly either way, and Actions bills a job rounded up to the minute, so
-# a dispatch is one billed minute whether it replays or stops at the selection.
-# The five to nine billed minutes a month measured above are still the ceiling.
+# fires weekly either way. Actions bills each job rounded up to the minute, and
+# since the selection became a job of its own (#142) a dispatch that stops at
+# the selection is one billed minute and one that replays bills one more than
+# the replay job does. So the five to nine billed minutes a month measured above,
+# all on a single job, rise by at most about four.
 #
 # The floor cannot rescue a check with no plant in `canfail.json`, because that
 # file is the whole of what the selection reads checks from. The dispatch below
@@ -168,57 +170,47 @@ on:
         type: boolean
         default: false
 
-# Only what it needs. The job pushes a branch and never opens a pull request, so
-# `pull-requests: write` would be a permission nothing here uses. See the last
-# step for why opening one is not attempted.
-permissions:
-  contents: write
+# Nothing by default, and each job asks for only what it needs. The selection
+# reads the repository and writes nothing. The replay pushes a branch and never
+# opens a pull request, so `pull-requests: write` would be a permission nothing
+# here uses. See the last step for why opening one is not attempted.
+permissions: {}
 
+# Two jobs, so that a run where nothing is due starts no database (#142). A
+# service starts with its job, before any step, and cannot be made conditional
+# on a step's output, so while the selection and the service shared a job, a
+# registry pull or a health check that failed turned a nothing-due Monday red
+# before the selection had run. The selection now runs in a job with no
+# service, and the replay, which owns the service, runs only once the selection
+# has said there is something to replay.
 jobs:
-  replay:
-    name: Replay the declared plants and record what happened
+  select:
+    name: Work out which checks are due
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Checkout, install and the selection, which took well under a minute of
+    # the 64-second scheduled job 36412371539. Ten is a bound on a hang, not a
+    # budget.
+    timeout-minutes: 10
+    permissions:
+      contents: read
 
-    env:
-      # The commit the plants are applied to, which is what a replay records as
-      # the tree it ran against. On workflow_dispatch this is the head of the
-      # ref that was dispatched. It is deliberately not taken from a
-      # pull_request event, where the sha is a synthetic merge commit that
-      # exists only for the run and is not the tree anybody planted anything in.
-      SOURCE_COMMIT: ${{ github.sha }}
-      SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      BRANCH: replay/${{ github.run_id }}
-      # The two databases .env.example names, pointed at the service container
-      # below, the same shape as CI. Every declared check whose `run` is the
-      # build needs one: the build derives every status in a database and
-      # refuses to run without it. Both variables are read here. The step that
-      # creates the databases creates both, and the build reads the first. The
-      # server start check needs both set as well: the entry point refuses to
-      # load without them, though its two probes reach neither database.
-      DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
-      TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
-
-    services:
-      # The same service CI uses, for the same reason: the build is a
-      # derivation through PostgreSQL, not a file transformation, and
-      # `canfail.json` declares plants whose `run` is the build. It starts
-      # with the job whether or not those checks turn out to be due, because
-      # a service cannot be conditional on a step's output; the steps that
-      # create and migrate the databases can be, and are.
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: seen_to_fail
-          POSTGRES_PASSWORD: seen_to_fail
-          POSTGRES_DB: seen_to_fail_dev
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U seen_to_fail -d seen_to_fail_dev"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # How the due declaration reaches the replay job. A job output rather than
+    # an artifact, because it is small (the whole of canfail.json compacts to
+    # about 12 KB, against the 1 MB a job's outputs may hold) and it is text
+    # committed to this public repository, which is what a job output carries
+    # safely: GitHub drops an output that contains a masked value, and nothing
+    # in this job masks anything. Rather than selecting a second time in the
+    # replay job, because a second selection runs later and the age floor is
+    # measured against today, so two selections either side of midnight UTC
+    # could disagree and the replay would run what the first one never chose.
+    #
+    # `lane` is `all` (replay the whole of canfail.json), `due` (replay the
+    # declaration in `declaration`) or `none`. The replay job runs on the
+    # first two only, named positively, so an output that failed to arrive
+    # reads as nothing to run rather than as everything.
+    outputs:
+      lane: ${{ steps.select.outputs.lane }}
+      declaration: ${{ steps.select.outputs.declaration }}
 
     steps:
       # With the whole history, because the selection below asks what has
@@ -257,17 +249,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Which checks are due, and the step that decides whether anything below
-      # it runs at all. Ahead of Python and of the replay tool on purpose: the
-      # whole point of asking is to spend nothing when the answer is nothing.
+      # Which checks are due, and the step that decides whether the replay job
+      # runs at all. In a job of its own, ahead of the database service, of
+      # Python and of the replay tool on purpose: the whole point of asking is
+      # to spend nothing when the answer is nothing.
       #
       # Due means either of two things: something the check declares it depends
       # on changed (#68), or its newest settled run is older than the age floor.
       #
       # Three statuses, each meaning something different here. 0 is work to do,
-      # and the declaration naming it is written under RUNNER_TEMP. 3 is nothing
-      # to do, which is a green job with no output rather than a failure.
-      # Anything else is a refusal, and it stops the run with nothing written. A
+      # and the declaration naming it is written under RUNNER_TEMP and handed
+      # on as the `declaration` output. 3 is nothing to do, which is a green run
+      # with no replay rather than a failure. Anything else is a refusal, and it
+      # fails this job, so the replay job never starts and nothing is written. A
       # step that looked for the output file instead could not tell a refusal
       # from an honest empty answer, which is the distinction this whole
       # repository is about.
@@ -285,7 +279,7 @@ jobs:
           set -euo pipefail
           if [ "$MATCHING" != 'true' ]; then
             echo "Every declared check will be replayed."
-            echo "config=canfail.json" >> "$GITHUB_OUTPUT"
+            echo "lane=all" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           status=0
@@ -299,25 +293,128 @@ jobs:
               echo "Nothing a declared check depends on has changed since that check was last replayed, and no declared check's proof has aged past the floor."
               echo "No plant was applied and nothing was recorded."
             } >> "$GITHUB_STEP_SUMMARY"
+            echo "lane=none" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ "$status" -ne 0 ]; then
             echo "The selection refused, so nothing was replayed." >&2
             exit 1
           fi
+          # One line of JSON, so the output needs no multi-line delimiter.
+          # An assignment of its own, so a failure here stops the step under
+          # `set -e` instead of writing an empty declaration.
+          declaration=$(jq --compact-output . "$RUNNER_TEMP/canfail-due.json")
+          echo "lane=due" >> "$GITHUB_OUTPUT"
+          echo "declaration=$declaration" >> "$GITHUB_OUTPUT"
+
+  replay:
+    name: Replay the declared plants and record what happened
+    needs: select
+    # Named lanes only. A refusal fails the selection job, and a job whose
+    # `needs` failed does not start, so the run ends red with nothing written.
+    # A nothing-due run skips this job, and with it the service below.
+    if: needs.select.outputs.lane == 'all' || needs.select.outputs.lane == 'due'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    env:
+      # The commit the plants are applied to, which is what a replay records as
+      # the tree it ran against. On workflow_dispatch this is the head of the
+      # ref that was dispatched. It is deliberately not taken from a
+      # pull_request event, where the sha is a synthetic merge commit that
+      # exists only for the run and is not the tree anybody planted anything in.
+      SOURCE_COMMIT: ${{ github.sha }}
+      SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      BRANCH: replay/${{ github.run_id }}
+      # The two databases .env.example names, pointed at the service container
+      # below, the same shape as CI. Every declared check whose `run` is the
+      # build needs one: the build derives every status in a database and
+      # refuses to run without it. Both variables are read here. The step that
+      # creates the databases creates both, and the build reads the first. The
+      # server start check needs both set as well: the entry point refuses to
+      # load without them, though its two probes reach neither database.
+      DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
+      TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
+
+    services:
+      # The same service CI uses, for the same reason: the build is a
+      # derivation through PostgreSQL, not a file transformation, and
+      # `canfail.json` declares plants whose `run` is the build. It starts
+      # with this job, before its first step, and since this job runs only
+      # once the selection job has found something to replay, a run where
+      # nothing is due never starts it (#142). It starts on any replay,
+      # whether or not a build-based check is among the checks due.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: seen_to_fail
+          POSTGRES_PASSWORD: seen_to_fail
+          POSTGRES_DB: seen_to_fail_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seen_to_fail -d seen_to_fail_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # The same checkout as the selection's, for the same reasons: the whole
+      # history and no token kept in .git/config. Only the push step below is
+      # given the token.
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Install Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The declaration the selection chose, written back to a file for the
+      # replay step. On the `due` lane an empty declaration means the output
+      # did not arrive, and the step stops rather than replay something the
+      # selection never chose. The value comes through the environment rather
+      # than being substituted into the text of this script.
+      - name: Write down the declaration the selection chose
+        id: declaration
+        env:
+          LANE: ${{ needs.select.outputs.lane }}
+          DECLARATION: ${{ needs.select.outputs.declaration }}
+        run: |
+          set -euo pipefail
+          if [ "$LANE" = 'all' ]; then
+            echo "config=canfail.json" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$DECLARATION" ]; then
+            echo "The selection said something is due but no declaration arrived, so nothing was replayed." >&2
+            exit 1
+          fi
+          printf '%s\n' "$DECLARATION" > "$RUNNER_TEMP/canfail-due.json"
+          jq --exit-status 'type == "object"' "$RUNNER_TEMP/canfail-due.json" > /dev/null
           echo "config=$RUNNER_TEMP/canfail-due.json" >> "$GITHUB_OUTPUT"
 
       # The database the build derives into, created and migrated the way CI
-      # does it and only once something is due. Every declared check gets the
-      # same runner state whichever of them was selected: a build-based check
-      # replayed alone and one replayed beside the type check are then the same
-      # replay, which is what makes two of its runs comparable.
+      # does it. Every declared check gets the same runner state whichever of
+      # them was selected: a build-based check replayed alone and one replayed
+      # beside the type check are then the same replay, which is what makes
+      # two of its runs comparable.
       - name: Create the databases
-        if: steps.select.outputs.config != ''
         run: node packages/server/src/scripts/create-databases.ts
 
       - name: Apply migrations
-        if: steps.select.outputs.config != ''
         run: pnpm db:migrate
 
       # Install, plant, check the tree came back: one step, from the action
@@ -343,8 +440,9 @@ jobs:
       # come from the JSON report, the rule #66 pinned, and the step below
       # reads it from the action's `report` output.
       #
-      # The declaration is the one the selection chose, which on the scheduled
-      # lane holds only the checks that are due and sits under RUNNER_TEMP.
+      # The declaration is the one the selection chose, as the step above wrote
+      # it down: on the scheduled lane it holds only the checks that are due
+      # and sits under RUNNER_TEMP.
       # Every break inside it names its file relative to the checkout, which
       # is where the action runs canfail from.
       #
@@ -354,10 +452,9 @@ jobs:
       # scored three of #228's plants inconclusive for exactly that reason.
       - name: Replay the declared plants
         id: canfail
-        if: steps.select.outputs.config != ''
         uses: async-digital-ltd/canfail-action@8ead9b4fdc34df83fa5d468e1fb6d664401d5ffd # v1.0.1
         with:
-          declaration: ${{ steps.select.outputs.config }}
+          declaration: ${{ steps.declaration.outputs.config }}
           fail-on-mismatch: 'false'
 
       # The gate. A verdict this mapping does not recognise, a check the
@@ -372,7 +469,6 @@ jobs:
       # from the file that is committed keeps this step's behaviour independent
       # of which lane picked the plants.
       - name: Record what the replay found
-        if: steps.select.outputs.config != ''
         env:
           REPORT: ${{ steps.canfail.outputs.report }}
         run: |
@@ -385,7 +481,6 @@ jobs:
       # The same command CI runs and the recording workflow runs, so this job
       # cannot commit a ledger either of them would have refused.
       - name: Check the whole ledger still reads
-        if: steps.select.outputs.config != ''
         run: pnpm ledger:validate
 
       # Push the branch, exit 0, and tell a person what is waiting.
@@ -405,7 +500,6 @@ jobs:
       # summary rather than buried in a failed step's log. The green means
       # recorded and waiting for a person. It does not mean done.
       - name: Push the record and say what is waiting
-        if: steps.select.outputs.config != ''
         env:
           # The only step that receives the token. The checkout kept none, so
           # the push below sends it as a header on that one command.
