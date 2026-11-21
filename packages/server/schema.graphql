@@ -38,6 +38,22 @@ enum Status {
 }
 
 """
+Which of a check's two kinds of evidence its status was read from.
+
+A status is read from the latest test run or from the latest arming
+observation. A check with neither reads Unarmed with nothing behind it. This
+names which, so a reader can tell what would move the status next.
+"""
+enum StatusEvidence {
+  "The latest run that settled anything: it caught or it missed."
+  TEST_RUN
+  "The latest observation: somebody looked and found it switched on or off."
+  OBSERVATION
+  "Nothing yet: no run has settled anything and nobody has looked."
+  NOTHING
+}
+
+"""
 What a check did with the defect that was planted for it.
 
 Two of these are evidence about the check and one is not. A run that settled
@@ -142,6 +158,8 @@ type Check {
   howToTellArmed: String!
   "The status derived from everything below, as of today."
   status: Status!
+  "Which of the two kinds of evidence the status was read from."
+  statusFrom: StatusEvidence!
   "The last day a run caught, or null when none ever has."
   lastCaughtOn: Date
   "The day of the latest run, or null when there are none."
@@ -250,6 +268,15 @@ type Query {
   show the whole picture beside a list that may be showing part of it.
   """
   statusCounts: StatusCounts!
+  """
+  How many days old a check's latest catch may be and still read Proven.
+
+  The threshold every status in this response was derived with. A catch exactly
+  this many days old is Proven, and one a day older is Stale. It is here so a
+  page that explains the rule can say the number the server used, rather than
+  keep a copy of its own that could fall behind.
+  """
+  staleAfterDays: Int!
 }
 
 "A new check, as somebody would describe it in a form."

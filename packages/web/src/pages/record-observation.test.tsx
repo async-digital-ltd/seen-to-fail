@@ -75,7 +75,10 @@ function api(initial: RecordedCheck): { answers: Answer[]; sent: unknown[] } {
   let check = initial;
   const sent: unknown[] = [];
 
-  const detail = answer(CheckDetailDocument, () => ({ check }));
+  const detail = answer(CheckDetailDocument, () => ({
+    staleAfterDays: 30,
+    check,
+  }));
   const record = answer(
     RecordArmingObservationDocument,
     ({ input }: { input: RecordArmingObservationInput }) => {

@@ -51,11 +51,11 @@ function anUnsettledRun(
   });
 }
 
-function renderCheck(check: RecordedCheck | null) {
+function renderCheck(check: RecordedCheck | null, staleAfterDays = 30) {
   return renderWithProviders(<CheckDetail />, {
     route: paths.check(id),
     path: '/checks/:id',
-    answers: [answer(CheckDetailDocument, { check })],
+    answers: [answer(CheckDetailDocument, { staleAfterDays, check })],
   });
 }
 
@@ -277,7 +277,9 @@ describe('the next step', () => {
   it('is the only brick fill on the screen, shell included', async () => {
     const { container } = renderApp({
       route: paths.check(id),
-      answers: [answer(CheckDetailDocument, { check: aCheck() })],
+      answers: [
+        answer(CheckDetailDocument, { staleAfterDays: 30, check: aCheck() }),
+      ],
     });
     await screen.findByRole('heading', { level: 1, name: aCheck().name });
 
@@ -403,6 +405,154 @@ describe('the latest evidence', () => {
  * the page says what the latest run settled, gives the reason as it was
  * recorded, and dates the run the status really came from.
  */
+describe('which evidence the status came from', () => {
+  // The heading's own section: the explanation sits there as real text, next
+  // to the status and the two latest pieces of evidence it names.
+  const hero = () => {
+    const found = screen.getByRole('heading', { level: 1 }).closest('header');
+    if (found === null) {
+      throw new Error('The check heading is not inside its header.');
+    }
+    return found;
+  };
+
+  it('names the latest test run when the API says the status came from it', async () => {
+    await renderRecordedCheck({
+      status: 'PROVEN',
+      statusFrom: 'TEST_RUN',
+      lastCaughtOn: '2026-09-12',
+      lastSettledOn: '2026-09-12',
+    });
+
+    expect(
+      within(hero()).getByText('This status is read from the latest test run.'),
+    ).toBeVisible();
+  });
+
+  it('names the latest observation when the API says the status came from it', async () => {
+    await renderRecordedCheck({
+      status: 'UNARMED',
+      statusFrom: 'OBSERVATION',
+      armingObservations: [
+        { id: 'o1', observedOn: '2026-09-13', armed: false, note: null },
+      ],
+    });
+
+    expect(
+      within(hero()).getByText(
+        'This status is read from the latest observation.',
+      ),
+    ).toBeVisible();
+  });
+
+  it('says nothing is behind it when the API says nothing is', async () => {
+    await renderRecordedCheck({ status: 'UNARMED', statusFrom: 'NOTHING' });
+
+    expect(
+      within(hero()).getByText(/^This status is read from nothing yet/u),
+    ).toBeVisible();
+  });
+
+  it('follows the API rather than working it out from the page', async () => {
+    // A caught run in the list and no observation at all: a page that worked
+    // the answer out from the record would name the run. The page says what
+    // the API told it, because the API is the one place the rule is run.
+    await renderRecordedCheck({
+      status: 'UNPROVEN',
+      statusFrom: 'OBSERVATION',
+      runs: [aRun({ id: 'r1', runOn: '2026-09-14' })],
+      runCount: 1,
+      caughtCount: 1,
+    });
+
+    expect(
+      within(hero()).getByText(
+        'This status is read from the latest observation.',
+      ),
+    ).toBeVisible();
+  });
+
+  const changes: readonly {
+    readonly name: string;
+    readonly check: Partial<RecordedCheck>;
+    readonly says: RegExp;
+  }[] = [
+    {
+      name: 'Proven, which a miss, an off reading or the calendar would move',
+      check: { status: 'PROVEN', statusFrom: 'TEST_RUN' },
+      says: /misses would make it Broken.*switched off would make it Unarmed.*turns Stale/u,
+    },
+    {
+      name: 'Stale, which a new catch would make Proven again',
+      check: {
+        status: 'STALE',
+        statusFrom: 'TEST_RUN',
+        lastCaughtOn: '2026-07-01',
+      },
+      says: /catches would make it Proven again.*misses would make it Broken/u,
+    },
+    {
+      name: 'Broken, which a catch would make Proven',
+      check: { status: 'BROKEN', statusFrom: 'TEST_RUN' },
+      says: /catches would make it Proven\..*switched off would make it Unarmed/u,
+    },
+    {
+      name: 'Unproven, which any settled run would move',
+      check: { status: 'UNPROVEN', statusFrom: 'OBSERVATION' },
+      says: /Proven if it catches and Broken if it misses.*switched off would make it Unarmed/u,
+    },
+    {
+      name: 'Unarmed with nothing behind it, which an on reading would make Unproven',
+      check: { status: 'UNARMED', statusFrom: 'NOTHING' },
+      says: /switched on would make it Unproven.*Proven if it catches/u,
+    },
+    {
+      name: 'Unarmed by an off reading after a run, which an on reading hands back',
+      check: {
+        status: 'UNARMED',
+        statusFrom: 'OBSERVATION',
+        lastSettledOn: '2026-09-01',
+      },
+      says: /hand the status back to the latest test run.*later day than the latest observation/u,
+    },
+    {
+      name: 'Unarmed by an off reading with no run, which an on reading makes Unproven',
+      check: {
+        status: 'UNARMED',
+        statusFrom: 'OBSERVATION',
+        lastSettledOn: null,
+      },
+      says: /switched on would make it Unproven.*later day than the latest observation/u,
+    },
+  ];
+
+  it.each(changes)('says what would change $name', async ({ check, says }) => {
+    await renderRecordedCheck(check);
+
+    expect(within(hero()).getByText(says)).toBeVisible();
+  });
+
+  it.each([
+    [45, 'more than 45 days old'],
+    [1, 'more than 1 day old'],
+  ])(
+    'says the staleness threshold the API answered with, %i',
+    async (staleAfterDays, phrase) => {
+      // The server owns the number and the page holds no copy of it, so the
+      // sentence moves with whatever the API says, including a number the
+      // server does not use today.
+      renderCheck(aCheck({ status: 'PROVEN' }), staleAfterDays);
+      await screen.findByRole('heading', { level: 1 });
+
+      expect(
+        within(hero()).getByText(
+          new RegExp(`turns Stale once the last catch is ${phrase}\\.$`, 'u'),
+        ),
+      ).toBeVisible();
+    },
+  );
+});
+
 describe('a latest run that settled nothing', () => {
   it('says so, gives the reason, and dates the evidence behind the status', async () => {
     await renderRecordedCheck({

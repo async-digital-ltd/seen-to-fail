@@ -55,6 +55,7 @@ export const recorded = aRecordedCheck({
   protects: 'A file that no longer lints reaching the main branch.',
   howToTellArmed: 'The lint job is listed on every push.',
   status: 'PROVEN',
+  statusFrom: 'TEST_RUN',
   lastCaughtOn: '2026-09-12',
   lastSettledOn: '2026-09-12',
   runCount: 1,
@@ -111,4 +112,7 @@ export const options = answer(CheckOptionsDocument, {
 });
 
 /** The record of the first check, for its own page. */
-export const detail = answer(CheckDetailDocument, { check: recorded });
+export const detail = answer(CheckDetailDocument, {
+  staleAfterDays: 30,
+  check: recorded,
+});

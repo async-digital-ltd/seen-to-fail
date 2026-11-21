@@ -162,7 +162,9 @@ describe('at a check address', () => {
   it('renders the check detail screen, asking for that id, inside the shell', async () => {
     const { calls } = renderApp({
       route: paths.check('ci-lint'),
-      answers: [answer(CheckDetailDocument, { check: null })],
+      answers: [
+        answer(CheckDetailDocument, { staleAfterDays: 30, check: null }),
+      ],
     });
 
     expect(

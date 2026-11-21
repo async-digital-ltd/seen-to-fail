@@ -26,6 +26,7 @@ import {
   statusName,
 } from './enums.ts';
 import { filterFromArgument, filterInputScalar } from './filter-input.ts';
+import { statusEvidence } from './status-evidence.ts';
 import type {
   ArmingObservationRecordedResolvers,
   ArmingObservationResolvers,
@@ -93,6 +94,10 @@ const Query: Required<QueryResolvers> = {
     findCheck(context.database, args.id, context.asOf, context.staleAfterDays),
 
   areas: (_parent, _args, context) => listAreas(context.database),
+
+  // The same value every status in the response was derived with, so the
+  // number a page explains the rule with cannot differ from the rule it ran.
+  staleAfterDays: (_parent, _args, context) => context.staleAfterDays,
 
   statusCounts: async (_parent, _args, context) => {
     const totals = await countChecksByStatus(
@@ -277,6 +282,7 @@ const Check: CheckResolvers = {
   protects: (check) => check.protects,
   howToTellArmed: (check) => check.howToTellArmed,
   status: (check) => statusName(check.status),
+  statusFrom: (check) => statusEvidence(check.status, check.lastArmed),
   lastCaughtOn: (check) => check.lastCaughtOn,
   lastRunOn: (check) => check.lastRunOn,
   lastSettledOn: (check) => check.lastSettledOn,

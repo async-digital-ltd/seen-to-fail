@@ -10,7 +10,11 @@ import { PageTitle } from '../components/page-title';
 import { OutcomeBadge } from '../components/outcome-badge';
 import { StatusBadge } from '../components/status-badge';
 import { ago, counted, daysAgo, formatDay, lastCaughtLine } from '../days';
-import type { CheckDetailQuery, Outcome } from '../graphql/generated/graphql';
+import type {
+  CheckDetailQuery,
+  Outcome,
+  StatusEvidence,
+} from '../graphql/generated/graphql';
 import { CheckDetailDocument } from '../graphql/generated/graphql';
 import { paths } from '../paths';
 import { statusFromName } from '../status';
@@ -149,6 +153,56 @@ function unsettledLine(check: RecordedCheck, day: string): string | null {
       : `The status above is read from ${ago(check.lastSettledOn, day)}, the last run that settled anything.`;
   return `The latest run settled nothing: ${latest.inconclusiveReason} ${since}`;
 }
+
+/**
+ * Which of the two kinds of evidence the status was read from (#52).
+ *
+ * The API names it, beside the status it worked out, so the page says what it
+ * is told rather than working it out a second time.
+ */
+const readFrom = {
+  TEST_RUN: 'This status is read from the latest test run.',
+  OBSERVATION: 'This status is read from the latest observation.',
+  NOTHING:
+    'This status is read from nothing yet: no test run has settled anything and nobody has recorded an observation.',
+} as const satisfies Record<StatusEvidence, string>;
+
+/**
+ * What new evidence would move the status, and to what, in the words of the
+ * status rules in docs/how-it-works.md.
+ *
+ * Keyed by the status, so a status added and not worded here fails to compile.
+ * Unarmed is the one status read from either kind of evidence or from neither,
+ * so its sentence turns on which the API said, and on whether a run has ever
+ * settled anything for the status to go back to.
+ *
+ * The staleness threshold is the one the API derived the status with, never a
+ * number written here, so moving it on the server moves this sentence too. A
+ * catch exactly that many days old is still Proven, hence "more than".
+ */
+const whatWouldChange = {
+  Proven: (_check, staleAfterDays) =>
+    `A test run that misses would make it Broken. An observation that finds it switched off would make it Unarmed. With no new run, it turns Stale once the last catch is more than ${counted(staleAfterDays, 'day')} old.`,
+  Stale: () =>
+    'A test run that catches would make it Proven again, and one that misses would make it Broken. An observation that finds it switched off would make it Unarmed.',
+  Broken: () =>
+    'A test run that catches would make it Proven. An observation that finds it switched off would make it Unarmed.',
+  Unproven: () =>
+    'A test run would make it Proven if it catches and Broken if it misses. An observation that finds it switched off would make it Unarmed.',
+  Unarmed: (check) => {
+    if (check.statusFrom === 'NOTHING') {
+      return 'An observation that finds it switched on would make it Unproven. A test run would make it Proven if it catches and Broken if it misses.';
+    }
+    const backTo =
+      check.lastSettledOn === null
+        ? 'An observation that finds it switched on would make it Unproven.'
+        : 'An observation that finds it switched on would hand the status back to the latest test run.';
+    return `${backTo} A test run on a later day than the latest observation would make it Proven if it catches and Broken if it misses.`;
+  },
+} as const satisfies Record<
+  Status,
+  (check: RecordedCheck, staleAfterDays: number) => string
+>;
 
 /**
  * The text a check was described with, or a muted line saying nobody has
@@ -291,10 +345,16 @@ function RunEntry({ entry: run, today: day }: EntryProps<Run>): ReactElement {
 interface CheckRecordProps {
   readonly check: RecordedCheck;
   readonly today: string;
+  /** The threshold the API derived the status with, in days. */
+  readonly staleAfterDays: number;
 }
 
 /** Everything recorded about one check, and what to do about it next. */
-function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
+function CheckRecord({
+  check,
+  today: day,
+  staleAfterDays,
+}: CheckRecordProps): ReactElement {
   const protectsId = useId();
   const armedId = useId();
   const evidenceId = useId();
@@ -374,6 +434,14 @@ function CheckRecord({ check, today: day }: CheckRecordProps): ReactElement {
             <dd>{latestRunLine(check, day)}</dd>
           </div>
         </dl>
+        {/*
+         * Below the two latest pieces of evidence, because it says which of
+         * them the status came from and what would move it (#52).
+         */}
+        <div className="check-detail__basis">
+          <p>{readFrom[check.statusFrom]}</p>
+          <p>{whatWouldChange[status](check, staleAfterDays)}</p>
+        </div>
       </header>
 
       <div className="check-detail__about">
@@ -577,7 +645,13 @@ export function CheckDetail(): ReactElement {
     body = <CheckNotFound />;
   } else {
     page = data.check.name;
-    body = <CheckRecord check={data.check} today={today()} />;
+    body = (
+      <CheckRecord
+        check={data.check}
+        today={today()}
+        staleAfterDays={data.staleAfterDays}
+      />
+    );
   }
   return (
     <>

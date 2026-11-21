@@ -135,6 +135,8 @@ export type Check = {
   runs: Array<TestRun>;
   /** The status derived from everything below, as of today. */
   status: Status;
+  /** Which of the two kinds of evidence the status was read from. */
+  statusFrom: StatusEvidence;
 };
 
 /**
@@ -299,6 +301,15 @@ export type Query = {
    */
   checks: CheckList;
   /**
+   * How many days old a check's latest catch may be and still read Proven.
+   *
+   * The threshold every status in this response was derived with. A catch exactly
+   * this many days old is Proven, and one a day older is Stale. It is here so a
+   * page that explains the rule can say the number the server used, rather than
+   * keep a copy of its own that could fall behind.
+   */
+  staleAfterDays: Scalars['Int']['output'];
+  /**
    * How many checks hold each status.
    *
    * Always the whole workspace, whatever the list is filtered by, so the counts
@@ -372,6 +383,21 @@ export type StatusCounts = {
   unarmed: Scalars['Int']['output'];
   unproven: Scalars['Int']['output'];
 };
+
+/**
+ * Which of a check's two kinds of evidence its status was read from.
+ *
+ * A status is read from the latest test run or from the latest arming
+ * observation. A check with neither reads Unarmed with nothing behind it. This
+ * names which, so a reader can tell what would move the status next.
+ */
+export type StatusEvidence =
+  /** Nothing yet: no run has settled anything and nobody has looked. */
+  | 'NOTHING'
+  /** The latest observation: somebody looked and found it switched on or off. */
+  | 'OBSERVATION'
+  /** The latest run that settled anything: it caught or it missed. */
+  | 'TEST_RUN';
 
 /**
  * One planted defect, and what the check did about it.
@@ -609,6 +635,7 @@ export type ResolversTypes = {
   RunSource: RunSource;
   Status: Status;
   StatusCounts: ResolverTypeWrapper<StatusCounts>;
+  StatusEvidence: StatusEvidence;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   TestRun: ResolverTypeWrapper<TestRunRow>;
   TestRunLogged: ResolverTypeWrapper<
@@ -740,6 +767,11 @@ export type CheckResolvers<
   runCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   runs: Resolver<Array<ResolversTypes['TestRun']>, ParentType, ContextType>;
   status: Resolver<ResolversTypes['Status'], ParentType, ContextType>;
+  statusFrom: Resolver<
+    ResolversTypes['StatusEvidence'],
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -831,6 +863,7 @@ export type QueryResolvers<
     ContextType,
     Partial<QueryChecksArgs>
   >;
+  staleAfterDays?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   statusCounts?: Resolver<
     ResolversTypes['StatusCounts'],
     ParentType,

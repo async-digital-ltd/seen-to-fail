@@ -178,7 +178,7 @@ const states: readonly State[] = [
     screen: "a check's page",
     state: 'for a check not recorded',
     route: paths.check('nothing-here'),
-    answers: [answer(CheckDetailDocument, { check: null })],
+    answers: [answer(CheckDetailDocument, { staleAfterDays: 30, check: null })],
     title: 'Check not found',
     landed: () => screen.findByRole('heading', { name: 'Check not found' }),
   },

@@ -29,6 +29,7 @@ export function aRecordedCheck(
     protects: 'Code that no longer compiles reaching the main branch.',
     howToTellArmed: 'A type check job is listed on every pull request.',
     status: 'UNARMED',
+    statusFrom: 'NOTHING',
     lastCaughtOn: null,
     lastSettledOn: null,
     runCount: 0,

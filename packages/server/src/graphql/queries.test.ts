@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 
 import { seedChecks, seedWorkspace } from '../database/seed.ts';
 import { get, post, query } from '../testing/graphql.ts';
+import { STALE_AFTER_DAYS } from '../staleness.ts';
 import { useTestDatabase } from '../testing/test-database.ts';
 import { statusName } from './enums.ts';
 import { createGraphQLServer, healthRoute, readinessRoute } from './server.ts';
@@ -39,6 +40,7 @@ interface CheckSummaryFields {
   readonly name: string;
   readonly area: string;
   readonly status: string;
+  readonly statusFrom: string;
   readonly lastCaughtOn: string | null;
   readonly lastRunOn: string | null;
   readonly runCount: number;
@@ -53,6 +55,7 @@ const checkSummaryFields = `
   name
   area
   status
+  statusFrom
   lastCaughtOn
   lastRunOn
   runCount
@@ -117,6 +120,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // and still has a catch to report from before it was.
   expect(broken).toMatchObject({
     status: 'BROKEN',
+    statusFrom: 'TEST_RUN',
     runCount: 2,
     caughtCount: 1,
     missedCount: 1,
@@ -133,6 +137,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // null means "nothing recorded" rather than zero.
   expect(neverRun).toMatchObject({
     status: 'UNPROVEN',
+    statusFrom: 'OBSERVATION',
     runCount: 0,
     caughtCount: 0,
     missedCount: 0,
@@ -148,6 +153,7 @@ it('reports the counts and dates that travel beside a status', async () => {
   // finding it off. Null is what says so.
   expect(nothingRecorded).toMatchObject({
     status: 'UNARMED',
+    statusFrom: 'NOTHING',
     lastArmed: null,
     lastSeenArmedOn: null,
   });
@@ -301,6 +307,21 @@ it('counts every status, including the ones no check holds', async () => {
     broken: 0,
     total: 0,
   });
+});
+
+it('says the staleness threshold it derived every status with', async () => {
+  const read = async (server: ReturnType<typeof createGraphQLServer>) =>
+    (await query<{ staleAfterDays: number }>(server, '{ staleAfterDays }'))
+      .staleAfterDays;
+
+  expect(await read(createGraphQLServer({ database: database.client() }))).toBe(
+    STALE_AFTER_DAYS,
+  );
+  expect(
+    await read(
+      createGraphQLServer({ database: database.client(), staleAfterDays: 45 }),
+    ),
+  ).toBe(45);
 });
 
 it('answers with null for an id nothing is recorded under', async () => {
