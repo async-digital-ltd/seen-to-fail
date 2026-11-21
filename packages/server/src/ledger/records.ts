@@ -1,3 +1,4 @@
+import { PLANT_KINDS } from '@seen-to-fail/replay';
 import { z } from 'zod';
 
 import { isRealDay } from '../day.ts';
@@ -124,6 +125,25 @@ function ledgerCheckSchema() {
  */
 const recordedBeforeSourcesExisted = 'hand';
 
+/**
+ * The kind of defect the run's plant was declared to be (#295), or null when
+ * nobody declared one.
+ *
+ * Copied by a replay from the break's own declaration in `canfail.json`, and
+ * never inferred from the plant. Null rather than a default, and null is the
+ * only way to say "unknown": every run recorded before plants declared a kind,
+ * and every run typed in by hand, has no declaration to copy, and guessing one
+ * after the fact would publish a kind nobody declared. Those records stay valid
+ * exactly as they were written, for the reason given above for `source`.
+ *
+ * A value outside the fixed list is refused here, before the file can be
+ * committed, and the database's own enum refuses it again at build time.
+ */
+const optionalPlantKind = z
+  .enum(PLANT_KINDS)
+  .nullish()
+  .transform((kind) => kind ?? null);
+
 function ledgerRunSchema(today: IsoDate) {
   return z
     .strictObject({
@@ -134,6 +154,7 @@ function ledgerRunSchema(today: IsoDate) {
         'Say what the check was expected to do.',
         MAX_TEXT_LENGTH,
       ),
+      kind: optionalPlantKind,
       outcome: z.enum(testRunOutcomes),
       // Absent on every record written before a run could settle nothing, and
       // absent is what a run that settled something has to be. No default is

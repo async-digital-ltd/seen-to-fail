@@ -265,6 +265,8 @@ describe('recording what a replay found', () => {
       checkId: 'ci-type-check',
       outcome: 'caught',
       expected: 'The type check fails.',
+      // Copied from the break's own declaration (#295).
+      kind: 'wrong-answer',
       planted: 'STATUSES loses its as const, so Status widens to string.',
       inconclusiveReason: null,
       source: 'replay',

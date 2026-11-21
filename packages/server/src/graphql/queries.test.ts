@@ -478,3 +478,65 @@ it('says what each run did, why, and where it came from', async () => {
     },
   ]);
 });
+
+/**
+ * The kinds of defect a check has been seen to catch (#295), through the API:
+ * each kind once, in the order PlantKind lists them, from caught runs only.
+ * A run's own kind reads null where nobody declared one.
+ */
+it('lists the kinds each check has been seen to catch, and none for a check with no catch', async () => {
+  const client = database.client();
+  const checkIds: string[] = [];
+  for (const name of ['Caught two kinds', 'Caught no declared kind']) {
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO checks (name, area, protects, how_to_tell_armed)
+       VALUES ($1, 'CI', '', '') RETURNING id`,
+      [name],
+    );
+    const id = inserted.rows[0]?.id;
+    if (id === undefined) {
+      throw new Error('Inserting a check returned no id.');
+    }
+    checkIds.push(id);
+  }
+  const [both, none] = checkIds;
+  const runs: [string | undefined, string, string | null][] = [
+    [both, 'caught', 'security'],
+    [both, 'caught', 'wrong-answer'],
+    [both, 'missed', 'crash'],
+    [none, 'missed', 'crash'],
+    [none, 'caught', null],
+  ];
+  for (const [checkId, outcome, kind] of runs) {
+    await client.query(
+      `INSERT INTO test_runs
+         (check_id, run_on, planted, expected, outcome, source, plant_kind)
+       VALUES ($1, '2026-03-01', 'A plant', 'It fails', $2, 'hand', $3)`,
+      [checkId, outcome, kind],
+    );
+  }
+  const server = createGraphQLServer({ database: client, asOf: '2026-03-02' });
+
+  const {
+    checks: { checks },
+  } = await query<
+    Listed<{
+      name: string;
+      kindsCaught: string[];
+      runs: { kind: string | null }[];
+    }>
+  >(server, '{ checks { checks { name kindsCaught runs { kind } } } }');
+
+  const byName = new Map(checks.map((check) => [check.name, check]));
+  expect(byName.get('Caught two kinds')?.kindsCaught).toStrictEqual([
+    'WRONG_ANSWER',
+    'SECURITY',
+  ]);
+  expect(byName.get('Caught no declared kind')?.kindsCaught).toStrictEqual([]);
+  expect(
+    byName
+      .get('Caught no declared kind')
+      ?.runs.map((run) => run.kind)
+      .sort(),
+  ).toStrictEqual(['CRASH', null]);
+});

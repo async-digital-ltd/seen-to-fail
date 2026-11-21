@@ -85,6 +85,24 @@ enum RunSource {
 }
 
 """
+The kind of defect a plant was declared to be.
+
+Declared by the plant's author, never inferred from the plant, and never read
+by any status rule. A check seen to catch only one kind can still let another
+through, and this is how a reader can tell. The values are the fixed list in
+packages/replay/src/plants.ts, in its order, spelled in capitals with an
+underscore for each hyphen.
+"""
+enum PlantKind {
+  WRONG_ANSWER
+  MISSING_CASE
+  CRASH
+  SECURITY
+  CONFIGURATION
+  DEPENDENCY
+}
+
+"""
 One planted defect, and what the check did about it.
 
 A run is the unit of evidence in this product. Everything a check's status
@@ -98,6 +116,11 @@ type TestRun {
   planted: String!
   "What the check was expected to do about it."
   expected: String!
+  """
+  The kind of defect the plant was declared to be. Null when nobody declared
+  one: a run typed in by hand, or one recorded before plants carried a kind.
+  """
+  kind: PlantKind
   "What it actually did."
   outcome: Outcome!
   """
@@ -189,6 +212,13 @@ type Check {
   which are different things to show a reader.
   """
   lastArmed: Boolean
+  """
+  The kinds of defect a run of this check has caught, each once, in the order
+  PlantKind lists them. A run that missed or settled nothing adds none, and
+  neither does a run with no declared kind, so empty means no declared kind has
+  been seen caught, not that the check catches nothing. Never read by status.
+  """
+  kindsCaught: [PlantKind!]!
   "Every run against this check, newest first."
   runs: [TestRun!]!
   "Every observation about this check, newest first."

@@ -1,5 +1,5 @@
 import { repeated } from './plants.ts';
-import type { PlantedChecks } from './plants.ts';
+import type { PlantKind, PlantedChecks } from './plants.ts';
 import { canfailVerdicts } from './report.ts';
 import type { CanfailReport, CanfailVerdict, ReplayResult } from './report.ts';
 
@@ -73,6 +73,13 @@ export interface ReplayRun {
   readonly runOn: string;
   readonly planted: string;
   readonly expected: string;
+  /**
+   * The kind the declaration gives the break (#295), copied from
+   * `canfail.json` and never inferred from the plant. Null only for a break the
+   * declaration does not declare, and a report naming one of those is refused
+   * as a whole, so no run carrying null leaves this adapter.
+   */
+  readonly kind: PlantKind | null;
   readonly outcome: ReplayOutcome;
   readonly inconclusiveReason: string | null;
   readonly note: null;
@@ -159,6 +166,7 @@ export function runsFromReport(
       runOn: provenance.runOn,
       planted: outcome.break_name,
       expected: planted.expected,
+      kind: planted.kinds.get(outcome.break_name) ?? null,
       outcome: mapped.outcome,
       inconclusiveReason: mapped.reason === 'detail' ? outcome.detail : null,
       // Left empty on purpose. A note is what a person writes when there is

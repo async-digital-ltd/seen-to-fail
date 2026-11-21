@@ -79,6 +79,7 @@ it('writes a record the loader will read back', async () => {
   expect(written).toEqual({
     ...run,
     note: 'Seen twice.',
+    kind: null,
     inconclusiveReason: null,
     source: 'hand',
     sourceCommit: null,
@@ -88,12 +89,13 @@ it('writes a record the loader will read back', async () => {
 
 /**
  * A replay records the two things that let a reader check it, and they reach
- * the file unchanged.
+ * the file unchanged, with the kind its plant declared (#295).
  */
 it('writes a replay with the commit and the run it names', async () => {
   const directory = await ledgerWithACheck();
   const result = await record(directory, {
     ...run,
+    kind: 'configuration',
     source: 'replay',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
@@ -108,6 +110,7 @@ it('writes a replay with the commit and the run it names', async () => {
   expect(written).toEqual({
     ...run,
     note: null,
+    kind: 'configuration',
     inconclusiveReason: null,
     source: 'replay',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
@@ -173,6 +176,7 @@ it('names a file for what is in it, not for how it was built', () => {
     runOn: '2026-09-18',
     planted: 'A rule violation.',
     expected: 'The lint step fails.',
+    kind: null,
     outcome: 'caught',
     inconclusiveReason: null,
     note: null,
@@ -188,6 +192,7 @@ it('names a file for what is in it, not for how it was built', () => {
     inconclusiveReason: null,
     outcome: 'caught',
     expected: 'The lint step fails.',
+    kind: null,
     planted: 'A rule violation.',
     runOn: '2026-09-18',
     checkId: 'ci-lint',

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { Client } from 'pg';
 
 import { countChecksByStatus } from '../database/checks.ts';
+import { listKindsCaughtForChecks } from '../database/kinds.ts';
 import { selectRows } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
 import { listCheckSummaries } from '../database/summaries.ts';
@@ -180,8 +181,8 @@ async function writeLedgerToDatabase(
         `INSERT INTO test_runs
            (id, check_id, run_on, planted, expected, outcome,
             inconclusive_reason, note,
-            source, source_commit, source_run_url)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            source, source_commit, source_run_url, plant_kind)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           ledgerFileUuid(`${ledgerPath}/${entry.file}`),
           ledgerCheckUuid(entry.record.checkId),
@@ -194,6 +195,7 @@ async function writeLedgerToDatabase(
           entry.record.source,
           entry.record.sourceCommit,
           entry.record.sourceRunUrl,
+          entry.record.kind,
         ],
       );
     }
@@ -308,6 +310,10 @@ export async function buildLedger(
     builtOn: options.asOf,
     staleAfterDays,
     recordingCommits: options.recordingCommits,
+    kindsCaught: await listKindsCaughtForChecks(
+      client,
+      summaries.map((summary) => summary.checkId),
+    ),
   });
   const pages = renderPages(snapshot, options.recordWelsh);
   const page = pages.en;

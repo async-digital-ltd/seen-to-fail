@@ -1,9 +1,10 @@
 import { STATUSES } from '@seen-to-fail/filter';
+import { PLANT_KINDS } from '@seen-to-fail/replay';
 import { isEnumType } from 'graphql';
 import { expect, it } from 'vitest';
 
 import { testRunOutcomes } from '../database/rows.ts';
-import { outcomeName, statusName } from './enums.ts';
+import { kindName, outcomeName, statusName } from './enums.ts';
 import { buildSchema } from './schema.ts';
 
 /**
@@ -46,4 +47,13 @@ it('gives each status a name of its own', () => {
 it('gives each outcome a name of its own', () => {
   const spelled = testRunOutcomes.map((outcome) => outcomeName(outcome));
   expect(new Set(spelled).size).toBe(testRunOutcomes.length);
+});
+
+/**
+ * Compared in order rather than sorted, because the order of PLANT_KINDS is the
+ * order a check's kinds caught are listed in, and the schema says so.
+ */
+it('spells every plant kind the way the schema does, in the same order', () => {
+  const spelled = PLANT_KINDS.map((kind) => kindName(kind));
+  expect(spelled).toStrictEqual(schemaEnumValues('PlantKind'));
 });

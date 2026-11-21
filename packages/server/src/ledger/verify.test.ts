@@ -868,3 +868,54 @@ it('finds a check with no status derived for it', () => {
     'The check first-check has no status derived for it.',
   ]);
 });
+
+/**
+ * The kinds a check has been seen to catch (#295). The export carries what the
+ * database read, and the build works the same answer out of the files, so a
+ * kind published that no catch declared, or a caught kind left out, is found.
+ */
+it('finds a kind caught that no run that caught declared', () => {
+  const found = disagreements(
+    withSnapshot((snapshot) => ({
+      ...snapshot,
+      checks: snapshot.checks.map((check) => ({
+        ...check,
+        kindsCaught: ['crash'],
+      })),
+    })),
+  );
+  expect(found.join('\n')).toContain('kinds caught');
+});
+
+/**
+ * A run that settled nothing carries a declared kind in the fixture and adds
+ * none, so publishing its kind as caught is a disagreement, and publishing a
+ * run whose kind differs from its file is another.
+ */
+it('finds a run published with a kind its record does not declare', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive' ? { ...run, kind: 'security' } : run,
+    ),
+  );
+
+  expect(found.join('\n')).toContain('its declared kind');
+});
+
+it('finds a kind published as caught from a run that settled nothing', () => {
+  const input = soundUnsettled();
+  const found = disagreements({
+    ...input,
+    snapshot: {
+      ...input.snapshot,
+      checks: input.snapshot.checks.map((check) => ({
+        ...check,
+        kindsCaught: check.runs.some((run) => run.kind === 'wrong-answer')
+          ? ['wrong-answer']
+          : [],
+      })),
+    },
+  });
+
+  expect(found.join('\n')).toContain('kinds caught');
+});

@@ -108,6 +108,13 @@ export type Check = {
    */
   inconclusiveCount: Scalars['Int']['output'];
   /**
+   * The kinds of defect a run of this check has caught, each once, in the order
+   * PlantKind lists them. A run that missed or settled nothing adds none, and
+   * neither does a run with no declared kind, so empty means no declared kind has
+   * been seen caught, not that the check catches nothing. Never read by status.
+   */
+  kindsCaught: Array<PlantKind>;
+  /**
    * What the latest observation said, or null when there has never been one.
    * Null is "nobody has looked" and false is "somebody looked and it was off",
    * which are different things to show a reader.
@@ -277,6 +284,23 @@ export type Outcome =
   /** The defect was planted and the check said nothing. */
   | 'MISSED';
 
+/**
+ * The kind of defect a plant was declared to be.
+ *
+ * Declared by the plant's author, never inferred from the plant, and never read
+ * by any status rule. A check seen to catch only one kind can still let another
+ * through, and this is how a reader can tell. The values are the fixed list in
+ * packages/replay/src/plants.ts, in its order, spelled in capitals with an
+ * underscore for each hyphen.
+ */
+export type PlantKind =
+  | 'CONFIGURATION'
+  | 'CRASH'
+  | 'DEPENDENCY'
+  | 'MISSING_CASE'
+  | 'SECURITY'
+  | 'WRONG_ANSWER';
+
 export type Query = {
   __typename?: 'Query';
   /**
@@ -419,6 +443,11 @@ export type TestRun = {
    * so this is handed over as it arrived and the reader decides.
    */
   inconclusiveReason?: Maybe<Scalars['String']['output']>;
+  /**
+   * The kind of defect the plant was declared to be. Null when nobody declared
+   * one: a run typed in by hand, or one recorded before plants carried a kind.
+   */
+  kind?: Maybe<PlantKind>;
   /** Anything worth telling the next person. Null when nobody wrote one. */
   note?: Maybe<Scalars['String']['output']>;
   /** What it actually did. */
@@ -630,6 +659,7 @@ export type ResolversTypes = {
   LogTestRunInput: LogTestRunInput;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Outcome: Outcome;
+  PlantKind: PlantKind;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RecordArmingObservationInput: RecordArmingObservationInput;
   RunSource: RunSource;
@@ -740,6 +770,11 @@ export type CheckResolvers<
   howToTellArmed: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   inconclusiveCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  kindsCaught: Resolver<
+    Array<ResolversTypes['PlantKind']>,
+    ParentType,
+    ContextType
+  >;
   lastArmed: Resolver<
     Maybe<ResolversTypes['Boolean']>,
     ParentType,
@@ -896,6 +931,7 @@ export type TestRunResolvers<
     ParentType,
     ContextType
   >;
+  kind: Resolver<Maybe<ResolversTypes['PlantKind']>, ParentType, ContextType>;
   note: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   outcome: Resolver<ResolversTypes['Outcome'], ParentType, ContextType>;
   planted: Resolver<ResolversTypes['String'], ParentType, ContextType>;
