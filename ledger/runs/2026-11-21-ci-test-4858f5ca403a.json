@@ -1,0 +1,15 @@
+{
+  "checkId": "ci-test",
+  "runOn": "2026-11-21",
+  "planted": "A link's day count accepts a leading zero, so one filter has two links, which the type check accepts.",
+  "expected": "The tests fail.",
+  "kind": "missing-case",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "be6aae4877aa2e66b5870d8b38ed59bb329d0d28",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/44931199009",
+  "tool": "canfail",
+  "toolVersion": "0.2.1"
+}
