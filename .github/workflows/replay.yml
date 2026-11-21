@@ -301,8 +301,10 @@ jobs:
             exit 1
           fi
           # One line of JSON, so the output needs no multi-line delimiter.
-          # An assignment of its own, so a failure here stops the step under
-          # `set -e` instead of writing an empty declaration.
+          # An assignment of its own, so a missing or unreadable file stops the
+          # step under `set -e`. A file that is present and empty does not: jq
+          # prints nothing and exits 0, and the replay job's own check of the
+          # declaration is what turns that run red.
           declaration=$(jq --compact-output . "$RUNNER_TEMP/canfail-due.json")
           echo "lane=due" >> "$GITHUB_OUTPUT"
           echo "declaration=$declaration" >> "$GITHUB_OUTPUT"
