@@ -122,7 +122,13 @@ seven run in the replay job, which owns the database service
    checks the tree came back. `canfail` edits real files and puts them back,
    and a restore that ran is not a restore that worked: a tree that did not come
    back leaves every break after the failed one scored against a tree nobody
-   declared, so the job stops instead of recording them.
+   declared, so the job stops instead of recording them. The check reads
+   `git status` with untracked files included, so it sees tracked and
+   untracked files but not ignored ones: the installed dependencies, a build
+   output or a local environment file could change and it would not see them.
+   Every declared break names a tracked file today, and refusing one that does
+   not is an open gap
+   ([#224](https://github.com/async-digital-ltd/seen-to-fail/issues/224)).
 6. **Records what the report means**, with `pnpm ledger:replay`. One run per
    declared break, each carrying `source: replay`, the commit the plants were
    applied to, and a link to the run that produced it.

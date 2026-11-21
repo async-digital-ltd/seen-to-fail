@@ -224,13 +224,13 @@ jobs:
       #
       # Every action is pinned by commit, with its release tag beside it. A tag
       # can be moved to other code by anyone who can write to the action's repository,
-      # and this job holds a token that can write to this one (#223).
+      # and the replay job after this one holds a token that can write to this
+      # one (#223). This job's token can only read (#142).
       #
-      # The checkout does not keep that token. By default it writes it into
-      # .git/config, where every later step could read it: the pnpm, Node and
-      # Python actions, every dependency `pnpm install` runs, the selection,
-      # the build and every plant canfail applies. Only the push step is given
-      # it, through its own environment.
+      # The checkout does not keep the token. By default it writes it into
+      # .git/config, where every later step could read it: the pnpm and Node
+      # actions, every dependency `pnpm install` runs, and the selection. No
+      # step in this job is given it.
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
