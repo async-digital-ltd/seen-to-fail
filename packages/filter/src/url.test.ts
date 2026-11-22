@@ -190,6 +190,37 @@ it('round-trips every operator the language has', () => {
   }
 });
 
+function nonEmpty<T>(items: readonly T[]): readonly [T, ...T[]] {
+  const [first, ...rest] = items;
+  if (first === undefined) {
+    throw new Error('Expected at least one item.');
+  }
+  return [first, ...rest];
+}
+
+it('round-trips one link that holds every operator the language has', () => {
+  // More operators than one group takes, so they are spread over as few
+  // groups as the cap allows, and the link still carries all of them at once.
+  const groupCount = Math.ceil(
+    EVERY_OPERATOR.length / MAX_CONDITIONS_PER_GROUP,
+  );
+  const groups = nonEmpty(
+    Array.from({ length: groupCount }, (_, index) => ({
+      joiner: 'or' as const,
+      conditions: nonEmpty(
+        EVERY_OPERATOR.slice(
+          index * MAX_CONDITIONS_PER_GROUP,
+          (index + 1) * MAX_CONDITIONS_PER_GROUP,
+        ),
+      ),
+    })),
+  );
+  const filter: Filter = { kind: 'groups', joiner: 'and', groups };
+
+  expect(groups.length).toBeLessThanOrEqual(MAX_GROUPS);
+  expect(parsedOrThrow(serializeFilter(filter))).toEqual(filter);
+});
+
 it('gives every operator a token of its own, across the whole language', () => {
   const links = EVERY_OPERATOR.map((condition) =>
     serializeFilter(oneCondition(condition)),

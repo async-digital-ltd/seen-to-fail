@@ -707,6 +707,12 @@ it('looks up a check and logs a run using only its ledger key', async () => {
   expect(
     pathsOf(await logTestRun(server, { ...input, checkKey: null })),
   ).toEqual(['checkId']);
+  expect(await query(server, '{ checkByKey(key: "Bad Key") { key } }')).toEqual(
+    { checkByKey: null },
+  );
+  expect(
+    pathsOf(await logTestRun(server, { ...input, checkKey: 'Bad Key' })),
+  ).toEqual(['checkKey']);
   expect(await workspace(server)).toEqual(before);
 });
 
