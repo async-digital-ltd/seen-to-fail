@@ -1,6 +1,7 @@
 import { compileFilter, STATUSES } from '@seen-to-fail/filter';
 import type { CompileOptions, Filter, Status } from '@seen-to-fail/filter';
 
+import { ledgerIdSchema } from '../ledger/id.ts';
 import { STALE_AFTER_DAYS } from '../staleness.ts';
 import {
   armingObservationColumns,
@@ -181,18 +182,22 @@ export async function listChecks(
  */
 export async function findCheck(
   database: Queryable,
-  id: string,
+  address: string | { readonly key: string },
   asOf: IsoDate,
   staleAfterDays: number = STALE_AFTER_DAYS,
 ): Promise<CheckRecord | null> {
-  if (!uuidPattern.test(id)) {
+  const byId = typeof address === 'string';
+  const value = byId ? address : address.key;
+  if (
+    byId ? !uuidPattern.test(value) : !ledgerIdSchema.safeParse(value).success
+  ) {
     return null;
   }
 
   const rows = await selectRows<CheckRecord>(
     database,
-    `SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')} WHERE ${checkName}.id = $3`,
-    [asOf, staleAfterDays, id],
+    `SELECT ${checkRecordColumns} ${checksWithSummaries('$1', '$2')} WHERE ${checkName}.${byId ? 'id' : 'key'} = $3`,
+    [asOf, staleAfterDays, value],
   );
   return rows[0] ?? null;
 }

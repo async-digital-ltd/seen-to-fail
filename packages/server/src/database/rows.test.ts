@@ -88,6 +88,7 @@ it('reads back a check, selected by its id', async () => {
   expect(Object.keys(check).sort()).toEqual(
     fieldsOf<Check>({
       id: true,
+      key: true,
       name: true,
       area: true,
       protects: true,
@@ -97,6 +98,7 @@ it('reads back a check, selected by its id', async () => {
   );
   expect(check.id).toMatch(uuid);
   expect(check.id).toBe(checkId);
+  expect(check.key).toBeNull();
   expect(check.name).toBe('Formatting check');
   expect(check.area).toBe('Continuous integration');
   expect(check.protects).toBe('Unformatted code reaching main');

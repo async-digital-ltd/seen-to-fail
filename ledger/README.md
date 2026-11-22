@@ -190,6 +190,11 @@ the build loads the ledger. It is written into that database and nowhere else:
 no file here holds one, and neither the page nor the export the build writes
 carries one, since both name a check by its id.
 
+After loading the ledger, query `checkByKey(key: "ci-lint")` in GraphQL to
+read that check. To log a run, pass the same value as `checkKey` in the
+`logTestRun` input. The existing `checkId` input takes the database UUID.
+A check created through the form has a null `key`.
+
 The `name` beside it is a label, not an address. Nothing resolves a ledger check
 by its name, so a check can be renamed after runs have been recorded against it
 and every run still reaches it: the run files are untouched, the check publishes

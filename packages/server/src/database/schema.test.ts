@@ -234,6 +234,29 @@ for (const { form, name } of [
 }
 
 refusalTest(
+  'checks_key_valid',
+  'refuses a malformed ledger key by the key constraint',
+  () =>
+    rejectionOf(
+      database.client(),
+      "INSERT INTO checks (key, name, area, protects, how_to_tell_armed) VALUES ('ci--lint', 'Lint', 'CI', '', '')",
+    ),
+);
+
+it('refuses two checks with the same ledger key', async () => {
+  await insertCheck('First');
+  await insertCheck('Second');
+  const refused = await rejectionOf(
+    database.client(),
+    "UPDATE checks SET key = 'ci-lint'",
+  );
+  expect(refused).toEqual({
+    code: sqlStates.uniqueViolation,
+    constraint: 'checks_key_unique',
+  });
+});
+
+refusalTest(
   'checks_area_not_empty',
   'refuses a check whose area is blank',
   () =>
