@@ -94,6 +94,14 @@ const Query: Required<QueryResolvers> = {
   check: (_parent, args, context) =>
     findCheck(context.database, args.id, context.asOf, context.staleAfterDays),
 
+  checkByKey: (_parent, args, context) =>
+    findCheck(
+      context.database,
+      { key: args.key },
+      context.asOf,
+      context.staleAfterDays,
+    ),
+
   areas: (_parent, _args, context) => listAreas(context.database),
 
   // The same value every status in the response was derived with, so the
@@ -278,6 +286,7 @@ const CheckList: CheckListResolvers = {
 
 const Check: CheckResolvers = {
   id: (check) => check.id,
+  key: (check) => check.key,
   name: (check) => check.name,
   area: (check) => check.area,
   protects: (check) => check.protects,

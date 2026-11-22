@@ -182,6 +182,8 @@ anything having been written.
 """
 type Check {
   id: ID!
+  "The ledger ID, or null for a check created without one."
+  key: String
   name: String!
   "Where the check runs, in the team's own words."
   area: String!
@@ -292,6 +294,8 @@ type Query {
   checks(filter: FilterInput): CheckList!
   "One check, or null when nothing is recorded under that id."
   check(id: ID!): Check
+  "One check by its ledger ID. An unknown key returns null."
+  checkByKey(key: String!): Check
   """
   Every area a check is in, once each, ordered by name.
 
@@ -336,8 +340,10 @@ input CreateCheckInput {
 
 "One planted defect, and what the check did about it."
 input LogTestRunInput {
-  "The check the defect was planted for. It has to exist."
-  checkId: ID!
+  "The existing check UUID. Supply exactly one of checkId and checkKey."
+  checkId: ID
+  "The existing ledger ID, such as ci-lint."
+  checkKey: String
   "The day the defect was planted. Not in the future."
   runOn: Date!
   "What was planted. Not blank."

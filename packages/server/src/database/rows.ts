@@ -319,6 +319,7 @@ export type TestRunSource = (typeof testRunSources)[number];
 /** An automated check: one thing that is supposed to catch something. */
 export interface Check {
   readonly id: string;
+  readonly key: string | null;
   readonly name: string;
   /** Where the check runs, in the team's own words. */
   readonly area: string;
@@ -451,6 +452,7 @@ export function isoDate(column: string): string {
 export function checkColumnsFrom(table: string): string {
   return [
     `${table}.id`,
+    `${table}.key`,
     `${table}.name`,
     `${table}.area`,
     `${table}.protects`,

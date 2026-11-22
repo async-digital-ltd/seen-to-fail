@@ -5,6 +5,7 @@ import {
 } from '@seen-to-fail/replay';
 import { z } from 'zod';
 
+import { ledgerIdSchema } from '../ledger/id.ts';
 import { uuidPattern } from './checks.ts';
 import {
   outcomeSettlesSomething,
@@ -591,7 +592,8 @@ const newCheckSchema = z
 function newTestRunSchema(today: IsoDate) {
   return z
     .object({
-      checkId: checkId(),
+      checkId: checkId().nullish(),
+      checkKey: ledgerIdSchema.nullish(),
       runOn: notAfter(today, runDatedAfterToday.message),
       planted: requiredText('Say what was planted.', MAX_TEXT_LENGTH),
       expected: requiredText(
@@ -604,6 +606,15 @@ function newTestRunSchema(today: IsoDate) {
       source: runSource,
       sourceCommit: optionalSourceCommit,
       sourceRunUrl: optionalSourceRunUrl,
+    })
+    .superRefine((run, context) => {
+      if ((run.checkId == null) === (run.checkKey == null)) {
+        context.addIssue({
+          code: 'custom',
+          path: [run.checkKey == null ? 'checkId' : 'checkKey'],
+          message: 'Supply exactly one of checkId and checkKey.',
+        });
+      }
     })
     .superRefine(checkRunProvenance)
     .superRefine(checkRunSettlement)

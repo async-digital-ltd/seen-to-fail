@@ -107,6 +107,8 @@ export type Check = {
    * absorb another.
    */
   inconclusiveCount: Scalars['Int']['output'];
+  /** The ledger ID, or null for a check created without one. */
+  key?: Maybe<Scalars['String']['output']>;
   /**
    * The kinds of defect a run of this check has caught, each once, in the order
    * PlantKind lists them. A run that missed or settled nothing adds none, and
@@ -195,8 +197,10 @@ export type FieldError = {
 
 /** One planted defect, and what the check did about it. */
 export type LogTestRunInput = {
-  /** The check the defect was planted for. It has to exist. */
-  checkId: Scalars['ID']['input'];
+  /** The existing check UUID. Supply exactly one of checkId and checkKey. */
+  checkId?: InputMaybe<Scalars['ID']['input']>;
+  /** The existing ledger ID, such as ci-lint. */
+  checkKey?: InputMaybe<Scalars['String']['input']>;
   /** What the check was expected to do about it. Not blank. */
   expected: Scalars['String']['input'];
   /**
@@ -314,6 +318,8 @@ export type Query = {
   areas: Array<Scalars['String']['output']>;
   /** One check, or null when nothing is recorded under that id. */
   check?: Maybe<Check>;
+  /** One check by its ledger ID. An unknown key returns null. */
+  checkByKey?: Maybe<Check>;
   /**
    * The checks a filter selects, ordered by name, with how many it hides.
    *
@@ -344,6 +350,10 @@ export type Query = {
 
 export type QueryCheckArgs = {
   id: Scalars['ID']['input'];
+};
+
+export type QueryCheckByKeyArgs = {
+  key: Scalars['String']['input'];
 };
 
 export type QueryChecksArgs = {
@@ -780,6 +790,7 @@ export type CheckResolvers<
   howToTellArmed: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   inconclusiveCount: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  key: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   kindsCaught: Resolver<
     Array<ResolversTypes['PlantKind']>,
     ParentType,
@@ -901,6 +912,12 @@ export type QueryResolvers<
     ParentType,
     ContextType,
     RequireFields<QueryCheckArgs, 'id'>
+  >;
+  checkByKey?: Resolver<
+    Maybe<ResolversTypes['Check']>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryCheckByKeyArgs, 'key'>
   >;
   checks?: Resolver<
     ResolversTypes['CheckList'],

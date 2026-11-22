@@ -87,6 +87,7 @@ async function insertReturning<Row>(
   sql: string,
   values: readonly unknown[],
   refusals: readonly ExpectedRefusal[],
+  missingRow?: RecordIssue,
 ): Promise<WriteResult<Row>> {
   let rows: Row[];
   try {
@@ -101,6 +102,7 @@ async function insertReturning<Row>(
 
   const [row] = rows;
   if (row === undefined) {
+    if (missingRow !== undefined) return { ok: false, errors: [missingRow] };
     throw new Error('An insert with a RETURNING clause returned no row.');
   }
   return { ok: true, row };
@@ -135,15 +137,20 @@ export async function insertTestRun(
   database: Queryable,
   run: NewTestRun,
 ): Promise<WriteResult<TestRun>> {
+  // Resolve the key in the insert itself, so a missing key writes no run.
+  const byKey = run.checkKey != null;
+  const sourceRow = byKey
+    ? 'SELECT id, $2::date, $3, $4, $5, $6, $7, $8, $9, $10 FROM checks WHERE key = $1'
+    : 'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)';
   return insertReturning(
     database,
     `INSERT INTO test_runs
        (check_id, run_on, planted, expected, outcome, inconclusive_reason,
         note, source, source_commit, source_run_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ${sourceRow}
      RETURNING ${testRunColumns}`,
     [
-      run.checkId,
+      run.checkKey ?? run.checkId,
       run.runOn,
       run.planted,
       run.expected,
@@ -166,6 +173,9 @@ export async function insertTestRun(
         issue: runDatedAfterToday,
       },
     ],
+    byKey
+      ? { path: 'checkKey', message: 'There is no check with this ledger key.' }
+      : undefined,
   );
 }
 
