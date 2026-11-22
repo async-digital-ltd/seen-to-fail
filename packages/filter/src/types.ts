@@ -1,7 +1,7 @@
 /**
  * The vocabulary of the filter language.
  *
- * A filter narrows the list of checks. The language is closed on purpose: four
+ * A filter narrows the list of checks. The language is closed on purpose: five
  * fields, a fixed set of operators for each field, and exactly two levels of
  * grouping. Every type here is a discriminated union, so a combination the
  * language does not have, such as an area compared with `moreThan`, cannot be
@@ -102,12 +102,18 @@ export interface RunsCondition {
   readonly count: number;
 }
 
+/** Counts catches and misses. Inconclusive runs do not contribute. */
+export interface SettledRunsCondition extends Omit<RunsCondition, 'field'> {
+  readonly field: 'settledRuns';
+}
+
 export type Condition =
   | StatusCondition
   | AreaCondition
   | LastCaughtNeverCondition
   | LastCaughtAgeCondition
-  | RunsCondition;
+  | RunsCondition
+  | SettledRunsCondition;
 
 /**
  * The inner level of the language: one or more conditions joined by a single

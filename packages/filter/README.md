@@ -4,7 +4,7 @@ The filter language, shared by the server and the web client so the two cannot
 drift apart. A filter narrows the list of checks: `(status is Unproven OR status
 is Stale) AND area is CI`.
 
-The language is closed on purpose. Four fields, a fixed set of operators for
+The language is closed on purpose. Five fields, a fixed set of operators for
 each, and exactly two levels of grouping. `parseFilter` is the only supported
 way to turn untrusted input into a `Filter`, and the types it returns cannot
 hold a combination the language does not have.
@@ -51,13 +51,14 @@ Every operator writes its own name, so no two conditions can come out as the
 same text. In particular `runs.moreThan.5` and `runs.fewerThan.5` differ in the
 only place they could.
 
-| Field        | Operator token          | Argument                                                  |
-| ------------ | ----------------------- | --------------------------------------------------------- |
-| `status`     | `is`, `isNot`           | one of `Unarmed`, `Broken`, `Proven`, `Stale`, `Unproven` |
-| `area`       | `is`, `isNot`           | text                                                      |
-| `lastCaught` | `never`                 | none                                                      |
-| `lastCaught` | `before`, `after`       | a whole number of days                                    |
-| `runs`       | `moreThan`, `fewerThan` | a whole number of runs                                    |
+| Field         | Operator token          | Argument                                                  |
+| ------------- | ----------------------- | --------------------------------------------------------- |
+| `status`      | `is`, `isNot`           | one of `Unarmed`, `Broken`, `Proven`, `Stale`, `Unproven` |
+| `area`        | `is`, `isNot`           | text                                                      |
+| `lastCaught`  | `never`                 | none                                                      |
+| `lastCaught`  | `before`, `after`       | a whole number of days                                    |
+| `runs`        | `moreThan`, `fewerThan` | all recorded runs, including inconclusive runs            |
+| `settledRuns` | `moreThan`, `fewerThan` | runs that caught or missed the planted defect             |
 
 ### Values
 

@@ -163,7 +163,8 @@ export function ConditionPicker({
       );
       break;
     case 'lastCaught':
-    case 'runs': {
+    case 'runs':
+    case 'settledRuns': {
       if (draft.operator === 'never') {
         value = null;
         break;

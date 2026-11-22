@@ -279,6 +279,8 @@ const everyCondition: Filter = filterOf(
     { field: 'lastCaught', op: 'after', days: 7 },
     { field: 'runs', op: 'moreThan', count: 5 },
     { field: 'runs', op: 'fewerThan', count: 2 },
+    { field: 'settledRuns', op: 'moreThan', count: 5 },
+    { field: 'settledRuns', op: 'fewerThan', count: 2 },
   ),
 );
 
@@ -294,8 +296,10 @@ const permittedColumns = new Set([
   'c.area',
   's.last_caught_on',
   's.run_count',
+  's.caught_count',
+  's.missed_count',
 ]);
-const permittedSymbols = new Set(['=', '<>', '<', '>', '-', '(', ')']);
+const permittedSymbols = new Set(['=', '<>', '<', '>', '+', '-', '(', ')']);
 const placeholder = /^\$[1-9][0-9]*(?:::(?:date|integer))?$/;
 
 /**
@@ -367,6 +371,8 @@ it('lists its values in the order its placeholders appear', () => {
     'lint',
     30,
     7,
+    5,
+    2,
     5,
     2,
   ]);

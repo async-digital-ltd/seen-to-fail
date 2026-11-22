@@ -40,6 +40,7 @@ export type {
   LastCaughtAgeCondition,
   LastCaughtNeverCondition,
   RunsCondition,
+  SettledRunsCondition,
   Status,
   StatusCondition,
 } from './types.ts';

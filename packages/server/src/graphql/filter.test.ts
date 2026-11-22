@@ -217,7 +217,8 @@ function writtenOut(filter: Filter): string {
           ? 'lastCaught never'
           : `lastCaught ${written.op} ${String(written.days)}`;
       case 'runs':
-        return `runs ${written.op} ${String(written.count)}`;
+      case 'settledRuns':
+        return `${written.field} ${written.op} ${String(written.count)}`;
     }
   };
   return filter.groups

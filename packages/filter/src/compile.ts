@@ -140,6 +140,10 @@ function compileCondition(
       return `s.run_count ${COUNT_OPERATORS[condition.op]} ${addValue(
         condition.count,
       )}`;
+    case 'settledRuns':
+      // The settled outcomes are named rather than inconclusive subtracted, so
+      // an outcome added later is not counted as settled until someone says so.
+      return `(s.caught_count + s.missed_count) ${COUNT_OPERATORS[condition.op]} ${addValue(condition.count)}`;
     default:
       return refuseUnknownCase(condition, 'a condition field');
   }
