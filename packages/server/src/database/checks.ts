@@ -174,11 +174,15 @@ export async function listChecks(
 }
 
 /**
- * One check with its status, or null when nothing is recorded under that id.
+ * One check with its status, or null when nothing is recorded under that
+ * address.
  *
- * Null rather than an error, for both a well formed id nobody has used and a
- * string that is not an id at all. The two are the same answer to the reader
- * standing in front of a page that is not there.
+ * A string is the database uuid. `{ key }` is the check's ledger id, such as
+ * ci-lint, which only checks loaded from the ledger have.
+ *
+ * Null rather than an error, for both a well formed address nobody has used
+ * and a string that is not an address at all. The two are the same answer to
+ * the reader standing in front of a page that is not there.
  */
 export async function findCheck(
   database: Queryable,
