@@ -324,6 +324,11 @@ it('counts an inconclusive-only history as recorded but never settled', async ()
       filterOfOne({ field: 'settledRuns', op: 'fewerThan', count: 1 }),
     ),
   ).toContain(name);
+  expect(
+    await namesMatching(
+      filterOfOne({ field: 'settledRuns', op: 'moreThan', count: 0 }),
+    ),
+  ).not.toContain(name);
 });
 
 for (const testCase of singleConditions) {

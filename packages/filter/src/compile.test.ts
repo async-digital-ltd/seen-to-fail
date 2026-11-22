@@ -296,9 +296,10 @@ const permittedColumns = new Set([
   'c.area',
   's.last_caught_on',
   's.run_count',
-  's.inconclusive_count',
+  's.caught_count',
+  's.missed_count',
 ]);
-const permittedSymbols = new Set(['=', '<>', '<', '>', '-', '(', ')']);
+const permittedSymbols = new Set(['=', '<>', '<', '>', '+', '-', '(', ')']);
 const placeholder = /^\$[1-9][0-9]*(?:::(?:date|integer))?$/;
 
 /**
