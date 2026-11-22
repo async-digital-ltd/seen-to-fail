@@ -25,8 +25,10 @@ export type CreateCheckInput = {
 
 /** One planted defect, and what the check did about it. */
 export type LogTestRunInput = {
-  /** The check the defect was planted for. It has to exist. */
-  checkId: string | number;
+  /** The existing check UUID. Supply exactly one of checkId and checkKey. */
+  checkId?: string | number | null | undefined;
+  /** The existing ledger ID, such as ci-lint. */
+  checkKey?: string | null | undefined;
   /** What the check was expected to do about it. Not blank. */
   expected: string;
   /**

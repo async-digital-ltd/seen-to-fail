@@ -164,10 +164,11 @@ async function writeLedgerToDatabase(
 
     for (const entry of contents.checks) {
       await client.query(
-        `INSERT INTO checks (id, name, area, protects, how_to_tell_armed)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO checks (id, key, name, area, protects, how_to_tell_armed)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           ledgerCheckUuid(entry.record.id),
+          entry.record.id,
           entry.record.name,
           entry.record.area,
           entry.record.protects,

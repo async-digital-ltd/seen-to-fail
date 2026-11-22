@@ -665,6 +665,51 @@ it('logs a run, and returns it with the check it now counts toward', async () =>
   ]);
 });
 
+it('looks up a check and logs a run using only its ledger key', async () => {
+  const { server, asOf } = await seeded();
+  await database
+    .client()
+    .query(
+      "UPDATE checks SET key = 'commit-format' WHERE name = 'Commit message format'",
+    );
+  const input = {
+    checkKey: 'commit-format',
+    runOn: asOf,
+    planted: 'A blank subject.',
+    expected: 'Commit refused.',
+    outcome: 'CAUGHT',
+    source: 'HAND',
+  };
+  const logged = writtenAs(await logTestRun(server, input), 'TestRunLogged');
+  expect(logged.check.runCount).toBe(1);
+  expect(
+    await query(
+      server,
+      '{ checkByKey(key: "commit-format") { key name runCount } }',
+    ),
+  ).toEqual({
+    checkByKey: {
+      key: 'commit-format',
+      name: 'Commit message format',
+      runCount: 1,
+    },
+  });
+  const before = await workspace(server);
+  expect(await query(server, '{ checkByKey(key: "missing") { key } }')).toEqual(
+    { checkByKey: null },
+  );
+  expect(
+    pathsOf(await logTestRun(server, { ...input, checkKey: 'missing' })),
+  ).toEqual(['checkKey']);
+  expect(
+    pathsOf(await logTestRun(server, { ...input, checkId: logged.check.id })),
+  ).toEqual(['checkKey']);
+  expect(
+    pathsOf(await logTestRun(server, { ...input, checkKey: null })),
+  ).toEqual(['checkId']);
+  expect(await workspace(server)).toEqual(before);
+});
+
 it('returns a Proven check that misses reading Broken', async () => {
   const { server, asOf, idOf } = await seeded();
   const checkId = idOf('Test suite required to merge', 'PROVEN');

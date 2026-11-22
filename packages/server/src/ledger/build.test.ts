@@ -162,6 +162,10 @@ it('publishes a check with the status the record gives it', async () => {
     'Proven',
   ]);
   expect(ledger.statusCounts.Proven).toBe(1);
+  const stored = await database
+    .client()
+    .query('SELECT key FROM checks WHERE id = $1', [ledgerCheckUuid(check.id)]);
+  expect(stored.rows).toEqual([{ key: check.id }]);
 });
 
 /**
