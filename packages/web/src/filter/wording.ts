@@ -23,13 +23,20 @@ export type OperatorOf<F extends Field> = Extract<
 >['op'];
 
 /** The fields in the order the picker offers them. */
-export const FIELDS = ['status', 'area', 'lastCaught', 'runs'] as const;
+export const FIELDS = [
+  'status',
+  'area',
+  'lastCaught',
+  'runs',
+  'settledRuns',
+] as const;
 
 export const fieldWords = {
   status: 'status',
   area: 'area',
   lastCaught: 'last caught',
   runs: 'runs',
+  settledRuns: 'settled runs',
 } as const satisfies Record<Field, string>;
 
 /** A word for every operator of every field, and for nothing else. */
@@ -49,6 +56,7 @@ const operatorWords: OperatorWords = {
     before: 'longer ago than',
     after: 'within the last',
   },
+  settledRuns: { moreThan: 'more than', fewerThan: 'fewer than' },
   runs: { moreThan: 'more than', fewerThan: 'fewer than' },
 };
 
@@ -119,9 +127,10 @@ export function describeCondition(condition: Condition): ConditionWords {
           condition.op === 'never' ? undefined : counted(condition.days, 'day'),
       };
     case 'runs':
+    case 'settledRuns':
       return {
-        field: fieldWords.runs,
-        operator: operatorWords.runs[condition.op],
+        field: fieldWords[condition.field],
+        operator: operatorWords[condition.field][condition.op],
         value: String(condition.count),
       };
   }

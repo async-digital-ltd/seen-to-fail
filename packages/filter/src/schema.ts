@@ -157,6 +157,7 @@ const condition = z.discriminatedUnion('field', [
   areaCondition,
   lastCaughtCondition,
   runsCondition,
+  runsCondition.extend({ field: z.literal('settledRuns') }),
 ]);
 
 /**

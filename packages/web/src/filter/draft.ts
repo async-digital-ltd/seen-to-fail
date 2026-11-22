@@ -84,6 +84,7 @@ function writeOut(draft: Draft): WrittenOut {
         ? { gap: 'Enter a number of days.' }
         : { candidate: { field, op: operator, days: Number(draft.number) } };
     case 'runs':
+    case 'settledRuns':
       return draft.number === ''
         ? { gap: 'Enter a number of runs.' }
         : { candidate: { field, op: operator, count: Number(draft.number) } };

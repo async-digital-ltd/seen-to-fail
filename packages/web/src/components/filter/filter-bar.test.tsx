@@ -284,7 +284,7 @@ describe('the picker', () => {
       within(field)
         .getAllByRole('option')
         .map((option) => option.textContent),
-    ).toEqual(['Status', 'Area', 'Last caught', 'Runs']);
+    ).toEqual(['Status', 'Area', 'Last caught', 'Runs', 'Settled runs']);
     expect(operatorsOffered()).toEqual(['is', 'is not']);
 
     await user.selectOptions(field, 'lastCaught');
@@ -295,6 +295,9 @@ describe('the picker', () => {
     ]);
 
     await user.selectOptions(field, 'runs');
+    expect(operatorsOffered()).toEqual(['more than', 'fewer than']);
+
+    await user.selectOptions(field, 'settledRuns');
     expect(operatorsOffered()).toEqual(['more than', 'fewer than']);
 
     await user.selectOptions(field, 'area');

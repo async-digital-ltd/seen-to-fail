@@ -154,6 +154,8 @@ const ARGUMENTS: Record<ConditionToken, ArgumentSpec> = {
   'lastCaught.never': { holds: 'nothing' },
   'lastCaught.before': { holds: 'wholeNumber', key: 'days' },
   'lastCaught.after': { holds: 'wholeNumber', key: 'days' },
+  'settledRuns.moreThan': { holds: 'wholeNumber', key: 'count' },
+  'settledRuns.fewerThan': { holds: 'wholeNumber', key: 'count' },
   'runs.moreThan': { holds: 'wholeNumber', key: 'count' },
   'runs.fewerThan': { holds: 'wholeNumber', key: 'count' },
 };
@@ -209,7 +211,8 @@ function serializeCondition(condition: Condition): string {
         ? 'lastCaught.never'
         : `lastCaught.${condition.op}.${String(condition.days)}`;
     case 'runs':
-      return `runs.${condition.op}.${String(condition.count)}`;
+    case 'settledRuns':
+      return `${condition.field}.${condition.op}.${String(condition.count)}`;
   }
 }
 

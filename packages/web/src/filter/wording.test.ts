@@ -26,6 +26,14 @@ const everyOperator: readonly (readonly [Condition, string])[] = [
     { field: 'lastCaught', op: 'after', days: 1 },
     'last caught within the last 1 day',
   ],
+  [
+    { field: 'settledRuns', op: 'moreThan', count: 5 },
+    'settled runs more than 5',
+  ],
+  [
+    { field: 'settledRuns', op: 'fewerThan', count: 0 },
+    'settled runs fewer than 0',
+  ],
   [{ field: 'runs', op: 'moreThan', count: 5 }, 'runs more than 5'],
   [{ field: 'runs', op: 'fewerThan', count: 0 }, 'runs fewer than 0'],
 ];

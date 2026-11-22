@@ -290,11 +290,41 @@ const singleConditions: readonly FilterCase[] = [
     ],
   },
   {
+    name: 'settled runs more than 1',
+    condition: { field: 'settledRuns', op: 'moreThan', count: 1 },
+    matches: [
+      'No focused tests left behind',
+      'Test suite required to merge',
+      'Translations complete before release',
+    ],
+  },
+  {
     name: 'runs fewer than 1',
     condition: { field: 'runs', op: 'fewerThan', count: 1 },
     matches: ['Commit message format', 'Release notes present'],
   },
 ];
+
+it('counts an inconclusive-only history as recorded but never settled', async () => {
+  const { namesMatching } = await seedAndQuery();
+  const name = 'Type check on every pull request';
+  await database.client().query(
+    `DELETE FROM test_runs WHERE outcome = 'caught'
+       AND check_id = (SELECT id FROM checks WHERE name = $1)`,
+    [name],
+  );
+
+  expect(
+    await namesMatching(
+      filterOfOne({ field: 'runs', op: 'moreThan', count: 0 }),
+    ),
+  ).toContain(name);
+  expect(
+    await namesMatching(
+      filterOfOne({ field: 'settledRuns', op: 'fewerThan', count: 1 }),
+    ),
+  ).toContain(name);
+});
 
 for (const testCase of singleConditions) {
   it(`selects the checks where ${testCase.name}`, async () => {

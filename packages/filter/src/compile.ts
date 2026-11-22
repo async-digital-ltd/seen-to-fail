@@ -140,6 +140,8 @@ function compileCondition(
       return `s.run_count ${COUNT_OPERATORS[condition.op]} ${addValue(
         condition.count,
       )}`;
+    case 'settledRuns':
+      return `(s.run_count - s.inconclusive_count) ${COUNT_OPERATORS[condition.op]} ${addValue(condition.count)}`;
     default:
       return refuseUnknownCase(condition, 'a condition field');
   }

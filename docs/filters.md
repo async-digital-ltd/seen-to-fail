@@ -5,17 +5,18 @@ The list of checks can be narrowed with a filter such as
 the eight checks in the sample workspace.
 
 A filter is a typed tree of conditions, and the language is closed on purpose:
-four fields, a fixed set of operators for each, and exactly two levels of
+five fields, a fixed set of operators for each, and exactly two levels of
 grouping. The conditions in a group share one joiner and the groups share
 another, so there is no precedence to work out.
 
-| Field        | Operators               | Argument                                                  |
-| ------------ | ----------------------- | --------------------------------------------------------- |
-| `status`     | `is`, `isNot`           | one of `Unarmed`, `Broken`, `Proven`, `Stale`, `Unproven` |
-| `area`       | `is`, `isNot`           | text                                                      |
-| `lastCaught` | `never`                 | none                                                      |
-| `lastCaught` | `before`, `after`       | a whole number of days                                    |
-| `runs`       | `moreThan`, `fewerThan` | a whole number of runs                                    |
+| Field         | Operators               | Argument                                                  |
+| ------------- | ----------------------- | --------------------------------------------------------- |
+| `status`      | `is`, `isNot`           | one of `Unarmed`, `Broken`, `Proven`, `Stale`, `Unproven` |
+| `area`        | `is`, `isNot`           | text                                                      |
+| `lastCaught`  | `never`                 | none                                                      |
+| `lastCaught`  | `before`, `after`       | a whole number of days                                    |
+| `runs`        | `moreThan`, `fewerThan` | all recorded runs, including inconclusive runs            |
+| `settledRuns` | `moreThan`, `fewerThan` | runs that caught or missed the planted defect             |
 
 The filter lives in the page's address, so a refresh, the back button and "Copy
 link" all keep it, and a filter is shared by sending that link. The example

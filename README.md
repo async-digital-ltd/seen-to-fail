@@ -211,7 +211,8 @@ to `packages/web/dist`.
 
 The home page lists the checks under their status tiles, and a tile narrows the
 list to its status. The filter bar between them builds a filter one condition at
-a time. Each check has its own page, where you record an arming observation. You
+a time. The `runs` filter counts every recorded run. Use `settledRuns` to count
+only runs that caught or missed the planted defect. Each check has its own page, where you record an arming observation. You
 log runs through one form and add a check through another.
 
 ## What belongs on a public ledger
