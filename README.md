@@ -139,21 +139,15 @@ empty the test database between tests and `pnpm db:test:reset` drops it.
 Any PostgreSQL 16 reachable at those two URLs will do. Two routes follow. Pick
 one, because the two would compete for port 5432.
 
-**Homebrew, the route this project is developed on.** `pnpm db:up` starts
-`postgresql@16` as a service and creates the two databases named in `.env` if
-they do not exist yet. `pnpm db:down` stops it. A server started this way has no
-`seen_to_fail` role and no password, so the URLs in `.env.example` will not
-reach it. It does let in the user you are logged in as, and a URL with no user
-connects as that user, so take the user and password out of both URLs:
-
-```sh
-DATABASE_URL=postgresql://localhost:5432/seen_to_fail_dev
-TEST_DATABASE_URL=postgresql://localhost:5432/seen_to_fail_test
-```
+**Homebrew, the route this project is developed on.** In the `.env` you copied,
+comment out both Docker URLs and uncomment both Homebrew URLs. These connect
+as your macOS user. Run `pnpm db:up` to start the `postgresql@16` service and
+create the two databases if they do not exist yet. `pnpm db:down` stops the
+service.
 
 **Docker, provided but unproven.** `docker compose up -d` starts the compose
-file's PostgreSQL 16 with both databases and the credentials `.env.example`
-already carries, which makes it the easier route on most machines. Nobody has
+file's PostgreSQL 16 with both databases and the `seen_to_fail` role. Leave
+the Docker pair active in `.env` to use those credentials. Nobody has
 run it here, because the development machine has no Docker installed. Treat it
 as unverified until someone reports otherwise.
 
