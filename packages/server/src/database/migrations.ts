@@ -12,7 +12,7 @@ export const migrationsDirectory = fileURLToPath(
   new URL('../../migrations/', import.meta.url),
 );
 
-/** The table the runner records applied filenames in. */
+/** The table that records each applied filename and its SQL digest. */
 export const migrationsTable = 'schema_migrations';
 
 /**
@@ -29,14 +29,14 @@ export interface MigrateOptions {
   readonly databaseUrl: string;
   /** Where the .sql files are. Defaults to the project's own migrations. */
   readonly directory?: string;
-  /** Where applied filenames are recorded. Defaults to schema_migrations. */
+  /** Where applied filenames and SQL digests are stored. Defaults to schema_migrations. */
   readonly table?: string;
 }
 
 /**
  * Applies every migration the database has not recorded yet, in filename order,
- * and returns the filenames it applied. A run with nothing pending returns an
- * empty array and changes nothing.
+ * and returns the filenames it applied. Checks the digest of previously applied
+ * SQL and reports changed files. Older rows with no digest get one summary.
  *
  * Each migration and its bookkeeping row go in one transaction, so a migration
  * that fails leaves neither its own changes nor a record claiming it ran.
@@ -70,17 +70,23 @@ export async function applyMigrations(
     const digests = new Map(
       recorded.rows.map((row) => [row.filename, row.sha256]),
     );
+    const unverified = recorded.rows
+      .filter((row) => row.sha256 === null)
+      .map((row) => row.filename)
+      .sort();
+    if (unverified.length > 0) {
+      console.warn(
+        `Cannot verify SQL applied before digests were recorded: ${unverified.join(', ')}.`,
+      );
+    }
+
     const applied: string[] = [];
     for (const filename of await migrationFilenames(directory)) {
       const sql = await readFile(join(directory, filename), 'utf8');
       const digest = createHash('sha256').update(sql).digest('hex');
       const previous = digests.get(filename);
       if (previous !== undefined) {
-        if (previous === null) {
-          console.warn(
-            `Migration ${filename} was applied before digests were recorded; its SQL cannot be verified.`,
-          );
-        } else if (previous !== digest) {
+        if (previous !== null && previous !== digest) {
           console.warn(
             `Migration ${filename} has changed since it was applied. The database still has the earlier version.`,
           );

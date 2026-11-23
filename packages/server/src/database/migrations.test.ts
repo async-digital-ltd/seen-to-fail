@@ -175,13 +175,18 @@ it('warns about edited SQL without running it again or blocking pending files', 
 
 it('keeps pre-digest rows unverifiable without replaying or blessing current SQL', async () => {
   const filename = '0001_old.sql';
-  const directory = await migrationDirectory({ [filename]: 'invalid sql' });
+  const second = '0002_old.sql';
+  const directory = await migrationDirectory({
+    [filename]: 'invalid sql',
+    [second]: 'invalid sql',
+  });
   await client().query(
     'CREATE TABLE schema_migrations_legacy (filename text PRIMARY KEY)',
   );
-  await client().query('INSERT INTO schema_migrations_legacy VALUES ($1)', [
-    filename,
-  ]);
+  await client().query(
+    'INSERT INTO schema_migrations_legacy VALUES ($1), ($2)',
+    [second, filename],
+  );
   using warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   expect(
     await applyMigrations({
@@ -190,9 +195,12 @@ it('keeps pre-digest rows unverifiable without replaying or blessing current SQL
       table: 'schema_migrations_legacy',
     }),
   ).toEqual([]);
-  expect(warning).toHaveBeenCalledWith(expect.stringContaining(filename));
+  expect(warning).toHaveBeenCalledTimes(1);
+  expect(warning).toHaveBeenCalledWith(
+    expect.stringContaining(`${filename}, ${second}`),
+  );
   const result = await client().query<{ sha256: string | null }>(
     'SELECT sha256 FROM schema_migrations_legacy',
   );
-  expect(result.rows).toEqual([{ sha256: null }]);
+  expect(result.rows).toEqual([{ sha256: null }, { sha256: null }]);
 });
