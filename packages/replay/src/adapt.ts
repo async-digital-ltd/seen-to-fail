@@ -24,6 +24,10 @@ import type { ReplayTool } from './tool.ts';
  */
 export type ReplayOutcome = 'caught' | 'missed' | 'inconclusive';
 
+/** The workflow events that can start a replay. */
+export const replayTriggers = ['schedule', 'workflow_dispatch'] as const;
+export type ReplayTrigger = (typeof replayTriggers)[number];
+
 /**
  * What the ledger records for each verdict, pinned on #66 and on nothing else.
  *
@@ -87,6 +91,7 @@ export interface ReplayRun {
   readonly source: 'replay';
   readonly sourceCommit: string;
   readonly sourceRunUrl: string;
+  readonly trigger: ReplayTrigger;
   /**
    * The tool that scored it and that tool's version (#101), copied from the
    * installation's own metadata by the caller and never from a pin. The same
@@ -104,6 +109,7 @@ export interface ReplayProvenance {
   readonly sourceCommit: string;
   /** A link to the run that produced the report. */
   readonly sourceRunUrl: string;
+  readonly trigger: ReplayTrigger;
   /** The tool that scored the report, as its installation describes itself. */
   readonly tool: ReplayTool;
 }
@@ -186,6 +192,7 @@ export function runsFromReport(
       source: 'replay',
       sourceCommit: provenance.sourceCommit,
       sourceRunUrl: provenance.sourceRunUrl,
+      trigger: provenance.trigger,
       tool: provenance.tool.name,
       toolVersion: provenance.tool.version,
     });
