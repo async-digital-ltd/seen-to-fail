@@ -242,8 +242,9 @@ it as `f1348f8` is what put the two records in `ledger/runs/`. Both read
 }
 ```
 
-This record predates the `trigger` field. The published ledger uses the event
-from its linked Actions run to identify it as scheduled. New records carry the
+This record predates the `trigger` field. The ledger looks up this run in
+`packages/server/src/ledger/historical-replay-triggers.ts`. Its entry was
+verified against the linked Actions run when the table was compiled. New records carry the
 workflow event directly, identifying scheduled and manually dispatched runs.
 
 **The same route, walked by hand first.** Run

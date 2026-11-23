@@ -1033,8 +1033,8 @@ it('shows the manual trigger in both languages', () => {
       record: { ...entry.record, trigger: 'workflow_dispatch' },
     })),
   });
-  expect(renderPage(ledger, 'en')).toContain('By replay (manually dispatched)');
+  expect(renderPage(ledger, 'en')).toContain('By replay (run on request)');
   expect(renderPage(ledger, 'cy', fixtureRecordWelsh)).toContain(
-    'wedi’i gychwyn â llaw',
+    'wedi’i redeg ar gais',
   );
 });

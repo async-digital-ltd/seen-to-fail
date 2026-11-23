@@ -32,19 +32,21 @@ one that retries after midnight UTC records a second. Two runs that are
 identical in every field, including the day, are one record; a note is what
 separates them when they are genuinely two.
 
-The digest is of the keys written, not only of what they mean. A new replay also records its trigger. A hand record keeps
-the thirteen keys it has carried since tool provenance was added (#101), so a run typed in again
-today that matches one of the six-key records from before `source` existed, or
-one of the ten-key or eleven-key records from before those keys existed, field
-for field as the validator reads them, lands in a second file and is published
-as a second run.
+The digest is of the keys written, not only of what they mean. A new replay
+also records its trigger. A hand record keeps the thirteen keys it has carried
+since tool provenance was added (#101), so a run typed in again today that
+matches one of the six-key records from before `source` existed, or one of the
+ten-key or eleven-key records from before those keys existed, field for field
+as the validator reads them, lands in a second file and is published as a
+second run.
 
 Nothing here is edited by the app. Two commands write a run, and everything
 else, every check and every observation, is written by hand in a pull request.
 `pnpm ledger:record` writes one run from the flags it is given, and the
 `Record a run` workflow runs it with `--source hand`, for a run a person watched
-and typed in. `pnpm ledger:replay`
-writes one run per declared break of each check a replay tool's report names,
+and typed in. The hand recorder refuses `--source replay` because it cannot
+supply a trigger. `pnpm ledger:replay` writes one run per declared break of
+each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote one run for each break `canfail.json` declared, when it ran, for the
 checks it replayed. `pnpm ledger:counts` prints how many that was for each
@@ -308,8 +310,9 @@ exactly as it is on disk:
 New replays record the GitHub Actions event in `trigger`. A value of `schedule`
 means the schedule started it. A value of `workflow_dispatch` means it was
 explicitly dispatched. Both the JSON export and the published page carry this
-distinction. For earlier records the reader uses the event verified from the
-linked Actions run, leaving the original record and its filename intact.
+distinction. For earlier records the reader uses a table of events checked against
+the linked Actions runs when the table was compiled. The original records keep
+their filenames.
 
 A record that says nothing about its source is read as one typed in by hand.
 The four runs in `runs/` typed in on 18 September 2026 are of that kind, with
