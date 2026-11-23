@@ -68,9 +68,19 @@ on the PostgreSQL server named by `TEST_DATABASE_URL`. Its role needs permission
 to create databases. The worker runs the migrations there, empties its tables
 between tests and drops the database when it finishes. Files can run in parallel
 without clearing another worker's rows. The reset-script tests create and drop
-their own probe databases on the same server. Database-backed tests fail if
+their own probe databases on the same server after the parallel files finish. Database-backed tests fail if
 PostgreSQL is unavailable. The status rules in [how-it-works.md](how-it-works.md)
 are tested that way, one fixture per rule, so a rule deleted from the SQL takes at least one test down with it.
+
+An interrupted runner can leave temporary databases behind. Once all test runs
+on that server have stopped, list candidates in `psql` with the query below.
+Check the owner and name before removing a leftover with `dropdb` on the same server.
+
+```sql
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname ~ '^stf_(worker_[0-9a-f]{32}|[0-9a-f]{32}_reset_probe_(dev|test|shared|other))$';
+```
 
 CI runs these steps, in this order, each under the name the checks job in
 `.github/workflows/ci.yml` gives it. The commands at the top of this section are
