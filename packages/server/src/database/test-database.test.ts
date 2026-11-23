@@ -9,6 +9,9 @@ import { databaseName } from './databases.ts';
  * wires the file to the test database: migrations are applied before the first
  * test, and every table is emptied before each one.
  */
+const persistentTestDatabase = databaseName(
+  loadDatabaseConfig().testDatabaseUrl,
+);
 const database = useTestDatabase();
 
 it("records the project's first migration in the test database", async () => {
@@ -23,7 +26,7 @@ it("records the project's first migration in the test database", async () => {
   );
 });
 
-it('connects to the test database and not the development one', async () => {
+it('connects to a worker database distinct from both configured databases', async () => {
   const { databaseUrl, testDatabaseUrl } = loadDatabaseConfig();
   const current = await database
     .client()
@@ -31,6 +34,7 @@ it('connects to the test database and not the development one', async () => {
 
   const connected = current.rows[0]?.name;
   expect(connected).toBe(databaseName(testDatabaseUrl));
+  expect(connected).not.toBe(persistentTestDatabase);
   // Fails if both URLs have been pointed at one database, which would let the
   // truncation between tests empty the development data.
   expect(connected).not.toBe(databaseName(databaseUrl));

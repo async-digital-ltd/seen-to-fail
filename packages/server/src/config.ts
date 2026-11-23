@@ -16,9 +16,8 @@ export interface DatabaseConfig {
   /** The database the application reads and writes. */
   readonly databaseUrl: string;
   /**
-   * The database the tests own. It is truncated between tests, so it must
-   * never be the same database as databaseUrl, and `loadDatabaseConfig`
-   * refuses the two naming one.
+   * The test server and persistent test database. The reset command drops
+   * this database, so it must be distinct from the development one.
    */
   readonly testDatabaseUrl: string;
 }
@@ -60,16 +59,15 @@ export class InvalidDatabaseUrlError extends Error {
 /**
  * Thrown when the two URLs name the same database.
  *
- * The suite empties the test database between tests and `pnpm db:test:reset`
- * drops it, so a test database that is also the development one loses the
- * development data to either, and both would exit 0 (#156).
+ * The reset command drops the configured test database, so a shared database
+ * would lose its development data (#156).
  */
 export class SharedDatabaseError extends Error {
   constructor(where: DatabaseAddress) {
     super(
       `DATABASE_URL and TEST_DATABASE_URL both name the database ` +
         `${where.name} on ${where.host}:${where.port}. The test database is ` +
-        `emptied between tests and dropped by pnpm db:test:reset, so it has ` +
+        `dropped by pnpm db:test:reset, so it has ` +
         `to be a database of its own: point TEST_DATABASE_URL at another one.`,
     );
     this.name = 'SharedDatabaseError';

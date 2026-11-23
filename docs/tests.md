@@ -63,12 +63,14 @@ committed (#270). So the `Replay a plant` and `Record a run` workflows run no
 generator after writing their runs (#271), and `scripts/stage-record.sh`
 refuses the commit if anything outside `ledger/` changed.
 
-Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
-a real PostgreSQL, apply the migrations before the first of them, and empty
-every table between tests, so they are repeatable without anyone tidying up by
-hand. They fail if no database is running, which is the honest answer rather
-than a quiet skip. The status rules in [how-it-works.md](how-it-works.md) are tested that way, one fixture per
-rule, so a rule deleted from the SQL takes at least one test down with it.
+Each Vitest worker that needs application tables creates a temporary database
+on the PostgreSQL server named by `TEST_DATABASE_URL`. Its role needs permission
+to create databases. The worker runs the migrations there, empties its tables
+between tests and drops the database when it finishes. Files can run in parallel
+without clearing another worker's rows. The reset-script tests create and drop
+their own probe databases on the same server. Database-backed tests fail if
+PostgreSQL is unavailable. The status rules in [how-it-works.md](how-it-works.md)
+are tested that way, one fixture per rule, so a rule deleted from the SQL takes at least one test down with it.
 
 CI runs these steps, in this order, each under the name the checks job in
 `.github/workflows/ci.yml` gives it. The commands at the top of this section are
