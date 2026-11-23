@@ -45,6 +45,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'server',
+          // The exit-code probes spawn real processes alongside other files.
+          testTimeout: 20_000,
           include: ['src/**/*.test.ts'],
           exclude: [resetProbe],
         },
