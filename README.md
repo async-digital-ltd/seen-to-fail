@@ -148,8 +148,9 @@ service.
 **Docker Compose.** Leave the Docker pair active in `.env`. Run
 `docker compose up -d --wait` to start PostgreSQL 16 and wait for it to become
 healthy. The container creates both databases and the `seen_to_fail` role on
-its first start with an empty volume. The [Compose verification run](https://github.com/nashysolutions-codex/seen-to-fail/actions/runs/45147870063)
-exercised migrations and the server suite from a fresh checkout.
+its first start with an empty volume. The setup was verified on Ubuntu. Run the
+[Compose verification workflow](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/compose-proof.yml)
+to repeat the migration checks and server tests from a fresh checkout.
 
 Either way, apply the migrations:
 

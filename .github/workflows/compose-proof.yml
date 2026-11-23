@@ -1,0 +1,34 @@
+name: Verify the Docker Compose setup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
+      - name: Start the documented Compose service from a fresh checkout
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait --wait-timeout 90
+      - name: Apply migrations and verify a second run has no work
+        run: |
+          pnpm db:migrate | tee "$RUNNER_TEMP/first"
+          grep -E '^Applied [1-9][0-9]* migrations?:' "$RUNNER_TEMP/first"
+          pnpm db:migrate | tee "$RUNNER_TEMP/second"
+          grep -Fx 'Nothing to apply.' "$RUNNER_TEMP/second"
+      - name: Run the server suite against the Compose test database
+        run: pnpm --filter @seen-to-fail/server test

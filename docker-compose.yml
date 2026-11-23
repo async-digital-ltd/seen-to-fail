@@ -1,5 +1,5 @@
 # PostgreSQL 16 for local development, with a separate database for tests.
-# The README links the verification run. Regular CI uses a service container.
+# The README links the Ubuntu verification workflow. Regular CI uses a service container.
 services:
   postgres:
     image: postgres:16
