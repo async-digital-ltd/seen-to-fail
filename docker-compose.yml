@@ -1,10 +1,5 @@
 # PostgreSQL 16 for local development, with a separate database for tests.
-#
-# Two things to know before relying on this file. Continuous integration does
-# not read it: the workflow runs PostgreSQL as a service container instead. And
-# this file has not been exercised on the maintainer's machine, which has no
-# Docker installed and runs PostgreSQL through Homebrew. The README gives that
-# second route, `pnpm db:up`, alongside this one.
+# The README links the Ubuntu verification workflow. Regular CI uses a service container.
 services:
   postgres:
     image: postgres:16

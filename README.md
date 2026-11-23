@@ -145,11 +145,12 @@ as your macOS user. Run `pnpm db:up` to start the `postgresql@16` service and
 create the two databases if they do not exist yet. `pnpm db:down` stops the
 service.
 
-**Docker, provided but unproven.** `docker compose up -d` starts the compose
-file's PostgreSQL 16 with both databases and the `seen_to_fail` role. Leave
-the Docker pair active in `.env` to use those credentials. Nobody has
-run it here, because the development machine has no Docker installed. Treat it
-as unverified until someone reports otherwise.
+**Docker Compose.** Leave the Docker pair active in `.env`. Run
+`docker compose up -d --wait` to start PostgreSQL 16 and wait for it to become
+healthy. The container creates both databases and the `seen_to_fail` role on
+its first start with an empty volume. The setup was verified on Ubuntu. Run the
+[Compose verification workflow](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/compose-proof.yml)
+to repeat the migration checks and server tests from a fresh checkout.
 
 Either way, apply the migrations:
 
