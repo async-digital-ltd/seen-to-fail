@@ -158,6 +158,7 @@ export function fixtureContentsFromAReplay(): LedgerContents {
         record: {
           ...run.record,
           source: 'replay',
+          trigger: 'schedule',
           sourceCommit: fixtureReplayCommit,
           sourceRunUrl: fixtureReplayRunUrl,
           tool: fixtureReplayTool,
@@ -236,6 +237,7 @@ export function fixtureContentsWithAnUnsettledRun(): LedgerContents {
           inconclusiveReason: fixtureUnsettledReason,
           note: null,
           source: 'replay',
+          trigger: 'schedule',
           sourceCommit: fixtureReplayCommit,
           sourceRunUrl: fixtureReplayRunUrl,
           tool: fixtureReplayTool,

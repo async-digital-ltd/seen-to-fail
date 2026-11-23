@@ -145,11 +145,12 @@ as your macOS user. Run `pnpm db:up` to start the `postgresql@16` service and
 create the two databases if they do not exist yet. `pnpm db:down` stops the
 service.
 
-**Docker, provided but unproven.** `docker compose up -d` starts the compose
-file's PostgreSQL 16 with both databases and the `seen_to_fail` role. Leave
-the Docker pair active in `.env` to use those credentials. Nobody has
-run it here, because the development machine has no Docker installed. Treat it
-as unverified until someone reports otherwise.
+**Docker Compose.** Leave the Docker pair active in `.env`. Run
+`docker compose up -d --wait` to start PostgreSQL 16 and wait for it to become
+healthy. The container creates both databases and the `seen_to_fail` role on
+its first start with an empty volume. The setup was verified on Ubuntu. Run the
+[Compose verification workflow](https://github.com/async-digital-ltd/seen-to-fail/actions/workflows/compose-proof.yml)
+to repeat the migration checks and server tests from a fresh checkout.
 
 Either way, apply the migrations:
 
@@ -160,8 +161,9 @@ pnpm db:migrate
 Migrations are numbered plain SQL files in `packages/server/migrations`. The
 runner applies them in filename order and records each one in a
 `schema_migrations` table, so a second `pnpm db:migrate` applies nothing and
-says so. `pnpm db:reset` drops the development database, creates it again empty
-and reapplies every migration. It leaves the test database alone.
+says so. On each run it checks the stored SHA-256 digest and warns if an
+applied file changed. `pnpm db:reset` drops the development database, creates
+it again empty and reapplies every migration. It leaves the test database alone.
 `pnpm db:test:reset` does the same to the test database and nothing else. Run it
 when you edit a migration that is already applied, to get the edit into the
 database the tests use.

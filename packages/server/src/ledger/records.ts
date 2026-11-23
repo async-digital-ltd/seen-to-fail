@@ -1,4 +1,4 @@
-import { PLANT_KINDS } from '@seen-to-fail/replay';
+import { PLANT_KINDS, replayTriggers } from '@seen-to-fail/replay';
 import { z } from 'zod';
 
 import { isRealDay } from '../day.ts';
@@ -16,12 +16,14 @@ import {
   optionalText,
   optionalTool,
   optionalToolVersion,
+  replayNeedsItsTool,
   requiredText,
   runSource,
 } from '../database/new-records.ts';
 import type { ParseResult, RecordIssue } from '../database/new-records.ts';
 import { testRunOutcomes } from '../database/rows.ts';
 import type { IsoDate } from '../database/rows.ts';
+import { historicalReplayTriggers } from './historical-replay-triggers.ts';
 import { ledgerIdSchema } from './id.ts';
 
 export { ledgerIdPattern, MAX_LEDGER_ID_LENGTH } from './id.ts';
@@ -131,6 +133,7 @@ function ledgerRunSchema(today: IsoDate) {
       source: runSource.default(recordedBeforeSourcesExisted),
       sourceCommit: optionalSourceCommit,
       sourceRunUrl: optionalSourceRunUrl,
+      trigger: z.enum(replayTriggers).optional(),
       // The tool that scored a replay and its version (#101). Absent on every
       // record written before they were recorded, which reads as null, the
       // only spelling of unknown, for the reason given above for `source`.
@@ -183,8 +186,37 @@ export function parseLedgerCheck(input: unknown): ParseResult<LedgerCheck> {
 export function parseLedgerRun(
   input: unknown,
   today: IsoDate,
+  mode: 'read' | 'write' = 'read',
 ): ParseResult<LedgerRun> {
-  return parseWith(ledgerRunSchema(today).safeParse(input));
+  const parsed = parseWith(ledgerRunSchema(today).safeParse(input));
+  if (!parsed.ok) return parsed;
+  const run = parsed.value;
+  if (run.source === 'hand') {
+    return run.trigger === undefined
+      ? parsed
+      : invalidTrigger('A hand record has no replay trigger.');
+  }
+
+  const historical = historicalReplayTriggers.get(run.sourceRunUrl ?? '');
+  if (run.trigger === undefined) {
+    if (mode === 'read' && historical !== undefined) {
+      return { ok: true, value: { ...run, trigger: historical } };
+    }
+    return invalidTrigger(
+      'A replay must say whether it was scheduled or manually dispatched.',
+    );
+  }
+  if (historical !== undefined && run.trigger !== historical) {
+    return invalidTrigger('The trigger disagrees with the linked Actions run.');
+  }
+  if (run.tool === null || run.toolVersion === null) {
+    return { ok: false, errors: [replayNeedsItsTool] };
+  }
+  return parsed;
+}
+
+function invalidTrigger(message: string): ParseResult<never> {
+  return { ok: false, errors: [{ path: 'trigger', message }] };
 }
 
 /** An observation record, or every rule it breaks, judged as of a day. */

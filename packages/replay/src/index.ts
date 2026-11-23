@@ -46,10 +46,11 @@ export {
 } from './tool.ts';
 export type { ReplayTool } from './tool.ts';
 
-export { runsFromReport } from './adapt.ts';
+export { replayTriggers, runsFromReport } from './adapt.ts';
 export type {
   AdaptOptions,
   ReplayOutcome,
   ReplayProvenance,
   ReplayRun,
+  ReplayTrigger,
 } from './adapt.ts';

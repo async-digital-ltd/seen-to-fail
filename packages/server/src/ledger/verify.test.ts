@@ -942,3 +942,14 @@ it('finds a kind published as caught from a run that settled nothing', () => {
 
   expect(found.join('\n')).toContain('kinds caught');
 });
+
+it('finds a scheduled replay published as manually dispatched', () => {
+  const found = disagreements(
+    withUnsettledRun((run) =>
+      run.outcome === 'inconclusive'
+        ? { ...run, trigger: 'workflow_dispatch' }
+        : run,
+    ),
+  );
+  expect(found.join('\n')).toContain('what started the replay');
+});

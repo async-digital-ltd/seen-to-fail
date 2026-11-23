@@ -64,11 +64,11 @@ which is the whole of what this repository is about.
 
 ## An edit to an applied migration does not reach the database
 
-The runner records each file it applies by name in `schema_migrations` and
-skips any name it has already recorded. Edit a migration that a database has
-already applied and `pnpm db:migrate` applies nothing and exits 0. The test
-suite migrates the same way, so it runs against the schema from before the
-edit and says nothing about it.
+The runner stores the SHA-256 digest of each file alongside its name when the
+migration succeeds. On later runs it warns if the file has changed and continues
+with pending migrations. The database still contains the SQL applied the first
+time. Files applied before digests were recorded get a warning that their
+original SQL cannot be verified.
 
 That is harmless for ordinary work and dangerous for a plant. A defect planted
 in an applied migration never reaches the database, and the suite passing reads
