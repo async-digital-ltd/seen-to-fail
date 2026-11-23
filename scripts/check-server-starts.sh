@@ -3,7 +3,7 @@
 # Starts the server the way the README tells a contributor to, waits for it to
 # answer, and stops it again. It answers one question: does it start.
 #
-# Nothing else in the build runs the entry point. The tests put requests
+# The server unit tests put requests
 # through the handler directly, which keeps them fast and keeps two test files
 # from racing for a port, and the type check reads sources rather than loading
 # them. What breaks a start is module resolution at run time, and the first

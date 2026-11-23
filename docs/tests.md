@@ -46,6 +46,16 @@ Dependabot proposes each new pin as a pull request, from
 network connection, and refuses either one unless its SHA-256 matches the pin
 in `scripts/lint-workflows.sh`.
 
+The browser journey starts the real API and Vite proxy and uses a new, empty
+database on the configured PostgreSQL test server. The test role needs
+permission to create databases. Install Chromium once with
+`pnpm exec playwright install --only-shell chromium`, then run
+`pnpm test:browser` with local ports 4000 and 4173 available. The test creates
+a check in the browser, reads it back, and tries the same name again. The
+runner drops its temporary database after the test. In CI, the Browser journey
+job runs this test with its own PostgreSQL service. The checks job builds the
+Pages artifact independently.
+
 The server's resolver types and the client's typed queries are generated from
 `packages/server/schema.graphql` and checked in. After changing the schema or a
 `.graphql` query in `packages/web`, run `pnpm codegen`. CI runs
@@ -70,9 +80,9 @@ hand. They fail if no database is running, which is the honest answer rather
 than a quiet skip. The status rules in [how-it-works.md](how-it-works.md) are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
-CI runs these steps, in this order, each under the name the checks job in
-`.github/workflows/ci.yml` gives it. The commands at the top of this section are
-the ones it runs between applying the migrations and starting the server.
+The checks job in `.github/workflows/ci.yml` runs these steps in order.
+It runs the commands at the top of this section between applying the migrations
+and starting the server.
 
 <!-- generated: ci-steps, by pnpm readme from the checks job in .github/workflows/ci.yml -->
 
