@@ -46,8 +46,6 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'server',
-          // Creating a worker database can take longer under parallel load.
-          hookTimeout: 30_000,
           include: ['src/**/*.test.ts'],
           exclude: [resetProbe, exitCodeProbes],
         },
@@ -57,6 +55,7 @@ export default defineConfig({
         test: {
           name: 'exit-code-probes',
           include: [exitCodeProbes],
+          // These probes spawn subprocesses alongside the parallel server tests.
           testTimeout: 20_000,
         },
       },

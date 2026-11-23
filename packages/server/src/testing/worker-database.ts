@@ -48,5 +48,5 @@ export function useWorkerDatabase(): void {
     } finally {
       process.env.TEST_DATABASE_URL = testDatabaseUrl;
     }
-  });
+  }, 30_000); // Creating a worker database can take longer under parallel load.
 }
