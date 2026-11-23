@@ -161,8 +161,9 @@ pnpm db:migrate
 Migrations are numbered plain SQL files in `packages/server/migrations`. The
 runner applies them in filename order and records each one in a
 `schema_migrations` table, so a second `pnpm db:migrate` applies nothing and
-says so. `pnpm db:reset` drops the development database, creates it again empty
-and reapplies every migration. It leaves the test database alone.
+says so. On each run it checks the stored SHA-256 digest and warns if an
+applied file changed. `pnpm db:reset` drops the development database, creates
+it again empty and reapplies every migration. It leaves the test database alone.
 `pnpm db:test:reset` does the same to the test database and nothing else. Run it
 when you edit a migration that is already applied, to get the edit into the
 database the tests use.

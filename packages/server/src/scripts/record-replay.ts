@@ -2,6 +2,7 @@
 //   --report <the JSON canfail printed> --config <canfail.json> \
 //   --source-commit <the forty-character commit it ran against> \
 //   --source-run-url https://github.com/<owner>/<repo>/actions/runs/<id> \
+//   --trigger <schedule or workflow_dispatch> \
 //   --tool-metadata <what pip show printed for the canfail that ran>
 //
 // The adapter's entry point: reads a replay tool's report and writes one run
@@ -33,6 +34,7 @@ import {
   parseCanfailReport,
   parsePlantedChecks,
   parseToolMetadata,
+  replayTriggers,
   runsFromReport,
 } from '@seen-to-fail/replay';
 import type { ReplayOutcome, ReplayRun } from '@seen-to-fail/replay';
@@ -49,6 +51,7 @@ const { values } = parseArgs({
     report: { type: 'string' },
     config: { type: 'string' },
     'source-commit': { type: 'string' },
+    trigger: { type: 'string' },
     'source-run-url': { type: 'string' },
     // What `pip show canfail` printed for the installation that scored the
     // report (#101). The tool and its version are read from it, never from a
@@ -123,6 +126,12 @@ const configPath = required(values.config, '--config');
 const sourceCommit = required(values['source-commit'], '--source-commit');
 const sourceRunUrl = required(values['source-run-url'], '--source-run-url');
 
+const event = required(values.trigger, '--trigger');
+const trigger = replayTriggers.find((candidate) => candidate === event);
+if (trigger === undefined) {
+  refuse([`--trigger must be ${replayTriggers.join(' or ')}.`]);
+}
+
 const toolMetadataPath = required(values['tool-metadata'], '--tool-metadata');
 
 const tool = parseToolMetadata(
@@ -154,6 +163,7 @@ const runs = runsFromReport({
     sourceCommit,
     sourceRunUrl,
     tool: tool.value,
+    trigger,
   },
 });
 if (!runs.ok) {

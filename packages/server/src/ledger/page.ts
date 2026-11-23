@@ -387,8 +387,11 @@ function provenance(
     run.tool === null || run.toolVersion === null
       ? ''
       : ` ${words.scoredBy(escapeHtml(`${run.tool} ${run.toolVersion}`))}`;
+  if (run.trigger === null) {
+    throw new Error(`The replay in ${run.sourceFile} has no trigger.`);
+  }
   return {
-    method: words.byReplay,
+    method: words.byReplay[run.trigger],
     proof: `<a class="proof" href="${escapeHtml(run.sourceRunUrl)}">${words.viewProof}</a>`,
     detail: `${words.ranAgainst(commitLink(ledger, run.sourceCommit))}${scored} ${recorded}`,
   };

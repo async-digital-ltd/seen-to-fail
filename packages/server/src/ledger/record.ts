@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { replayNeedsItsTool } from '../database/new-records.ts';
 import type { IsoDate } from '../database/rows.ts';
 import { todayInUtc } from '../day.ts';
 import { describeIssues, loadLedger, runsDirectory } from './load.ts';
@@ -105,20 +104,9 @@ export async function recordRun(options: RecordOptions): Promise<RecordResult> {
     );
   }
 
-  const parsed = parseLedgerRun(options.input, today);
+  const parsed = parseLedgerRun(options.input, today, 'write');
   if (!parsed.ok) {
     return { ok: false, errors: parsed.errors };
-  }
-
-  // A rule about writing rather than reading (#101). The reader takes a replay
-  // with no tool, because every replay recorded before tools were recorded is
-  // one and those files cannot be rewritten. A replay recorded now names the
-  // tool that scored it, or it is not recorded.
-  if (
-    parsed.value.source === 'replay' &&
-    (parsed.value.tool === null || parsed.value.toolVersion === null)
-  ) {
-    return { ok: false, errors: [replayNeedsItsTool] };
   }
 
   // An address that matches nothing is refused, and nothing is created to

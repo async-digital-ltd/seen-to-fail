@@ -567,6 +567,7 @@ it('publishes a run that settled nothing without moving the status', async () =>
       inconclusiveReason:
         'The anchor matches 0 times in the file and has to match once.',
       source: 'replay',
+      trigger: 'schedule',
       sourceCommit: 'abcdefabcdefabcdefabcdefabcdefabcdefabcd',
       sourceRunUrl: 'https://ci.example.com/runs/91',
       tool: 'canfail',
@@ -964,6 +965,9 @@ it('refuses Welsh whose code is not printed in the English, and writes nothing',
 it('publishes the kinds each check has been seen to catch, and none for a check with no catch', async () => {
   const replay = {
     source: 'replay',
+    tool: 'canfail',
+    toolVersion: '0.2.1',
+    trigger: 'schedule',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
   };
@@ -1030,6 +1034,9 @@ it('publishes the kinds each check has been seen to catch, and none for a check 
 it('stores and publishes the tool that scored a replay, and none for an older replay or a hand run', async () => {
   const replay = {
     source: 'replay',
+    tool: 'canfail',
+    toolVersion: '0.2.1',
+    trigger: 'schedule',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
   };
@@ -1051,7 +1058,10 @@ it('stores and publishes the tool that scored a replay, and none for an older re
       planted: 'A replay from before tools were recorded.',
       expected: 'The lint step fails.',
       outcome: 'caught',
-      ...replay,
+      source: 'replay',
+      sourceCommit: replay.sourceCommit,
+      sourceRunUrl:
+        'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476',
     },
     [runFile(oneDay, 'cccccccccccc')]: {
       checkId: 'ci-lint',

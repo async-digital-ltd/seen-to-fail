@@ -7,8 +7,8 @@ import { applyMigrations, migrationsTable } from '../database/migrations.ts';
 
 /**
  * Migrations are applied before the first test that asks for a database and not
- * again afterwards. A second call to the runner would apply nothing anyway,
- * this only saves the round trip.
+ * again afterwards. To test an edit to an applied migration, run
+ * pnpm db:test:reset so the test database actually receives the edited SQL.
  */
 let migration: Promise<void> | undefined;
 
