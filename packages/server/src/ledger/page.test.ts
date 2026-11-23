@@ -1038,3 +1038,23 @@ it('shows the manual trigger in both languages', () => {
     'wedi’i redeg ar gais',
   );
 });
+
+it('tags the English name in the Welsh header, and only there', () => {
+  const ledger = fixtureSnapshot();
+  expect(renderPage(ledger, 'cy', fixtureRecordWelsh)).toContain(
+    '<span class="name" lang="en">Seen to Fail</span>',
+  );
+  expect(renderPage(ledger, 'en')).toContain(
+    '<span class="name">Seen to Fail</span>',
+  );
+});
+
+it('says a record with no commit is not committed yet, as a sentence of its own', () => {
+  const ledger = fixtureSnapshot(fixtureContentsFromAReplay());
+  const english = renderPage(ledger, 'en');
+  const welsh = renderPage(ledger, 'cy', fixtureRecordWelsh);
+  expect(english).toContain('Not committed yet.');
+  expect(english).not.toContain('Recorded in <span');
+  expect(welsh).toContain('Heb ei ymrwymo eto.');
+  expect(welsh).not.toContain('Cofnodwyd yn <span');
+});
