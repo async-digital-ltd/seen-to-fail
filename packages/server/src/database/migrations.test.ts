@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Client } from 'pg';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 
 import { loadDatabaseConfig } from '../config.ts';
 import { quoteIdentifier } from './identifiers.ts';
@@ -21,6 +21,8 @@ import { applyMigrations } from './migrations.ts';
 const bookkeepingTables = [
   'schema_migrations_records',
   'schema_migrations_repeat',
+  'schema_migrations_drift',
+  'schema_migrations_legacy',
   'schema_migrations_failure',
 ];
 
@@ -146,4 +148,51 @@ it('rolls back a migration that fails and does not record it', async () => {
     '0001_marker.sql',
   ]);
   expect(await tableExists('fixture_broken_effect')).toBe(false);
+});
+
+it('warns about edited SQL without running it again or blocking pending files', async () => {
+  const filename = '0001_marker.sql';
+  const original = 'SELECT 1;';
+  const directory = await migrationDirectory({ [filename]: original });
+  const options = {
+    databaseUrl: loadDatabaseConfig().testDatabaseUrl,
+    directory,
+    table: 'schema_migrations_drift',
+  };
+  using warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  expect(await applyMigrations(options)).toEqual([filename]);
+  await writeFile(join(directory, filename), 'invalid sql');
+  await writeFile(join(directory, '0002_next.sql'), 'SELECT 2;');
+  expect(await applyMigrations(options)).toEqual(['0002_next.sql']);
+  expect(warning).toHaveBeenCalledWith(
+    expect.stringContaining(filename + ' has changed'),
+  );
+  warning.mockClear();
+  await writeFile(join(directory, filename), original);
+  expect(await applyMigrations(options)).toEqual([]);
+  expect(warning).not.toHaveBeenCalled();
+});
+
+it('keeps pre-digest rows unverifiable without replaying or blessing current SQL', async () => {
+  const filename = '0001_old.sql';
+  const directory = await migrationDirectory({ [filename]: 'invalid sql' });
+  await client().query(
+    'CREATE TABLE schema_migrations_legacy (filename text PRIMARY KEY)',
+  );
+  await client().query('INSERT INTO schema_migrations_legacy VALUES ($1)', [
+    filename,
+  ]);
+  using warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  expect(
+    await applyMigrations({
+      databaseUrl: loadDatabaseConfig().testDatabaseUrl,
+      directory,
+      table: 'schema_migrations_legacy',
+    }),
+  ).toEqual([]);
+  expect(warning).toHaveBeenCalledWith(expect.stringContaining(filename));
+  const result = await client().query<{ sha256: string | null }>(
+    'SELECT sha256 FROM schema_migrations_legacy',
+  );
+  expect(result.rows).toEqual([{ sha256: null }]);
 });

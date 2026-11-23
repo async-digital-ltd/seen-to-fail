@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,23 +58,42 @@ export async function applyMigrations(
       )`,
     );
 
-    const recorded = await client.query<{ filename: string }>(
-      `SELECT filename FROM ${table}`,
+    // A database created by an earlier runner has names but no evidence of
+    // which SQL it applied. Leave those digests null until a fresh application.
+    await client.query(
+      `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS sha256 text`,
     );
-    const alreadyApplied = new Set(recorded.rows.map((row) => row.filename));
-    const pending = (await migrationFilenames(directory)).filter(
-      (filename) => !alreadyApplied.has(filename),
+    const recorded = await client.query<{
+      filename: string;
+      sha256: string | null;
+    }>(`SELECT filename, sha256 FROM ${table}`);
+    const digests = new Map(
+      recorded.rows.map((row) => [row.filename, row.sha256]),
     );
-
     const applied: string[] = [];
-    for (const filename of pending) {
+    for (const filename of await migrationFilenames(directory)) {
       const sql = await readFile(join(directory, filename), 'utf8');
+      const digest = createHash('sha256').update(sql).digest('hex');
+      const previous = digests.get(filename);
+      if (previous !== undefined) {
+        if (previous === null) {
+          console.warn(
+            `Migration ${filename} was applied before digests were recorded; its SQL cannot be verified.`,
+          );
+        } else if (previous !== digest) {
+          console.warn(
+            `Migration ${filename} has changed since it was applied. The database still has the earlier version.`,
+          );
+        }
+        continue;
+      }
       await client.query('BEGIN');
       try {
         await client.query(sql);
-        await client.query(`INSERT INTO ${table} (filename) VALUES ($1)`, [
-          filename,
-        ]);
+        await client.query(
+          `INSERT INTO ${table} (filename, sha256) VALUES ($1, $2)`,
+          [filename, digest],
+        );
         await client.query('COMMIT');
       } catch (cause) {
         await client.query('ROLLBACK');
