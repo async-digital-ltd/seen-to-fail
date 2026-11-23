@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
+    "test:browser": "node packages/server/src/scripts/test-browser.ts",
     "codegen": "pnpm -r codegen && prettier --write packages/server/src/graphql/generated packages/web/src/graphql/generated",
     "codegen:check": "pnpm codegen && git diff --exit-code -- packages/server/src/graphql/generated packages/web/src/graphql/generated",
     "readme": "node packages/server/src/scripts/write-readme.ts",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",

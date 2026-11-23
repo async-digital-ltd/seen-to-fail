@@ -46,6 +46,14 @@ Dependabot proposes each new pin as a pull request, from
 network connection, and refuses either one unless its SHA-256 matches the pin
 in `scripts/lint-workflows.sh`.
 
+The browser journey starts the real API and Vite proxy and uses a new, empty
+database on the configured PostgreSQL test server. The test role needs
+permission to create databases. Install Chromium once with
+`pnpm exec playwright install --only-shell chromium`, then run
+`pnpm test:browser` with local ports 4000 and 4173 available. The test creates
+a check in the browser, reads it back, and tries the same name again. The
+runner drops its temporary database after the test.
+
 The server's resolver types and the client's typed queries are generated from
 `packages/server/schema.graphql` and checked in. After changing the schema or a
 `.graphql` query in `packages/web`, run `pnpm codegen`. CI runs
@@ -89,13 +97,14 @@ the ones it runs between applying the migrations and starting the server.
 11. Check formatting
 12. Test
 13. Check the server starts
-14. Build the client
-15. Check the client bundle against its baseline
-16. Check the ledger reads
-17. Build the published ledger
-18. Check the published output
-19. Keep the published ledger as an artefact
-20. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+14. Exercise the browser against the API
+15. Build the client
+16. Check the client bundle against its baseline
+17. Check the ledger reads
+18. Build the published ledger
+19. Check the published output
+20. Keep the published ledger as an artefact
+21. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
 
 <!-- end generated: ci-steps -->
 
