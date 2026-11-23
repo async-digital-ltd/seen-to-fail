@@ -52,7 +52,9 @@ permission to create databases. Install Chromium once with
 `pnpm exec playwright install --only-shell chromium`, then run
 `pnpm test:browser` with local ports 4000 and 4173 available. The test creates
 a check in the browser, reads it back, and tries the same name again. The
-runner drops its temporary database after the test.
+runner drops its temporary database after the test. In CI, the Browser journey
+job runs this test with its own PostgreSQL service. The checks job builds the
+Pages artifact independently.
 
 The server's resolver types and the client's typed queries are generated from
 `packages/server/schema.graphql` and checked in. After changing the schema or a
@@ -78,9 +80,9 @@ hand. They fail if no database is running, which is the honest answer rather
 than a quiet skip. The status rules in [how-it-works.md](how-it-works.md) are tested that way, one fixture per
 rule, so a rule deleted from the SQL takes at least one test down with it.
 
-CI runs these steps, in this order, each under the name the checks job in
-`.github/workflows/ci.yml` gives it. The commands at the top of this section are
-the ones it runs between applying the migrations and starting the server.
+The checks job in `.github/workflows/ci.yml` runs these steps in order.
+It runs the commands at the top of this section between applying the migrations
+and starting the server.
 
 <!-- generated: ci-steps, by pnpm readme from the checks job in .github/workflows/ci.yml -->
 
@@ -97,14 +99,13 @@ the ones it runs between applying the migrations and starting the server.
 11. Check formatting
 12. Test
 13. Check the server starts
-14. Exercise the browser against the API
-15. Build the client
-16. Check the client bundle against its baseline
-17. Check the ledger reads
-18. Build the published ledger
-19. Check the published output
-20. Keep the published ledger as an artefact
-21. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+14. Build the client
+15. Check the client bundle against its baseline
+16. Check the ledger reads
+17. Build the published ledger
+18. Check the published output
+19. Keep the published ledger as an artefact
+20. Hand the published ledger to Pages, only if `github.event_name == 'push' && github.ref == 'refs/heads/main'`
 
 <!-- end generated: ci-steps -->
 

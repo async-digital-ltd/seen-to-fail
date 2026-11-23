@@ -38,11 +38,11 @@ jobs:
     # without either, so both are here even though only the second is read by
     # the tests. There is no .env in CI and none is written: these are the
     # whole configuration.
-    env:
+    env: &database-urls
       DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_dev
       TEST_DATABASE_URL: postgresql://seen_to_fail:seen_to_fail@localhost:5432/seen_to_fail_test
 
-    services:
+    services: &database-services
       # docker-compose.yml is not read here. It is the local route; CI gets its
       # own PostgreSQL 16 as a service container, configured to match the
       # credentials in .env.example so the URLs above are the same shape a
@@ -148,17 +148,11 @@ jobs:
         run: pnpm test
 
       # The server unit tests answer requests through the handler. This step
-      # checks the entry point independently of the browser journey. It starts `pnpm dev:server` against the
-      # development database above, waits a bounded time for `/health` and one
-      # GraphQL query to answer, and stops it again. A script rather than lines
-      # here, so a local run is the same check (#35).
+      # starts `pnpm dev:server` against the development database above,
+      # waits a bounded time for `/health` and one GraphQL query to answer,
+      # and stops it again. A local run uses the same script (#35).
       - name: Check the server starts
         run: bash scripts/check-server-starts.sh
-
-      - name: Exercise the browser against the API
-        run: |
-          pnpm exec playwright install --with-deps --only-shell chromium
-          pnpm test:browser
 
       # The client's entry is index.html, and the tests reach the code through
       # modules, never through the page. Bundling is what proves the page
@@ -234,6 +228,37 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist/ledger
+
+  # Playwright downloads Chromium and installs system packages. Keep that work
+  # on a separate runner from the one that builds the ledger for Pages.
+  browser-journey:
+    name: Browser journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env: *database-urls
+    services: *database-services
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Install Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Exercise the browser against the API
+        run: |
+          pnpm exec playwright install --with-deps --only-shell chromium
+          pnpm test:browser
 
   # Serves the page the checks job built and checked on this same commit. It
   # never builds anything itself, so what is served is exactly what passed.
