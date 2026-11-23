@@ -183,6 +183,8 @@ async function runAdapter(
     commit,
     '--source-run-url',
     runUrl,
+    '--trigger',
+    'schedule',
     ...toolFlag(directory),
     ...extra,
   ]);
@@ -259,6 +261,8 @@ describe('recording what a replay found', () => {
         commit,
         '--source-run-url',
         runUrl,
+        '--trigger',
+        'schedule',
         ...toolFlag(directory),
       ]),
     ).toBe(0);
@@ -288,6 +292,7 @@ describe('recording what a replay found', () => {
       source: 'replay',
       sourceCommit: commit,
       sourceRunUrl: runUrl,
+      trigger: 'schedule',
       // Read from the installation's metadata, not from any pin (#101).
       tool: 'canfail',
       toolVersion,
@@ -321,6 +326,8 @@ describe('recording what a replay found', () => {
         commit,
         '--source-run-url',
         runUrl,
+        '--trigger',
+        'schedule',
       ]),
     ).toBe(1);
     expect(await runsIn(directory)).toEqual([]);
@@ -484,6 +491,8 @@ describe('what the adapter refuses', () => {
         '31a56ad',
         '--source-run-url',
         runUrl,
+        '--trigger',
+        'schedule',
         ...toolFlag(directory),
       ]),
     ).toBe(1);
@@ -505,6 +514,8 @@ describe('what the adapter refuses', () => {
         commit,
         '--source-run-url',
         'javascript:alert(1)',
+        '--trigger',
+        'schedule',
         ...toolFlag(directory),
       ]),
     ).toBe(1);
@@ -561,6 +572,8 @@ describe('the same run recorded twice', () => {
         commit,
         '--source-run-url',
         'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/2',
+        '--trigger',
+        'schedule',
         ...toolFlag(directory),
       ]),
     ).toBe(0);

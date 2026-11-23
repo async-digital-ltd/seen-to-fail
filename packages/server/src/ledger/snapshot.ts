@@ -1,5 +1,5 @@
 import type { Status } from '@seen-to-fail/filter';
-import type { PlantKind } from '@seen-to-fail/replay';
+import type { PlantKind, ReplayTrigger } from '@seen-to-fail/replay';
 
 import { newestObservationFirst, newestRunFirst } from '../database/rows.ts';
 import type {
@@ -58,6 +58,7 @@ export interface PublishedRun {
   readonly sourceCommit: string | null;
   /** The run that produced it, or null for a run typed in. */
   readonly sourceRunUrl: string | null;
+  readonly trigger: ReplayTrigger | null;
   /**
    * The tool that scored a replay and its version (#101), or null for a run
    * typed in by hand and for a replay recorded before tools were recorded.
@@ -182,6 +183,7 @@ export function buildSnapshot(input: SnapshotInput): PublishedLedger {
       source: entry.record.source,
       sourceCommit: entry.record.sourceCommit,
       sourceRunUrl: entry.record.sourceRunUrl,
+      trigger: entry.record.trigger ?? null,
       tool: entry.record.tool,
       toolVersion: entry.record.toolVersion,
       sourceFile,

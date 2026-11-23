@@ -104,6 +104,7 @@ it('writes a replay with the commit and the run it names', async () => {
     ...run,
     kind: 'configuration',
     source: 'replay',
+    trigger: 'schedule',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
     tool: 'canfail',
@@ -122,6 +123,7 @@ it('writes a replay with the commit and the run it names', async () => {
     kind: 'configuration',
     inconclusiveReason: null,
     source: 'replay',
+    trigger: 'schedule',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
     tool: 'canfail',
@@ -139,6 +141,7 @@ it('refuses a new replay that does not name its tool, and writes nothing', async
   const result = await record(directory, {
     ...run,
     source: 'replay',
+    trigger: 'schedule',
     sourceCommit: '1234567890abcdef1234567890abcdef12345678',
     sourceRunUrl: 'https://ci.example.com/runs/91',
   });
@@ -171,6 +174,7 @@ it('refuses a replay with no commit and writes nothing', async () => {
   const result = await record(directory, {
     ...run,
     source: 'replay',
+    trigger: 'schedule',
     sourceRunUrl: 'https://ci.example.com/runs/91',
   });
 

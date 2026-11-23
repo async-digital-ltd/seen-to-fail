@@ -153,6 +153,9 @@ function aRun(options: RunOptions): Record<string, unknown> {
     note: null,
     source: replayed ? 'replay' : 'hand',
     sourceCommit: options.sourceCommit ?? null,
+    ...(replayed
+      ? { trigger: 'schedule', tool: 'canfail', toolVersion: '0.2.1' }
+      : {}),
     sourceRunUrl: replayed ? 'https://ci.example.com/runs/1' : null,
   };
 }
