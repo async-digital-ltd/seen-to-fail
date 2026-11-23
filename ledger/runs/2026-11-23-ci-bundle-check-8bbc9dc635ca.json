@@ -1,0 +1,16 @@
+{
+  "checkId": "ci-bundle-check",
+  "runOn": "2026-11-23",
+  "planted": "The base stylesheet gains four shadow classes nothing uses, which grows the CSS by about one and a half per cent and the whole build by well under one, so only the CSS limit can catch it.",
+  "expected": "The bundle check fails, so the run does not go green.",
+  "kind": "configuration",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "716f557c5fa921d9ebcdb65e51c60cb085d0b63a",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/45195630558",
+  "trigger": "schedule",
+  "tool": "canfail",
+  "toolVersion": "0.2.1"
+}

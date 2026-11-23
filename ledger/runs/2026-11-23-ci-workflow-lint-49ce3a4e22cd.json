@@ -1,0 +1,16 @@
+{
+  "checkId": "ci-workflow-lint",
+  "runOn": "2026-11-23",
+  "planted": "check-published-output.sh leaves $page unquoted in its first test, so a path to the page with a space in it would be split into separate words.",
+  "expected": "The workflow lint or the script lint fails.",
+  "kind": "wrong-answer",
+  "outcome": "caught",
+  "inconclusiveReason": null,
+  "note": null,
+  "source": "replay",
+  "sourceCommit": "716f557c5fa921d9ebcdb65e51c60cb085d0b63a",
+  "sourceRunUrl": "https://github.com/async-digital-ltd/seen-to-fail/actions/runs/45195630558",
+  "trigger": "schedule",
+  "tool": "canfail",
+  "toolVersion": "0.2.1"
+}
