@@ -1,5 +1,5 @@
 import type { Status } from '@seen-to-fail/filter';
-import type { PlantKind } from '@seen-to-fail/replay';
+import type { PlantKind, ReplayTrigger } from '@seen-to-fail/replay';
 
 import type { TestRunOutcome } from '../database/rows.ts';
 
@@ -125,7 +125,7 @@ export interface PageWords {
   readonly recordedIn: (commit: Html) => Html;
   readonly notCommittedYet: string;
   readonly byHand: string;
-  readonly byReplay: string;
+  readonly byReplay: Record<ReplayTrigger, string>;
   readonly viewProof: string;
   /** What a replay ran against, from a link to the commit. HTML. */
   readonly ranAgainst: (commit: Html) => Html;
@@ -292,7 +292,10 @@ export const english: PageWords = {
   recordedIn: (commit) => `Recorded in ${commit}.`,
   notCommittedYet: 'not committed yet',
   byHand: 'By hand',
-  byReplay: 'By replay',
+  byReplay: {
+    schedule: 'By replay (scheduled)',
+    workflow_dispatch: 'By replay (manually dispatched)',
+  },
   viewProof: 'View proof',
   ranAgainst: (commit) => `Ran against ${commit}.`,
   scoredBy: (tool) => `Scored by ${tool}.`,
@@ -469,7 +472,10 @@ export const welsh: PageWords = {
   recordedIn: (commit) => `Cofnodwyd yn ${commit}.`,
   notCommittedYet: 'heb ei ymrwymo eto',
   byHand: 'Â llaw',
-  byReplay: 'Drwy ailchwarae',
+  byReplay: {
+    schedule: 'Drwy ailchwarae (wedi’i amserlennu)',
+    workflow_dispatch: 'Drwy ailchwarae (wedi’i gychwyn â llaw)',
+  },
   viewProof: 'Gweld y prawf',
   ranAgainst: (commit) => `Rhedwyd yn erbyn ${commit}.`,
   scoredBy: (tool) => `Sgoriwyd gan ${tool}.`,

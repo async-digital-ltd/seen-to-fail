@@ -493,6 +493,7 @@ jobs:
             --report "$REPORT" \
             --config canfail.json \
             --source-commit "$SOURCE_COMMIT" \
+            --trigger "$GITHUB_EVENT_NAME" \
             --source-run-url "$SOURCE_RUN_URL" \
             --tool-metadata "$RUNNER_TEMP/canfail-tool.txt"
 

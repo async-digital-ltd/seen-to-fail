@@ -515,6 +515,12 @@ export function disagreements(input: VerificationInput): string[] {
         run.inconclusiveReason,
       );
       compare(found, `${where}: where it came from`, record.source, run.source);
+      compare(
+        found,
+        `${where}: what started the replay`,
+        record.trigger ?? null,
+        run.trigger,
+      );
       compare(found, `${where}: its declared kind`, record.kind, run.kind);
       compare(
         found,

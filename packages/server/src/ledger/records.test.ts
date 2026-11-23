@@ -46,6 +46,9 @@ const soundRun = {
 /** What a replay adds to the run above, when a replay is what recorded it. */
 const soundReplay = {
   source: 'replay',
+  trigger: 'schedule',
+  tool: 'canfail',
+  toolVersion: '0.2.1',
   sourceCommit: '1234567890abcdef1234567890abcdef12345678',
   sourceRunUrl: 'https://ci.example.com/runs/91',
 } as const;
@@ -216,7 +219,18 @@ describe('the tool that scored a run (#101)', () => {
   });
 
   it('reads a replay recorded before tools were, as one whose tool is unknown', () => {
-    const result = parseLedgerRun({ ...soundRun, ...soundReplay }, today);
+    const result = parseLedgerRun(
+      {
+        ...soundRun,
+        ...soundReplay,
+        tool: undefined,
+        toolVersion: undefined,
+        trigger: undefined,
+        sourceRunUrl:
+          'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476',
+      },
+      today,
+    );
     expect(result.ok && [result.value.tool, result.value.toolVersion]).toEqual([
       null,
       null,
@@ -245,13 +259,13 @@ describe('the tool that scored a run (#101)', () => {
 
   it('refuses a replay that names one and omits the other', () => {
     expect(
-      parseLedgerRun({ ...soundRun, ...soundReplay, tool: 'canfail' }, today),
-    ).toMatchObject({ ok: false, errors: [toolNeedsItsVersion] });
-    expect(
       parseLedgerRun(
-        { ...soundRun, ...soundReplay, toolVersion: '0.2.1' },
+        { ...soundRun, ...soundReplay, toolVersion: undefined },
         today,
       ),
+    ).toMatchObject({ ok: false, errors: [toolNeedsItsVersion] });
+    expect(
+      parseLedgerRun({ ...soundRun, ...soundReplay, tool: undefined }, today),
     ).toMatchObject({ ok: false, errors: [toolVersionNeedsItsTool] });
   });
 
@@ -489,5 +503,58 @@ describe('an arming observation', () => {
         parseLedgerObservation({ ...soundObservation, armed: 'false' }, today),
       ),
     ).toEqual(['armed']);
+  });
+});
+
+describe('what started a replay', () => {
+  const replay = { ...soundRun, ...soundReplay };
+  it.each([undefined, null, 'push'])(
+    'refuses an absent or unsupported event (%s)',
+    (trigger) => {
+      expect(
+        fieldsAtFault(parseLedgerRun({ ...replay, trigger }, today)),
+      ).toEqual(['trigger']);
+    },
+  );
+  it('refuses a trigger on a hand record', () => {
+    expect(
+      fieldsAtFault(
+        parseLedgerRun({ ...soundRun, trigger: 'schedule' }, today),
+      ),
+    ).toEqual(['trigger']);
+  });
+  it.each([
+    ['35429662430', 'workflow_dispatch'],
+    ['35585966476', 'schedule'],
+  ])(
+    'recovers the event for historical run %s only when reading',
+    (id, event) => {
+      const legacy = {
+        ...replay,
+        trigger: undefined,
+        sourceRunUrl:
+          'https://github.com/async-digital-ltd/seen-to-fail/actions/runs/' +
+          id,
+      };
+      expect(parseLedgerRun(legacy, today)).toMatchObject({
+        ok: true,
+        value: { trigger: event },
+      });
+      expect(fieldsAtFault(parseLedgerRun(legacy, today, 'write'))).toEqual([
+        'trigger',
+      ]);
+      const wrong = event === 'schedule' ? 'workflow_dispatch' : 'schedule';
+      expect(
+        fieldsAtFault(parseLedgerRun({ ...legacy, trigger: wrong }, today)),
+      ).toEqual(['trigger']);
+    },
+  );
+  it('refuses a replay that lost both tool fields', () => {
+    expect(
+      parseLedgerRun(
+        { ...replay, tool: undefined, toolVersion: undefined },
+        today,
+      ).ok,
+    ).toBe(false);
   });
 });

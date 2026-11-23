@@ -458,7 +458,7 @@ it('says where every run came from', () => {
     fixtureSnapshot(fixtureContentsFromAReplay()),
     'en',
   );
-  expect(replayed).toContain('By replay');
+  expect(replayed).toContain('By replay (scheduled)');
   expect(replayed).not.toContain('By hand');
 });
 
@@ -1021,5 +1021,20 @@ it('lists every kind a check caught, and nothing for a check that caught none', 
 it('says in its help text that a kind is declared by the plant’s author, not inferred', () => {
   expect(renderPage(fixtureSnapshot(), 'en')).toContain(
     '<p>The kind of a planted defect, such as a wrong answer or a crash, is declared by whoever wrote the plant and is not worked out by the ledger. A check lists only the kinds of the defects it caught.</p>',
+  );
+});
+
+it('shows the manual trigger in both languages', () => {
+  const records = fixtureContentsFromAReplay();
+  const ledger = fixtureSnapshot({
+    ...records,
+    runs: records.runs.map((entry) => ({
+      ...entry,
+      record: { ...entry.record, trigger: 'workflow_dispatch' },
+    })),
+  });
+  expect(renderPage(ledger, 'en')).toContain('By replay (manually dispatched)');
+  expect(renderPage(ledger, 'cy', fixtureRecordWelsh)).toContain(
+    'wedi’i gychwyn â llaw',
   );
 });

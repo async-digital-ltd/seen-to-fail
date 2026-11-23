@@ -32,9 +32,8 @@ one that retries after midnight UTC records a second. Two runs that are
 identical in every field, including the day, are one record; a note is what
 separates them when they are genuinely two.
 
-The digest is of the keys written, not only of what they mean. The recorder
-writes every key a run can have, eleven since `kind` was added (#295) and
-thirteen since `tool` and `toolVersion` were (#101), so a run typed in again
+The digest is of the keys written, not only of what they mean. A new replay also records its trigger. A hand record keeps
+the thirteen keys it has carried since tool provenance was added (#101), so a run typed in again
 today that matches one of the six-key records from before `source` existed, or
 one of the ten-key or eleven-key records from before those keys existed, field
 for field as the validator reads them, lands in a second file and is published
@@ -44,8 +43,7 @@ Nothing here is edited by the app. Two commands write a run, and everything
 else, every check and every observation, is written by hand in a pull request.
 `pnpm ledger:record` writes one run from the flags it is given, and the
 `Record a run` workflow runs it with `--source hand`, for a run a person watched
-and typed in. Given `--source replay` with a commit and a link it writes a
-replay record too, though nothing here calls it that way. `pnpm ledger:replay`
+and typed in. `pnpm ledger:replay`
 writes one run per declared break of each check a replay tool's report names,
 and the `Replay a plant` workflow runs it. Each replay with records in `runs/`
 wrote one run for each break `canfail.json` declared, when it ran, for the
@@ -307,22 +305,16 @@ exactly as it is on disk:
 }
 ```
 
-Those ten keys were the whole of a replay record when it was written. A replay
-recorded today also carries `kind`, `tool` and `toolVersion`, and none of the
-thirteen names what started the job. `source` separates a job from a person typing, and a replay
-somebody dispatched is a job too. Two of the replays with records in `runs/`
-show it: run
-[35429662430](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35429662430)
-was dispatched and run
-[35585966476](https://github.com/async-digital-ltd/seen-to-fail/actions/runs/35585966476)
-was started by the schedule, and the records each of them wrote carry the same
-ten keys. Which was which is on the run each `sourceRunUrl` links to, and
-nowhere in this directory.
+New replays record the GitHub Actions event in `trigger`. A value of `schedule`
+means the schedule started it. A value of `workflow_dispatch` means it was
+explicitly dispatched. Both the JSON export and the published page carry this
+distinction. For earlier records the reader uses the event verified from the
+linked Actions run, leaving the original record and its filename intact.
 
 A record that says nothing about its source is read as one typed in by hand.
 The four runs in `runs/` typed in on 18 September 2026 are of that kind, with
 six keys and no `source`. The two typed in on 4 October 2026 say `hand` and
-carry all ten keys, as every run from a replay does. That is how the runs
+carry the ten keys that replays of the same period used. That is how the runs
 recorded before `source` existed stay valid: their
 filenames are digests of their own contents, so adding a key to them would have
 meant an append-only record rewriting its own past.

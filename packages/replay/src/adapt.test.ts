@@ -28,6 +28,7 @@ import type { CanfailReport } from './report.ts';
 const canfailDash = String.fromCodePoint(0x2014);
 
 const provenance: ReplayProvenance = {
+  trigger: 'workflow_dispatch',
   runOn: '2026-09-19',
   sourceCommit: '31a56ad94b3dad9a5cb7ae285d734df2a8bd45eb',
   sourceRunUrl:
