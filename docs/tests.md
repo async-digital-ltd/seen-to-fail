@@ -72,7 +72,7 @@ their own probe databases on the same server after the parallel files finish. Da
 PostgreSQL is unavailable. The status rules in [how-it-works.md](how-it-works.md)
 are tested that way, one fixture per rule, so a rule deleted from the SQL takes at least one test down with it.
 
-An interrupted runner can leave temporary databases behind. Once all test runs
+An interrupted runner or a timeout during database setup can leave temporary databases behind. Once all test runs
 on that server have stopped, list candidates in `psql` with the query below.
 Check the owner and name before removing a leftover with `dropdb` on the same server.
 

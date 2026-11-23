@@ -28,6 +28,7 @@ const require = createRequire(import.meta.url);
 const graphqlEntry = join(dirname(require.resolve('graphql')), 'index.mjs');
 
 const resetProbe = 'src/scripts/reset-test-database.test.ts';
+const exitCodeProbes = 'src/scripts/*-exit-codes.test.ts';
 
 export default defineConfig({
   resolve: {
@@ -45,10 +46,18 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'server',
-          // The exit-code probes spawn real processes alongside other files.
-          testTimeout: 20_000,
+          // Creating a worker database can take longer under parallel load.
+          hookTimeout: 30_000,
           include: ['src/**/*.test.ts'],
-          exclude: [resetProbe],
+          exclude: [resetProbe, exitCodeProbes],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'exit-code-probes',
+          include: [exitCodeProbes],
+          testTimeout: 20_000,
         },
       },
       {
