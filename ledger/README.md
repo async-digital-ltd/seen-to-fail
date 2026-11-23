@@ -310,9 +310,9 @@ exactly as it is on disk:
 New replays record the GitHub Actions event in `trigger`. A value of `schedule`
 means the schedule started it. A value of `workflow_dispatch` means it was
 explicitly dispatched. Both the JSON export and the published page carry this
-distinction. For earlier records the reader uses a table of events checked against
-the linked Actions runs when the table was compiled. The original records keep
-their filenames.
+distinction. For earlier records the reader uses a table of events checked
+against the linked Actions runs when the table was compiled. The original
+records keep their filenames.
 
 A record that says nothing about its source is read as one typed in by hand.
 The four runs in `runs/` typed in on 18 September 2026 are of that kind, with
