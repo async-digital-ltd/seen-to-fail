@@ -4,11 +4,11 @@ import { afterAll, beforeAll, beforeEach } from 'vitest';
 import { type Environment, loadDatabaseConfig } from '../config.ts';
 import { quoteIdentifier } from '../database/identifiers.ts';
 import { applyMigrations, migrationsTable } from '../database/migrations.ts';
+import { useWorkerDatabase } from './worker-database.ts';
 
 /**
  * Migrations are applied before the first test that asks for a database and not
- * again afterwards. To test an edit to an applied migration, run
- * pnpm db:test:reset so the test database actually receives the edited SQL.
+ * again on subsequent connections in this file.
  */
 let migration: Promise<void> | undefined;
 
@@ -73,6 +73,7 @@ export interface TestDatabase {
  * development database however it is written.
  */
 export function useTestDatabase(): TestDatabase {
+  useWorkerDatabase();
   let open: Client | null = null;
 
   function client(): Client {

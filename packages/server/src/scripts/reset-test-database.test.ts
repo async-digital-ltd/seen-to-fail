@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -27,8 +28,7 @@ import {
  * keep its marker.
  *
  * Neither is the suite's own test database, which the script would otherwise
- * drop out from under the file running it. Both are named after it with a
- * suffix, so they cannot be anybody else's.
+ * drop out from under the file running it. Each invocation owns its probes.
  *
  * The foot of the file holds `pnpm db:reset` beside it to the refusal of two
  * variables that name one database, in the same way.
@@ -38,11 +38,14 @@ const scripts = fileURLToPath(new URL('.', import.meta.url));
 
 const marker = 'reset_probe_marker';
 
+const probePrefix = 'stf_' + randomUUID().replaceAll('-', '');
+
 /** The same server as the test database, with a database of its own. */
 function probeUrl(suffix: string): string {
   const { testDatabaseUrl } = loadDatabaseConfig();
   const url = new URL(testDatabaseUrl);
-  url.pathname = `/${databaseName(testDatabaseUrl)}_${suffix}`;
+  url.searchParams.delete('database');
+  url.pathname = `/${probePrefix}_${suffix}`;
   return url.toString();
 }
 

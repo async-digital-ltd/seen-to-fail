@@ -63,12 +63,24 @@ committed (#270). So the `Replay a plant` and `Record a run` workflows run no
 generator after writing their runs (#271), and `scripts/stage-record.sh`
 refuses the commit if anything outside `ledger/` changed.
 
-Some tests are backed by the database. They run against `TEST_DATABASE_URL` on
-a real PostgreSQL, apply the migrations before the first of them, and empty
-every table between tests, so they are repeatable without anyone tidying up by
-hand. They fail if no database is running, which is the honest answer rather
-than a quiet skip. The status rules in [how-it-works.md](how-it-works.md) are tested that way, one fixture per
-rule, so a rule deleted from the SQL takes at least one test down with it.
+Each Vitest worker that needs application tables creates a temporary database
+on the PostgreSQL server named by `TEST_DATABASE_URL`. Its role needs permission
+to create databases. The worker runs the migrations there, empties its tables
+between tests and drops the database when it finishes. Files can run in parallel
+without clearing another worker's rows. The reset-script tests create and drop
+their own probe databases on the same server after the parallel files finish. Database-backed tests fail if
+PostgreSQL is unavailable. The status rules in [how-it-works.md](how-it-works.md)
+are tested that way, one fixture per rule, so a rule deleted from the SQL takes at least one test down with it.
+
+An interrupted runner or a timeout during database setup can leave temporary databases behind. Once all test runs
+on that server have stopped, list candidates in `psql` with the query below.
+Check the owner and name before removing a leftover with `dropdb` on the same server.
+
+```sql
+SELECT datname, pg_get_userbyid(datdba) AS owner
+FROM pg_database
+WHERE datname ~ '^stf_(worker_[0-9a-f]{32}|[0-9a-f]{32}_reset_probe_(dev|test|shared|other))$';
+```
 
 CI runs these steps, in this order, each under the name the checks job in
 `.github/workflows/ci.yml` gives it. The commands at the top of this section are

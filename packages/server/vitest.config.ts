@@ -27,6 +27,9 @@ import { defineConfig } from 'vitest/config';
 const require = createRequire(import.meta.url);
 const graphqlEntry = join(dirname(require.resolve('graphql')), 'index.mjs');
 
+const resetProbe = 'src/scripts/reset-test-database.test.ts';
+const exitCodeProbes = 'src/scripts/*-exit-codes.test.ts';
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -34,11 +37,36 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
     // Reads DATABASE_URL and TEST_DATABASE_URL from .env when there is one.
     setupFiles: ['src/environment.ts'],
-    // The database-backed tests share one database and empty it between tests,
-    // so two test files running at once would clear each other's rows.
-    fileParallelism: false,
+    // The reset probes spawn processes that recreate whole databases. Run them
+    // after the parallel files so they do not time out waiting on PostgreSQL.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          include: ['src/**/*.test.ts'],
+          exclude: [resetProbe, exitCodeProbes],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'exit-code-probes',
+          include: [exitCodeProbes],
+          // These probes spawn subprocesses alongside the parallel server tests.
+          testTimeout: 20_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'reset-probe',
+          include: [resetProbe],
+          sequence: { groupOrder: 1 },
+        },
+      },
+    ],
   },
 });

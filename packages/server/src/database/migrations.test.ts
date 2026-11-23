@@ -6,6 +6,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 
 import { loadDatabaseConfig } from '../config.ts';
+import { useWorkerDatabase } from '../testing/worker-database.ts';
 import { quoteIdentifier } from './identifiers.ts';
 import { applyMigrations } from './migrations.ts';
 
@@ -29,6 +30,7 @@ const bookkeepingTables = [
 /** Tables the fixture migrations below create. */
 const fixtureTables = ['fixture_widgets', 'fixture_broken_effect'];
 
+useWorkerDatabase();
 let connection: Client | undefined;
 
 function client(): Client {

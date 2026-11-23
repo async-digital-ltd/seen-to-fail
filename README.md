@@ -131,8 +131,8 @@ cp .env.example .env
 
 `.env` holds `DATABASE_URL` and `TEST_DATABASE_URL`. The server reads both
 through one config module and stops, naming the variable, if either is missing.
-It also stops, naming both, if they name the same database, because the tests
-empty the test database between tests and `pnpm db:test:reset` drops it.
+It also stops, naming both, if they name the same database, because
+`pnpm db:test:reset` drops the configured test database.
 
 ### The database
 
@@ -164,14 +164,13 @@ runner applies them in filename order and records each one in a
 says so. On each run it checks the stored SHA-256 digest and warns if an
 applied file changed. `pnpm db:reset` drops the development database, creates
 it again empty and reapplies every migration. It leaves the test database alone.
-`pnpm db:test:reset` does the same to the test database and nothing else. Run it
-when you edit a migration that is already applied, to get the edit into the
-database the tests use.
+`pnpm db:test:reset` does the same to the test database and nothing else. Vitest workers create fresh
+databases on the test server and apply the current migrations to them.
 
 Read `packages/server/migrations/README.md` before writing a migration. It
 describes a trap this schema has fallen into twice. A check constraint passes on
 null, so it is vacuous for exactly the rows it exists to refuse. The same file
-says when to run `pnpm db:test:reset`.
+describes how to verify an edit to a migration.
 
 ```sh
 pnpm db:seed

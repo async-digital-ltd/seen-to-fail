@@ -70,10 +70,9 @@ with pending migrations. The database still contains the SQL applied the first
 time. Files applied before digests were recorded get a warning that their
 original SQL cannot be verified.
 
-That is harmless for ordinary work and dangerous for a plant. A defect planted
-in an applied migration never reaches the database, and the suite passing reads
-as the guard surviving the plant. So after editing an applied migration, and
-again after putting it back:
+The server tests apply migrations in fresh worker databases. Re-running the
+suite after editing a migration exercises the edited SQL. To apply the same
+edit to the persistent database at `TEST_DATABASE_URL`, run:
 
 ```sh
 pnpm db:test:reset
