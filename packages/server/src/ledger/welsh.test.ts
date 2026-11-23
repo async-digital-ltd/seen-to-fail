@@ -320,9 +320,11 @@ it('prints every record text the Welsh page shows in Welsh, with nothing tagged 
       expect(welsh).toContain(`${tag}Seen to Fail</span>`);
     }
   }
+  // The product name, twice: in the header and in the sentence that opens the
+  // page. Each match is checked above to be the product name and nothing else.
   expect(
     taggedEnglish.filter(([, element]) => element === 'span'),
-  ).toHaveLength(1);
+  ).toHaveLength(2);
 });
 
 /**

@@ -215,15 +215,18 @@ function commitLink(ledger: PublishedLedger, commit: string): string {
   return `<a href="${escapeHtml(commitHref(ledger, commit))}"><code>${escapeHtml(shortCommit(commit))}</code></a>`;
 }
 
-/** A link to a commit on GitHub, or a plain statement that there is none. */
-function commitCell(
+/**
+ * Where a record was committed, as a sentence: the commit it was recorded in,
+ * or a plain statement that it has none yet.
+ */
+function recordedSentence(
   words: PageWords,
   ledger: PublishedLedger,
   commit: string | null,
 ): string {
   return commit === null
-    ? `<span class="muted">${words.notCommittedYet}</span>`
-    : commitLink(ledger, commit);
+    ? words.notCommittedYet
+    : words.recordedIn(commitLink(ledger, commit));
 }
 
 /**
@@ -366,7 +369,7 @@ function provenance(
   ledger: PublishedLedger,
   run: PublishedRun,
 ): { method: string; proof: string; detail: string } {
-  const recorded = words.recordedIn(commitCell(words, ledger, run.recordedIn));
+  const recorded = recordedSentence(words, ledger, run.recordedIn);
   if (run.source === 'hand') {
     const proof =
       run.recordedIn === null
@@ -449,7 +452,7 @@ function observationItem(
     observation.note === null
       ? ''
       : `<p class="note">${words.record(observation.note)}</p>`;
-  return `<li><span class="run-day">${dayOn(words, observation.observedOn)}</span> ${words.seenSwitched(observation.armed)}. <span class="muted">${words.recordedIn(commitCell(words, ledger, observation.recordedIn))}</span>${note}</li>`;
+  return `<li><span class="run-day">${dayOn(words, observation.observedOn)}</span> ${words.seenSwitched(observation.armed)}. <span class="muted">${recordedSentence(words, ledger, observation.recordedIn)}</span>${note}</li>`;
 }
 
 /**
@@ -928,7 +931,7 @@ ${style}
 <body>
 <div class="page">
 <header class="top">
-<span class="name">Seen to Fail</span>
+<span class="name"${words.tag === 'cy' ? ' lang="en"' : ''}>Seen to Fail</span>
 <span class="top-links">${languageSwitch(words)}<a href="${escapeHtml(repository)}">${escapeHtml(ledger.repository)} ↗</a></span>
 </header>
 <section class="hero">

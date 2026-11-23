@@ -123,6 +123,11 @@ export interface PageWords {
 
   /** Where a run was recorded, from a link to the commit. HTML. */
   readonly recordedIn: (commit: Html) => Html;
+  /**
+   * The whole sentence that stands in for `recordedIn` when the record has no
+   * commit yet. It is a sentence of its own because "Recorded in" followed by
+   * "not committed yet" reads as nonsense in both languages.
+   */
   readonly notCommittedYet: string;
   readonly byHand: string;
   readonly byReplay: string;
@@ -290,7 +295,7 @@ export const english: PageWords = {
   observationsHeading: 'Seen switched on or off, newest first',
 
   recordedIn: (commit) => `Recorded in ${commit}.`,
-  notCommittedYet: 'not committed yet',
+  notCommittedYet: 'Not committed yet.',
   byHand: 'By hand',
   byReplay: 'By replay',
   viewProof: 'View proof',
@@ -467,7 +472,7 @@ export const welsh: PageWords = {
     'Wedi’i weld ymlaen neu i ffwrdd, y diweddaraf yn gyntaf',
 
   recordedIn: (commit) => `Cofnodwyd yn ${commit}.`,
-  notCommittedYet: 'heb ei ymrwymo eto',
+  notCommittedYet: 'Heb ei ymrwymo eto.',
   byHand: 'Â llaw',
   byReplay: 'Drwy ailchwarae',
   viewProof: 'Gweld y prawf',
